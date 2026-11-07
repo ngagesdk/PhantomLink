@@ -166,8 +166,8 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Ashen                                    | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Bomberman                                | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Colin McRae Rally 2005                   | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Crash Nitro Kart                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       |                                                                  |
-| Operation Shadow                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       |                                                                  |
+| Crash Nitro Kart                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Operation Shadow                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |                                                                 |
 | Tiger Woods PGA Tour 2004                | v9       | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       |                                                                  |
 | Glimmerati                               | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       |                                                                  |
 | ONE                                      | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       |                                                                  |
