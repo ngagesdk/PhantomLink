@@ -30,6 +30,20 @@ set(pl_sources
     ${GC_DLL_DIR}/symbian/bt/MessageServiceSearcher.cpp
     ${GC_DLL_DIR}/symbian/bt/SdpAttributeParser.cpp)
 
+# The SDK's C++ compiler launcher does not emit dependency files. Rebuild
+# all app C++ objects when a local header or resource definition changes,
+# so callers and implementations cannot disagree about class layouts.
+file(GLOB_RECURSE pl_headers
+    ${PL_SRC_DIR}/*.h ${PL_INC_DIR}/*.hrh
+    ${GC_DLL_DIR}/symbian/*.h ${GC_DLL_DIR}/core/*.h
+    ${GC_ROOT}/protocol/include/*.h)
+foreach(src ${pl_sources})
+    if(src MATCHES "\\.cpp$")
+        set_property(SOURCE ${src} APPEND PROPERTY OBJECT_DEPENDS
+            "${pl_headers};${PL_RES_DIR}/PhantomLink.rss")
+    endif()
+endforeach()
+
 set(pl_libs
     ${EPOC_LIB}/euser.lib
     ${EPOC_LIB}/apparc.lib
