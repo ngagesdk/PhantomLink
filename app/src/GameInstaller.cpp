@@ -66,3 +66,19 @@ TInt GameInstaller::Install(TInt aVariant, const TDesC &aAppFullName)
     fs.Close();
     return err != KErrNone ? err : result;
 }
+
+TInt GameInstaller::RemoveDefault()
+{
+    RFs fs;
+    TInt err = fs.Connect();
+    if (err != KErrNone) {
+        return err;
+    }
+
+    TFileName targetFile;
+    targetFile.Copy(KDefaultTargetDir);
+    targetFile.Append(KTargetName);
+    err = fs.Delete(targetFile);
+    fs.Close();
+    return err;
+}

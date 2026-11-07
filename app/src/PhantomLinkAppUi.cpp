@@ -58,7 +58,7 @@ CPhantomLinkAppUi::~CPhantomLinkAppUi()
 void CPhantomLinkAppUi::ShowGamesL()
 {
     iMode = EGames;
-    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(GameCount());
+    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(GameCount() + 1);
     CleanupStack::PushL(items);
     TBuf<80> line;
     TBuf<72> name;
@@ -68,6 +68,7 @@ void CPhantomLinkAppUi::ShowGamesL()
         line.Append(name);
         items->AppendL(line);
     }
+    items->AppendL(_L("\tRestore original behavior"));
     CleanupStack::Pop();
     iView->SetListL(items, 0, ETrue);
 }
@@ -199,6 +200,22 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
 void CPhantomLinkAppUi::InstallSelectedL()
 {
     TInt index = iView->CurrentIndex();
+    if (index == GameCount()) {
+        if (!ConfirmL(_L("Delete gamecomms.dll from the default target directory?"))) {
+            return;
+        }
+        TInt err = GameInstaller::RemoveDefault();
+        if (err == KErrNone) {
+            InfoL(_L("gamecomms.dll deleted; original behavior restored"));
+        } else if (err == KErrNotFound) {
+            InfoL(_L("gamecomms.dll is already absent; original behavior is restored"));
+        } else {
+            TBuf<160> text;
+            DescribeError(err, text);
+            ErrorL(text);
+        }
+        return;
+    }
     if (index < 0 || index >= GameCount()) {
         return;
     }

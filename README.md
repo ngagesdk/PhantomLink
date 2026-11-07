@@ -116,7 +116,8 @@ games with other players regardless of physical distance.
    (see the list below), start a multiplayer game and select the bridge
    when asked. Or install `PhantomLink.sis`: it copies the right
    `gamecomms.dll` to `E:\System\Libs` for the game you pick and can
-   configure the ESP32 bridge over Bluetooth (docs/BUILD.md).
+   configure the ESP32 bridge over Bluetooth (docs/BUILD.md). Choose
+   **Restore original behavior** in the game list to remove the default DLL.
    In the game list, Up and Down wrap at the ends; Left and Right move
    six entries at a time, stopping at the first or last entry.
 
