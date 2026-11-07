@@ -651,8 +651,50 @@ static void test_concurrent_sessions_isolated(void)
     sim_free(&W);
 }
 
+static gc_msg board_reply;
+static void board_capture(void *ctx, const gc_u8 *data, size_t len)
+{
+    (void)ctx;
+    gc_msg_decode(data, len, &board_reply);
+}
+
+static void test_board_through_bridge(void)
+{
+    gc_msg m;
+    gc_u8 wire[GC_LINK_MAX_MSG];
+    size_t n;
+    remove("sim-board-test.dat");
+    sim_init(&W, 2, GC_API_V1, UID);
+    sim_run(&W, 500);
+    CHECK_EQ(W.n[0].dev.registered, 1);
+    CHECK_EQ(W.n[1].dev.registered, 1);
+    W.n[0].dev.link.ops.on_msg = board_capture;
+    W.n[1].dev.link.ops.on_msg = board_capture;
+    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_POST;
+    strcpy(m.u.board.text, "Hello through the bridge");
+    n = gc_msg_encode(&m, wire, sizeof(wire));
+    CHECK_EQ(gc_link_send(&W.n[0].dev.link, wire, n, W.now), GC_LINK_OK);
+    sim_run(&W, 500);
+    CHECK_EQ(board_reply.type, GC_MT_BOARD_POSTED);
+    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_READ;
+    n = gc_msg_encode(&m, wire, sizeof(wire));
+    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
+    sim_run(&W, 500);
+    CHECK_EQ(board_reply.type, GC_MT_BOARD_ENTRY);
+    CHECK_EQ(board_reply.u.board.count, 1);
+    CHECK(strcmp(board_reply.u.board.text, "Hello through the bridge") == 0);
+    CHECK(strcmp(board_reply.u.board.name, "ngage0") == 0);
+    sim_free(&W);
+    CHECK_EQ(remove("sim-board-test.dat"), 0);
+}
+
 int main(void)
 {
+    RUN(test_board_through_bridge);
     RUN(test_registration_does_not_repeat_immediately);
     RUN(test_role_start_does_not_advance_registration_retry);
     RUN(test_registration_retry_waits_for_deadline);

@@ -21,6 +21,11 @@ enum TPhantomLinkCommands
     EPlCmdSetup,
     EPlCmdFactory,
     EPlCmdChoose,
+    EPlCmdBoard,
+    EPlCmdBoardRefresh,
+    EPlCmdBoardPost,
+    EPlCmdBoardOlder,
+    EPlCmdBoardNewer,
     EPlCmdAbout
 };
 

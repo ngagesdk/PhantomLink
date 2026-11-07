@@ -111,10 +111,38 @@ static void test_data_binary(void)
     CHECK(!gc_msg_decode(buf, 2, &m));
 }
 
+static void test_board(void)
+{
+    gc_msg a, b;
+    memset(&a, 0, sizeof(a));
+    a.type = GC_MT_BOARD_READ;
+    a.u.board.index = 123;
+    roundtrip(&a, &b);
+    CHECK_EQ(b.u.board.index, 123);
+    memset(&a, 0, sizeof(a));
+    a.type = GC_MT_BOARD_POST;
+    memset(a.u.board.text, 'x', GC_BOARD_TEXT_MAX);
+    roundtrip(&a, &b);
+    CHECK_EQ(strlen(b.u.board.text), GC_BOARD_TEXT_MAX);
+    a.type = GC_MT_BOARD_ENTRY;
+    a.u.board.index = 2;
+    a.u.board.count = 3;
+    strcpy(a.u.board.name, "Alice");
+    strcpy(a.u.board.time, "2026-11-07 19:22 UTC");
+    roundtrip(&a, &b);
+    CHECK_EQ(b.u.board.count, 3);
+    CHECK_EQ(b.u.board.index, 2);
+    CHECK(strcmp(b.u.board.name, "Alice") == 0);
+    CHECK(strcmp(b.u.board.time, "2026-11-07 19:22 UTC") == 0);
+    CHECK_EQ(strlen(b.u.board.text), GC_BOARD_TEXT_MAX);
+    a.type = GC_MT_BOARD_POSTED;
+    roundtrip(&a, &b);
+}
+
 static void test_malformed(void)
 {
-    gc_u8 b1[] = { 0x31, 13, 0 };                      /* list count above GC_MAX_LIST */
-    gc_u8 b2[] = { 0x77 };                             /* unknown type */
+    gc_u8 b1[] = { 0x31, 13, 0 }; /* list count above GC_MAX_LIST */
+    gc_u8 b2[] = { 0x77 };
     gc_u8 b3[] = { 0x10, 2, 6, 1, 2, 3 };              /* truncated register */
     gc_u8 b4[] = { 0x11, 0, 0, 0, 0, 1, 1, 200, 'a' }; /* string length beyond end */
     gc_msg m;
@@ -156,6 +184,7 @@ int main(void)
     RUN(test_host_open_and_list);
     RUN(test_join_and_result);
     RUN(test_data_binary);
+    RUN(test_board);
     RUN(test_malformed);
     RUN(test_fuzz);
     TEST_MAIN_END();

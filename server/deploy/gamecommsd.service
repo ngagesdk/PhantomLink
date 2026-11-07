@@ -8,6 +8,8 @@ ExecStart=/usr/local/bin/gamecommsd -c /etc/gamecommsd.conf
 Restart=on-failure
 RestartSec=2
 DynamicUser=yes
+StateDirectory=gamecommsd
+WorkingDirectory=/var/lib/gamecommsd
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes
@@ -34,8 +36,8 @@ CapabilityBoundingSet=
 AmbientCapabilities=
 UMask=0077
 LimitNOFILE=4096
-# the server needs a writable directory only when log_file is set:
-# LogsDirectory=gamecommsd  (then log_file = /var/log/gamecommsd/gamecommsd.log)
+# For a separate log file, use LogsDirectory=gamecommsd and
+# log_file = /var/log/gamecommsd/gamecommsd.log.
 
 [Install]
 WantedBy=multi-user.target

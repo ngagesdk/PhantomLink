@@ -68,9 +68,18 @@ The same build also creates the N-Gage application `PhantomLink.sis`
 - pick a game from a list: the matching `gamecomms.dll` is copied to
   `E:\System\Libs` (if the game ships its own copy in its folder, replace
   that one as described below);
-- configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration").
+- configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration");
+- read and post short messages on the server's message board using either
+  the ESP32 or PC bridge. Select **Message board**, then use the options
+  menu to post, refresh, or move between older and newer messages. Select
+  an entry to read its full text. Names are chosen when posting.
 
-Install the SIS on the memory card. Disable it with
+Messages are limited to 160 UTF-8 bytes (names to 32 bytes). Times are
+assigned by the server in UTC, not by the phone. The board is shared by
+all users of the server; names are not verified. If a post times out, refresh
+before retrying: it may already have been saved.
+
+Install the SIS on the memory card.
 `cmake -B build -DGC_BUILD_APP=OFF`. The game list is kept in sync with the
 README by `python tests/compat/check_app_games.py`.
 
@@ -376,6 +385,13 @@ sudo systemctl enable --now gamecommsd
 
 `kill -USR1 $(pidof gamecommsd)` writes the current sessions to the log.
 
+The board is saved in `gamecomms-board.dat` in the server's working directory
+(or the path set with `board_file` / `--board_file`). The directory must be
+writable by the server; storage errors are reported to the app and server log.
+The board retains up to 10,000 messages, then rejects new posts. Back up the
+file with the rest of the server's state. The supplied systemd service uses
+`/var/lib/gamecommsd` as its persistent working directory.
+
 ### Docker
 
 The bundled config binds to container loopback. For remote bridge connections,
@@ -388,6 +404,7 @@ Internet.
 docker build -t gamecommsd -f server/Dockerfile .
 # Run with a secured overlay network and a config bound to its interface.
 docker run -d --name gamecommsd --network your-secured-overlay \
+-v gamecommsd-state:/var/lib/gamecommsd \
 -v /path/to/gamecommsd.conf:/etc/gamecommsd.conf:ro gamecommsd
 ```
 

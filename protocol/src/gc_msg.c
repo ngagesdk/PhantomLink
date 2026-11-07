@@ -143,6 +143,21 @@ size_t gc_msg_encode(const gc_msg *m, gc_u8 *buf, size_t cap)
         break;
     case GC_MT_BRIDGE_QUERY:
         break;
+    case GC_MT_BOARD_READ:
+        gc_w_u32(&w, m->u.board.index);
+        break;
+    case GC_MT_BOARD_POST:
+        gc_w_str8(&w, m->u.board.text, gc_strnlen(m->u.board.text, GC_BOARD_TEXT_MAX));
+        break;
+    case GC_MT_BOARD_ENTRY:
+        gc_w_u32(&w, m->u.board.index);
+        gc_w_u32(&w, m->u.board.count);
+        W_STR(&w, m->u.board.name);
+        gc_w_str8(&w, m->u.board.time, gc_strnlen(m->u.board.time, GC_BOARD_TIME_MAX));
+        gc_w_str8(&w, m->u.board.text, gc_strnlen(m->u.board.text, GC_BOARD_TEXT_MAX));
+        break;
+    case GC_MT_BOARD_POSTED:
+        break;
     case GC_MT_ERROR:
         gc_w_u8(&w, (gc_u8)m->u.error.code);
         gc_w_u8(&w, m->u.error.ref_type);
@@ -274,6 +289,21 @@ int gc_msg_decode(const gc_u8 *buf, size_t len, gc_msg *m)
         break;
     case GC_MT_BRIDGE_QUERY:
         break;
+    case GC_MT_BOARD_READ:
+        m->u.board.index = gc_r_u32(&r);
+        break;
+    case GC_MT_BOARD_POST:
+        R_STR(&r, m->u.board.text);
+        break;
+    case GC_MT_BOARD_ENTRY:
+        m->u.board.index = gc_r_u32(&r);
+        m->u.board.count = gc_r_u32(&r);
+        R_STR(&r, m->u.board.name);
+        R_STR(&r, m->u.board.time);
+        R_STR(&r, m->u.board.text);
+        break;
+    case GC_MT_BOARD_POSTED:
+        break;
     case GC_MT_ERROR:
         m->u.error.code = (gc_i8)gc_r_u8(&r);
         m->u.error.ref_type = gc_r_u8(&r);
@@ -328,6 +358,14 @@ const char *gc_msg_name(gc_u8 type)
         return "BRIDGE_STATUS";
     case GC_MT_BRIDGE_QUERY:
         return "BRIDGE_QUERY";
+    case GC_MT_BOARD_READ:
+        return "BOARD_READ";
+    case GC_MT_BOARD_POST:
+        return "BOARD_POST";
+    case GC_MT_BOARD_ENTRY:
+        return "BOARD_ENTRY";
+    case GC_MT_BOARD_POSTED:
+        return "BOARD_POSTED";
     case GC_MT_ERROR:
         return "ERROR";
     default:

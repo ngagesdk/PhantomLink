@@ -3,6 +3,7 @@
  * link + message protocol.  SPDX-License-Identifier: MIT */
 #include "../../protocol/tests/gc_test.h"
 #include "gcs_core.h"
+#include <time.h>
 
 #define BUFCAP 300000
 typedef struct client
@@ -286,6 +287,7 @@ static void reset_world(void)
         gcs_core_destroy(core);
     }
     gcs_default_config(&cfg);
+    copy_str(cfg.board_file, sizeof(cfg.board_file), "gcs-board-test.dat");
     cfg.reserve_ms = 30000;
     cfg.link_grace_ms = 5000;
     cfg.pending_ms = 4000;
@@ -297,6 +299,162 @@ static void reset_world(void)
 }
 
 /* ----------------------------------------------------------------- */
+
+static void test_board_persistence(void)
+{
+    gc_msg m, *r;
+    time_t before, after;
+    char before_text[GC_BOARD_TIME_MAX + 1], after_text[GC_BOARD_TIME_MAX + 1];
+    remove("gcs-board-test.dat");
+    reset_world();
+    new_client(0, "Alice");
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_READ;
+    send_msg(&C[0], &m);
+    pump(3);
+    CHECK(find(&C[0], GC_MT_ERROR) != NULL);
+    CHECK_EQ(find(&C[0], GC_MT_ERROR)->u.error.code, GC_R_NOT_REGISTERED);
+    do_register(0, GC_API_V1);
+    C[0].n_msgs = 0;
+    send_msg(&C[0], &m);
+    pump(3);
+    r = find(&C[0], GC_MT_BOARD_ENTRY);
+    CHECK(r != NULL);
+    if (r) {
+        CHECK_EQ(r->u.board.count, 0);
+    }
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_POST;
+    send_msg(&C[0], &m);
+    pump(3);
+    CHECK_EQ(find(&C[0], GC_MT_ERROR)->u.error.code, GC_R_BAD_REQUEST);
+    strcpy(m.u.board.text, "First message");
+    send_msg(&C[0], &m);
+    pump(3);
+    CHECK(find(&C[0], GC_MT_BOARD_POSTED) != NULL);
+    strcpy(m.u.board.text, "Second message");
+    before = time(NULL);
+    send_msg(&C[0], &m);
+    pump(3);
+    after = time(NULL);
+    CHECK(strftime(before_text, sizeof(before_text), "%Y-%m-%d %H:%M UTC", gmtime(&before)) != 0);
+    CHECK(strftime(after_text, sizeof(after_text), "%Y-%m-%d %H:%M UTC", gmtime(&after)) != 0);
+    reset_world();
+    new_client(1, "Bob");
+    do_register(1, GC_API_V1);
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_READ;
+    send_msg(&C[1], &m);
+    pump(3);
+    r = find(&C[1], GC_MT_BOARD_ENTRY);
+    CHECK(r != NULL);
+    if (r) {
+        CHECK_EQ(r->u.board.count, 2);
+        CHECK(strcmp(r->u.board.name, "Alice") == 0);
+        CHECK(strcmp(r->u.board.text, "Second message") == 0);
+        CHECK_EQ(strlen(r->u.board.time), 20);
+        CHECK(strcmp(r->u.board.time, before_text) == 0 || strcmp(r->u.board.time, after_text) == 0);
+    }
+    m.u.board.index = 1;
+    send_msg(&C[1], &m);
+    pump(3);
+    r = find(&C[1], GC_MT_BOARD_ENTRY);
+    CHECK(r && strcmp(r->u.board.text, "First message") == 0);
+    m.u.board.index = 2;
+    send_msg(&C[1], &m);
+    pump(3);
+    CHECK_EQ(find(&C[1], GC_MT_ERROR)->u.error.code, GC_R_NOT_FOUND);
+    C[1].n_msgs = 0;
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_POST;
+    memset(m.u.board.text, 'x', GC_BOARD_TEXT_MAX);
+    send_msg(&C[1], &m);
+    pump(3);
+    CHECK(find(&C[1], GC_MT_BOARD_POSTED) != NULL);
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_READ;
+    send_msg(&C[1], &m);
+    pump(3);
+    r = find(&C[1], GC_MT_BOARD_ENTRY);
+    CHECK(r && strlen(r->u.board.text) == GC_BOARD_TEXT_MAX);
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_POST;
+    strcpy(m.u.board.text, "invalid\ntext");
+    C[1].n_msgs = 0;
+    send_msg(&C[1], &m);
+    pump(3);
+    r = find(&C[1], GC_MT_ERROR);
+    CHECK(r && r->u.error.code == GC_R_BAD_REQUEST);
+    {
+        gc_u8 wire[GC_BOARD_TEXT_MAX + 3];
+        memset(wire, 'x', sizeof(wire));
+        wire[0] = GC_MT_BOARD_POST;
+        wire[1] = GC_BOARD_TEXT_MAX + 1;
+        C[1].n_msgs = 0;
+        CHECK_EQ(gc_link_send(&C[1].link, wire, sizeof(wire), now), GC_LINK_OK);
+        pump(3);
+        r = find(&C[1], GC_MT_ERROR);
+        CHECK(r && r->u.error.code == GC_R_BAD_REQUEST);
+    }
+    {
+        const gc_u8 invalid[] = { GC_MT_BOARD_POST, 2, 0xc0, 0x80 };
+        C[1].n_msgs = 0;
+        CHECK_EQ(gc_link_send(&C[1].link, invalid, sizeof(invalid), now), GC_LINK_OK);
+        pump(3);
+        r = find(&C[1], GC_MT_ERROR);
+        CHECK(r && r->u.error.code == GC_R_BAD_REQUEST);
+    }
+    CHECK_EQ(remove("gcs-board-test.dat"), 0);
+}
+
+static void test_board_storage_errors(void)
+{
+    gcs_config cfg;
+    gcs_io io;
+    gc_msg m, *r;
+    FILE *f;
+    unsigned char record[GC_MAX_NAME + 1 + GC_BOARD_TIME_MAX + 1 + GC_BOARD_TEXT_MAX + 1];
+    int i;
+    remove("gcs-board-test.dat");
+    memset(record, 0, sizeof(record));
+    f = fopen("gcs-board-test.dat", "wb");
+    CHECK(f != NULL);
+    if (!f) {
+        return;
+    }
+    for (i = 0; i < 10000; i++) {
+        CHECK_EQ(fwrite(record, 1, sizeof(record), f), sizeof(record));
+    }
+    CHECK_EQ(fclose(f), 0);
+    reset_world();
+    new_client(0, "Alice");
+    do_register(0, GC_API_V1);
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_POST;
+    strcpy(m.u.board.text, "full");
+    send_msg(&C[0], &m);
+    pump(3);
+    r = find(&C[0], GC_MT_ERROR);
+    CHECK(r && r->u.error.code == GC_R_LIMIT);
+    CHECK_EQ(remove("gcs-board-test.dat"), 0);
+
+    gcs_core_destroy(core);
+    gcs_default_config(&cfg);
+    copy_str(cfg.board_file, sizeof(cfg.board_file), ".");
+    io.write = io_write;
+    io.close = io_close;
+    io.log = io_log;
+    core = gcs_core_create(&cfg, &io, NULL, 42);
+    memset(C, 0, sizeof(C));
+    new_client(0, "Alice");
+    do_register(0, GC_API_V1);
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_READ;
+    send_msg(&C[0], &m);
+    pump(3);
+    r = find(&C[0], GC_MT_ERROR);
+    CHECK(r && r->u.error.code == GC_R_UNAVAILABLE);
+}
 
 static void test_default_outbound_queue_limit(void)
 {
@@ -990,7 +1148,7 @@ static void test_backpressure_client_to_host(void)
     join(1, 0, 0x55, GC_API_V2, 0);
     C[0].n_msgs = 0;
     C[0].deaf = 1;
-    for (sent = 0; sent < GC_LINK_QUEUE + 4; ) {
+    for (sent = 0; sent < GC_LINK_QUEUE + 4;) {
         for (i = 0; i < 8 && sent < GC_LINK_QUEUE + 4; i++, sent++) {
             send_data(1, GC_SLOT_HOST, "fill");
         }
@@ -1306,6 +1464,8 @@ int main(int argc, char **argv)
     only = argc > 1 ? argv[1] : NULL;
     RUNF(test_default_outbound_queue_limit);
     RUNF(test_register_required);
+    RUNF(test_board_persistence);
+    RUNF(test_board_storage_errors);
     RUNF(test_matchmaking_and_slots);
     RUNF(test_incompatible_and_isolation);
     RUNF(test_routing);
