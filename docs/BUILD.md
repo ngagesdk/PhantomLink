@@ -76,8 +76,11 @@ The same build also creates the N-Gage application `PhantomLink.sis`
 
 Messages are limited to 160 UTF-8 bytes (names to 32 bytes). Times are
 assigned by the server in UTC, not by the phone. The board is shared by
-all users of the server; names are not verified. If a post times out, refresh
-before retrying: it may already have been saved.
+all users of the server; names are not verified. The Bluetooth connection
+stays open while the board is displayed, including while composing; it closes
+when switching to Games or Bridge setup. If a connection fails, the draft is
+kept for retry. If a post times out, refresh before retrying: it may already
+have been saved.
 
 Install the SIS on the memory card.
 `cmake -B build -DGC_BUILD_APP=OFF`. The game list is kept in sync with the

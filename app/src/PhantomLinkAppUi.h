@@ -68,6 +68,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     CBoardClient *iBoardClient;
     gc_msg iBoard;
     TBuf<GC_MAX_NAME> iBoardName;
+    TBuf<GC_BOARD_TEXT_MAX> iBoardDraft;
     TBridgeSettings iSettings;
     TMode iMode;
     TOperation iOperation;
