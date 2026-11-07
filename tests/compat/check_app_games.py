@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Check that the game list of the Symbian app matches the README table.
 
-Every game of "Which DLL for which game" in README.md that has a replacement
-variant (vN) must be listed in app/src/GameList.cpp with the same variant, and
-the other way round.
+Every game marked Working in "Which DLL for which game" in README.md must
+be listed in app/src/GameList.cpp with the same variant, and the other way
+round. Untested and nonworking games are intentionally excluded from the app.
 """
 
 import os
@@ -18,7 +18,11 @@ def readme_games():
     with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
         for line in f:
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
-            if len(cells) >= 2 and re.fullmatch(r"v\d+", cells[1]):
+            if (
+                len(cells) >= 5
+                and re.fullmatch(r"v\d+", cells[1])
+                and re.search(r"!\[Working\]", cells[4])
+            ):
                 games[cells[0]] = int(cells[1][1:])
     return games
 
@@ -26,8 +30,9 @@ def readme_games():
 def app_games():
     games = {}
     with open(os.path.join(ROOT, "app", "src", "GameList.cpp"), encoding="utf-8") as f:
-        for m in re.finditer(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*(?:,\s*(?:"[^"]*"|NULL)\s*)?\}', f.read()):
-            games[m.group(1)] = int(m.group(2))
+        source = re.sub(r"/\*.*?\*/", "", f.read(), flags=re.DOTALL)
+    for m in re.finditer(r'\{\s*"([^"]+)"\s*,\s*(\d+)\s*(?:,\s*(?:"[^"]*"|NULL)\s*)?\}', source):
+        games[m.group(1)] = int(m.group(2))
     return games
 
 
