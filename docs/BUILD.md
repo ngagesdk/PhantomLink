@@ -72,15 +72,17 @@ The same build also creates the N-Gage application `PhantomLink.sis`
 - read and post short messages on the server's message board using either
   the ESP32 or PC bridge. Select **Message board**, then use the options
   menu to post, refresh, or move between older and newer messages. Select
-  an entry to read its full text. Names are chosen when posting.
+  an entry to read its full text. Names are chosen when posting. Scroll the
+  board list to see the author, date, time and message preview.
 
 Messages are limited to 160 UTF-8 bytes (names to 32 bytes). Times are
 assigned by the server in UTC, not by the phone. The board is shared by
 all users of the server; names are not verified. The Bluetooth connection
 stays open while the board is displayed, including while composing; it closes
-when switching to Games or Bridge setup. If a connection fails, the draft is
-kept for retry. If a post times out, refresh before retrying: it may already
-have been saved.
+when switching to Games or Bridge setup. If the bridge is still connecting to
+the server, registration is retried until the operation times out. If a
+connection fails, the draft is kept for retry. If a post times out, refresh
+before retrying: it may already have been saved.
 
 Install the SIS on the memory card. The N-Gage toolchain does not generate
 C++ header dependency files; the app build explicitly tracks local headers so

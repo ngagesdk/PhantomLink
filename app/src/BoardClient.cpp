@@ -34,9 +34,15 @@ CBoardClient::~CBoardClient()
 
 void CBoardClient::Close()
 {
-    if (iNotifier) iNotifier->Cancel();
-    if (iTimer) iTimer->Cancel();
-    if (iTransport) iTransport->Disconnect();
+    if (iNotifier) {
+        iNotifier->Cancel();
+    }
+    if (iTimer) {
+        iTimer->Cancel();
+    }
+    if (iTransport) {
+        iTransport->Disconnect();
+    }
     iActive = EFalse;
     iBusy = EFalse;
     iRegistered = EFalse;
@@ -57,6 +63,7 @@ void CBoardClient::StartL(const TDesC8 &aName, const TDesC8 &aText, TUint32 aInd
     iIndex = aIndex;
     iPost = aPost;
     iIdleTicks = 0;
+    iRegisterRetryTicks = 0;
     iFinishing = EFalse;
     iRequestSent = EFalse;
     memset(iReply, 0, sizeof(*iReply));
@@ -132,6 +139,10 @@ TInt CBoardClient::Tick(TAny *aSelf)
     }
     if (self->iActive && !self->iFinishing) {
         gc_link_poll(self->iLink, self->iNow);
+        if (self->iBusy && !self->iFinishing && self->iAwaitRegister && self->iRegisterRetryTicks > 0 &&
+            --self->iRegisterRetryTicks == 0) {
+            self->Register();
+        }
     }
     return 1;
 }
@@ -153,19 +164,25 @@ void CBoardClient::Register()
     m.u.reg.api = GC_API_V1;
     m.u.reg.variant = 1;
     memcpy(m.u.reg.name, iName.Ptr(), iName.Length());
+    iRegistered = EFalse;
     iAwaitRegister = ETrue;
+    iRegisterRetryTicks = 0;
     Send(m);
 }
 
 void CBoardClient::SendRequest()
 {
     gc_msg m;
-    if (!iBusy || iRequestSent) return;
+    if (!iBusy || iRequestSent) {
+        return;
+    }
     iRequestSent = ETrue;
     memset(&m, 0, sizeof(m));
     m.type = iPost ? GC_MT_BOARD_POST : GC_MT_BOARD_READ;
     m.u.board.index = iIndex;
-    if (iPost) memcpy(m.u.board.text, iText.Ptr(), iText.Length());
+    if (iPost) {
+        memcpy(m.u.board.text, iText.Ptr(), iText.Length());
+    }
     Send(m);
 }
 
@@ -202,16 +219,22 @@ void CBoardClient::Message(void *aSelf, const gc_u8 *aData, size_t aLength)
         return;
     }
     if (m.type == GC_MT_REGISTERED) {
+        if (!self->iAwaitRegister) {
+            return;
+        }
+        if (m.u.registered.result == GC_R_UNAVAILABLE && self->iBusy) {
+            self->iRegisterRetryTicks = 20;
+            return;
+        }
         if (m.u.registered.result != GC_R_OK) {
             self->Finish(m.u.registered.result == GC_R_REJECTED ? KErrAccessDenied : KErrCouldNotConnect);
             return;
         }
-        if (self->iAwaitRegister) {
-            self->iAwaitRegister = EFalse;
-            self->iRegistered = ETrue;
-            self->iRegisteredName.Copy(self->iName);
-            self->SendRequest();
-        }
+        self->iAwaitRegister = EFalse;
+        self->iRegisterRetryTicks = 0;
+        self->iRegistered = ETrue;
+        self->iRegisteredName.Copy(self->iName);
+        self->SendRequest();
     } else if (m.type == GC_MT_ERROR) {
         *self->iReply = m;
         self->Finish(KErrGeneral);

@@ -98,7 +98,7 @@ void CPhantomLinkAppUi::ShowBridgeL()
 void CPhantomLinkAppUi::ShowBoardL()
 {
     iMode = EBoard;
-    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(3);
+    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(5);
     CleanupStack::PushL(items);
     TBuf<200> line;
     if (!iBoard.u.board.count) {
@@ -115,9 +115,16 @@ void CPhantomLinkAppUi::ShowBoardL()
         CnvUtfConverter::ConvertToUnicodeFromUtf8(time, TPtrC8((const TUint8 *)iBoard.u.board.time));
         line.Copy(_L("\t"));
         line.Append(name);
-        line.Append(_L(" - "));
-        line.Append(time);
         items->AppendL(line);
+        line.Copy(_L("\t"));
+        line.Append(time.Left(Min(time.Length(), 10)));
+        items->AppendL(line);
+        if (time.Length() > 10) {
+            TInt start = time[10] == ' ' ? 11 : 10;
+            line.Copy(_L("\t"));
+            line.Append(time.Mid(start));
+            items->AppendL(line);
+        }
         TBuf<GC_BOARD_TEXT_MAX> text;
         CnvUtfConverter::ConvertToUnicodeFromUtf8(text, TPtrC8((const TUint8 *)iBoard.u.board.text));
         line.Copy(_L("\t"));
