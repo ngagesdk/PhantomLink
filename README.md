@@ -131,7 +131,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | ---------------------------------------- | -------- | -------------------------------- | -------- | :--------------------------------------------------------------: |
 | Nokia N-Gage SDK 1.0 Beta                | SDK only | cb326c500bdb795494d55d30196b8711 | 33       |                                                                  |
 | Marcel Desailly Pro Soccer               | v1       | 79c25cdd1972c287712475ee544c7bf3 | 33       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| MotoGP                                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
+| MotoGP                                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Pandemonium!                             | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Puyo Pop                                 | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
