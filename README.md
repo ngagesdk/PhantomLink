@@ -132,10 +132,10 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Nokia N-Gage SDK 1.0 Beta                | SDK only | cb326c500bdb795494d55d30196b8711 | 33       |                                                                  |
 | Marcel Desailly Pro Soccer               | v1       | 79c25cdd1972c287712475ee544c7bf3 | 33       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | MotoGP                                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Pandemonium!                             | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
+| Pandemonium!                             | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Puyo Pop                                 | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
-| Tomb Raider                              | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
+| Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Tomb Raider                              | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Used](https://img.shields.io/badge/Not%20Used-orange)    |
 | Tony Hawk's Pro Skater                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Asphalt Urban GT                         | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | FIFA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
@@ -147,7 +147,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Mile High Pinball                        | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Pathway to Glory                         | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Requiem of Hell                          | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| The King of Fighters Extreme             | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
+| The King of Fighters Extreme             | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Tom Clancy's Splinter Cell: Chaos Theory | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Call of Duty                             | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | FIFA Football 2005                       | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
