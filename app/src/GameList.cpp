@@ -44,7 +44,7 @@ static const TGameEntry KGames[] = {
     /* { "The Roots: Gates of Chaos", 10 }, */
     /* { "The Sims Bustin' Out", 4 }, */
     { "Tiger Woods PGA Tour 2004", 9 },
-    { "Tom Clancy's Ghost Recon: Jungle Storm", 3 }, */
+    { "Tom Clancy's Ghost Recon: Jungle Storm", 3 },
     /* { "Tom Clancy's Splinter Cell: Chaos Theory", 5 }, */
     /* { "Tomb Raider", 2 }, */
     { "Tony Hawk's Pro Skater", 2 },
