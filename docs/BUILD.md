@@ -82,9 +82,12 @@ when switching to Games or Bridge setup. If a connection fails, the draft is
 kept for retry. If a post times out, refresh before retrying: it may already
 have been saved.
 
-Install the SIS on the memory card.
-`cmake -B build -DGC_BUILD_APP=OFF`. The game list is kept in sync with the
-README by `python tests/compat/check_app_games.py`.
+Install the SIS on the memory card. The N-Gage toolchain does not generate
+C++ header dependency files; the app build explicitly tracks local headers so
+incremental builds rebuild affected C++ objects. Rebuild and reinstall the SIS
+after updating the app. Disable the app with `cmake -B build -DGC_BUILD_APP=OFF`.
+The game list is kept in sync with the README by
+`python tests/compat/check_app_games.py`.
 
 ### Installing on the N-Gage
 
