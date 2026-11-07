@@ -52,6 +52,7 @@ class CBoardClient : public CBase, public MGcTransportObserver
     TUint32 iNow;
     TInt iResult;
     TInt iIdleTicks;
+    TInt iRegisterRetryTicks;
     TBool iPost;
     TBool iBusy;
     TBool iActive;
