@@ -150,7 +150,7 @@ void CPhantomLinkAppUi::PostBoardL()
         ErrorL(_L("Enter a name"));
         return;
     }
-    TBuf<GC_BOARD_TEXT_MAX> text;
+    TBuf<GC_BOARD_TEXT_MAX> text(iBoardDraft);
     CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(text);
     dialog->SetMaxLength(GC_BOARD_TEXT_MAX);
     if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Message"))) {
@@ -160,6 +160,8 @@ void CPhantomLinkAppUi::PostBoardL()
         ErrorL(_L("Enter a message"));
         return;
     }
+    iBoardName.Copy(name);
+    iBoardDraft.Copy(text);
     TBuf8<GC_MAX_NAME> name8;
     TBuf8<GC_BOARD_TEXT_MAX> text8;
     if (CnvUtfConverter::ConvertFromUnicodeToUtf8(name8, name) != 0 ||
@@ -167,7 +169,6 @@ void CPhantomLinkAppUi::PostBoardL()
         ErrorL(_L("Name or message is too long in UTF-8"));
         return;
     }
-    iBoardName.Copy(name);
     iBoardClient->StartL(name8, text8, 0, ETrue);
 }
 
@@ -256,9 +257,11 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
         }
         break;
     case EPlCmdGames:
+        iBoardClient->Close();
         ShowGamesL();
         break;
     case EPlCmdBridge:
+        iBoardClient->Close();
         ShowBridgeL();
         break;
     case EPlCmdRead:
@@ -493,6 +496,7 @@ void CPhantomLinkAppUi::BoardFinished(TInt aError, const gc_msg &aReply)
         return;
     }
     if (aReply.type == GC_MT_BOARD_POSTED) {
+        iBoardDraft.Zero();
         PL_IGNORE(InfoL(_L("Message posted")));
         TRAPD(err, ReadBoardL(0));
         if (err != KErrNone) {

@@ -688,6 +688,41 @@ static void test_board_through_bridge(void)
     CHECK_EQ(board_reply.u.board.count, 1);
     CHECK(strcmp(board_reply.u.board.text, "Hello through the bridge") == 0);
     CHECK(strcmp(board_reply.u.board.name, "ngage0") == 0);
+
+    /* A user can spend several minutes composing without losing the link. */
+    sim_run(&W, 180000);
+    CHECK_EQ(W.n[1].dev.link.state, GC_LS_UP);
+    CHECK_EQ(W.n[1].br.dev.state, GC_LS_UP);
+    CHECK_EQ(W.n[1].br.srv.state, GC_LS_UP);
+    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_REGISTER;
+    m.u.reg.api = GC_API_V1;
+    m.u.reg.variant = 1;
+    strcpy(m.u.reg.name, "new name");
+    n = gc_msg_encode(&m, wire, sizeof(wire));
+    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
+    sim_run(&W, 500);
+    CHECK_EQ(board_reply.type, GC_MT_REGISTERED);
+    CHECK_EQ(board_reply.u.registered.result, GC_R_OK);
+    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_POST;
+    strcpy(m.u.board.text, "Written after a long pause");
+    n = gc_msg_encode(&m, wire, sizeof(wire));
+    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
+    sim_run(&W, 500);
+    CHECK_EQ(board_reply.type, GC_MT_BOARD_POSTED);
+    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_BOARD_READ;
+    n = gc_msg_encode(&m, wire, sizeof(wire));
+    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
+    sim_run(&W, 500);
+    CHECK_EQ(board_reply.type, GC_MT_BOARD_ENTRY);
+    CHECK_EQ(board_reply.u.board.count, 2);
+    CHECK(strcmp(board_reply.u.board.name, "new name") == 0);
+    CHECK(strcmp(board_reply.u.board.text, "Written after a long pause") == 0);
     sim_free(&W);
     CHECK_EQ(remove("sim-board-test.dat"), 0);
 }
