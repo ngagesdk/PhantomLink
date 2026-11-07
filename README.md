@@ -50,14 +50,10 @@ following:
 
 ### 1. A Nokia N-Gage game
 
-- You need a copy of the game with copy protection removed, as PhantomLink replaces
-  the original `GAMECOMMS.DLL`.
+- PhantomLink replaces the original `GAMECOMMS.DLL` to enable its functionality.
 
-- Original N-Gage game cartridges are read-only, so the required modification cannot
-  be applied directly to them.
-
-- Naturally, we encourage you to use your own legally purchased games and create your
-  own game copies for use with PhantomLink.
+- PhantomLink works with any game supported by the project, including original
+  retail N-Gage cartridges.
 
 ### 2. A Bluetooth bridge device
 
@@ -146,7 +142,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Rayman 3                                 | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Tom Clancy's Ghost Recon: Jungle Storm   | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | The Sims Bustin' Out                     | v4       | c2f184012cd0635f3065b7d5042702ce | 56       |                                                                  |
-| Catan                                    | v5       | e8d317204a763d71215680d567eb71e0 | 57       |   ![Partially](https://img.shields.io/badge/Partially-orange)    |
+| Catan                                    | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Mile High Pinball                        | v5       | e8d317204a763d71215680d567eb71e0 | 57       |                                                                  |
 | Pathway to Glory                         | v5       | e8d317204a763d71215680d567eb71e0 | 57       |                                                                  |
 | Requiem of Hell                          | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
@@ -171,12 +167,12 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Tiger Woods PGA Tour 2004                | v9       | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       |                                                                  |
 | Glimmerati                               | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       |                                                                  |
 | ONE                                      | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       |                                                                  |
-| Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       |                                                                  |
-| System Rush                              | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       |                                                                  |
+| Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| System Rush                              | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The Roots: Gates of Chaos                | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Asphalt: Urban GT 2                      | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Habbo Islands                            | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       |  ![Not%20Used](https://img.shields.io/badge/Not%20Used-orange)   |
-| Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       |   ![Partially](https://img.shields.io/badge/Partially-orange)    |
+| Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 
 Always use the matching version. v1 and v2 to v11 have different APIs and
 cannot be mixed. Other combinations are not tested.
