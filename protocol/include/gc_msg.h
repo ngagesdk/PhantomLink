@@ -61,6 +61,14 @@ extern "C" {
 /* errors */
 #define GC_MT_ERROR 0x60 /* any direction */
 
+/* message board */
+#define GC_MT_BOARD_READ   0x70
+#define GC_MT_BOARD_POST   0x71
+#define GC_MT_BOARD_ENTRY  0x72
+#define GC_MT_BOARD_POSTED 0x73
+#define GC_BOARD_TEXT_MAX  160
+#define GC_BOARD_TIME_MAX  20
+
 /* ---- constants ---- */
 
 #define GC_MAX_PLAYERS 4
@@ -235,6 +243,14 @@ typedef struct
             gc_u8 ref_type;
             char text[GC_MAX_NAME + 1];
         } error;
+        struct
+        {
+            gc_u32 index; /* zero is the newest entry */
+            gc_u32 count;
+            char name[GC_MAX_NAME + 1];
+            char time[GC_BOARD_TIME_MAX + 1];
+            char text[GC_BOARD_TEXT_MAX + 1];
+        } board;
     } u;
 } gc_msg;
 

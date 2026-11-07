@@ -8,10 +8,12 @@
  **/
 
 #include "gcs_core.h"
+#include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 /* member states */
 #define M_EMPTY    0
@@ -196,6 +198,7 @@ void gcs_default_config(gcs_config *cfg)
 {
     memset(cfg, 0, sizeof(*cfg));
     copy_name(cfg->server_name, "GameComms");
+    strcpy(cfg->board_file, "gamecomms-board.dat");
     cfg->max_peers = 512;
     cfg->max_sessions = 256;
     cfg->link_grace_ms = 20000;
@@ -1159,6 +1162,127 @@ static void h_data(gcs_peer *p, const gc_msg *m, const gc_u8 *raw, size_t len)
     }
 }
 
+#define BOARD_RECORD_SIZE (GC_MAX_NAME + 1 + GC_BOARD_TIME_MAX + 1 + GC_BOARD_TEXT_MAX + 1)
+#define BOARD_MAX_RECORDS 10000
+
+static int board_text_valid(const gc_u8 *text, size_t len)
+{
+    size_t i = 0;
+    while (i < len) {
+        gc_u8 c = text[i++];
+        size_t extra, j;
+        if (c < 0x80) {
+            if (c < 0x20 || c == 0x7f) {
+                return 0;
+            }
+            continue;
+        }
+        if (c >= 0xc2 && c <= 0xdf) {
+            extra = 1;
+        } else if (c >= 0xe0 && c <= 0xef) {
+            extra = 2;
+        } else if (c >= 0xf0 && c <= 0xf4) {
+            extra = 3;
+        } else {
+            return 0;
+        }
+        if (extra > len - i) {
+            return 0;
+        }
+        if ((c == 0xe0 && text[i] < 0xa0) || (c == 0xed && text[i] >= 0xa0) ||
+            (c == 0xf0 && text[i] < 0x90) || (c == 0xf4 && text[i] >= 0x90)) {
+            return 0;
+        }
+        for (j = 0; j < extra; j++) {
+            if ((text[i++] & 0xc0) != 0x80) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+static void h_board(gcs_peer *p, const gc_msg *m, const gc_u8 *data, size_t len)
+{
+    gcs_core *core = p->core;
+    FILE *f;
+    long size;
+    gc_u32 count;
+    gc_msg reply;
+    unsigned char record[BOARD_RECORD_SIZE];
+    int failed = 0;
+
+    if (m->type == GC_MT_BOARD_POST &&
+        (len < 2 || data[1] == 0 || data[1] > GC_BOARD_TEXT_MAX || len != (size_t)data[1] + 2 ||
+         !board_text_valid(data + 2, data[1]))) {
+        send_error(p, GC_R_BAD_REQUEST, m->type, "invalid message");
+        return;
+    }
+    f = fopen(core->cfg.board_file, "a+b");
+    if (!f) {
+        LOG_E("cannot open board file: %s", strerror(errno));
+        send_error(p, GC_R_UNAVAILABLE, m->type, "board storage error");
+        return;
+    }
+    if (fseek(f, 0, SEEK_END) != 0 || (size = ftell(f)) < 0 || size % BOARD_RECORD_SIZE != 0 ||
+        size / BOARD_RECORD_SIZE > BOARD_MAX_RECORDS) {
+        failed = 1;
+    } else {
+        count = (gc_u32)(size / BOARD_RECORD_SIZE);
+        memset(&reply, 0, sizeof(reply));
+        if (m->type == GC_MT_BOARD_POST) {
+            time_t now = time(NULL);
+            struct tm *utc = gmtime(&now);
+            if (count >= BOARD_MAX_RECORDS) {
+                fclose(f);
+                send_error(p, GC_R_LIMIT, m->type, "board full");
+                return;
+            }
+            memset(record, 0, sizeof(record));
+            memcpy(record, p->name, strlen(p->name));
+            if (!utc || strftime((char *)record + GC_MAX_NAME + 1, GC_BOARD_TIME_MAX + 1,
+                                 "%Y-%m-%d %H:%M UTC", utc) == 0) {
+                failed = 1;
+            } else {
+                memcpy(record + GC_MAX_NAME + 1 + GC_BOARD_TIME_MAX + 1, m->u.board.text, data[1]);
+                if (fwrite(record, 1, sizeof(record), f) != sizeof(record) || fflush(f) != 0) {
+                    failed = 1;
+                }
+            }
+            reply.type = GC_MT_BOARD_POSTED;
+        } else {
+            reply.type = GC_MT_BOARD_ENTRY;
+            reply.u.board.count = count;
+            reply.u.board.index = m->u.board.index;
+            if (count && m->u.board.index < count) {
+                long offset = (long)(count - 1 - m->u.board.index) * BOARD_RECORD_SIZE;
+                if (fseek(f, offset, SEEK_SET) != 0 || fread(record, 1, sizeof(record), f) != sizeof(record) ||
+                    record[GC_MAX_NAME] || record[GC_MAX_NAME + 1 + GC_BOARD_TIME_MAX] ||
+                    record[BOARD_RECORD_SIZE - 1]) {
+                    failed = 1;
+                } else {
+                    memcpy(reply.u.board.name, record, GC_MAX_NAME + 1);
+                    memcpy(reply.u.board.time, record + GC_MAX_NAME + 1, GC_BOARD_TIME_MAX + 1);
+                    memcpy(reply.u.board.text, record + GC_MAX_NAME + 1 + GC_BOARD_TIME_MAX + 1, GC_BOARD_TEXT_MAX + 1);
+                }
+            } else if (count) {
+                fclose(f);
+                send_error(p, GC_R_NOT_FOUND, m->type, "no such message");
+                return;
+            }
+        }
+    }
+    if (fclose(f) != 0) {
+        failed = 1;
+    }
+    if (failed) {
+        LOG_E("board storage or clock failure");
+        send_error(p, GC_R_UNAVAILABLE, m->type, "board storage error");
+        return;
+    }
+    peer_send(p, &reply);
+}
+
 static void peer_handle_msg(gcs_peer *p, const gc_u8 *data, size_t len)
 {
     gcs_core *core = p->core;
@@ -1216,6 +1340,10 @@ static void peer_handle_msg(gcs_peer *p, const gc_u8 *data, size_t len)
     case GC_MT_DATA:
         h_data(p, &m, data, len);
         break;
+    case GC_MT_BOARD_READ:
+    case GC_MT_BOARD_POST:
+        h_board(p, &m, data, len);
+        break;
     case GC_MT_ERROR:
         LOG_W("peer %u '%s' reports error %d for %s: %s", p->peer_id, pname(p), m.u.error.code,
               gc_msg_name(m.u.error.ref_type), m.u.error.text);
@@ -1245,6 +1373,7 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     /* never trust the caller's buffers to be terminated */
     c->cfg.server_name[GC_MAX_NAME] = '\0';
     c->cfg.access_key[GC_MAX_NAME] = '\0';
+    c->cfg.board_file[sizeof(c->cfg.board_file) - 1] = '\0';
     sanitize_text(c->cfg.server_name);
     if (c->cfg.max_peers < 0) {
         c->cfg.max_peers = 0;

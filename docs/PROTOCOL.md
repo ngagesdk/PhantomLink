@@ -256,7 +256,27 @@ When the server cannot be reached, the bridge answers by itself:
 REGISTER, HOST_OPEN and JOIN get the result UNAVAILABLE, DISCOVER gets an
 empty list.
 
-### 3.6 Result codes
+### 3.6 Message board
+
+Board operations require normal registration and the bridge's access key.
+The bridge forwards these messages unchanged, including on the PC bridge.
+A board read returns one message, newest first; index 0 is the newest.
+An empty board returns count 0 with empty strings. An out-of-range index
+returns ERROR NOT_FOUND. A post uses the registered name and the server's UTC
+clock; the client cannot supply the timestamp.
+
+| Type | Name | Direction | Fields |
+|---|---|---|---|
+| 0x70 | BOARD_READ | dev to srv | index (4) |
+| 0x71 | BOARD_POST | dev to srv | message (str, 1 to 160 UTF-8 bytes; no C0 controls or DEL) |
+| 0x72 | BOARD_ENTRY | srv to dev | index (4), count (4), name (str), UTC time (str, `YYYY-MM-DD HH:MM UTC`), message (str) |
+| 0x73 | BOARD_POSTED | srv to dev | none |
+
+Storage errors return ERROR UNAVAILABLE; a full board returns ERROR LIMIT.
+A lost reply does not prove a post failed, so clients should refresh before
+retrying. Board contents and names are visible to all registered users.
+
+### 3.7 Result codes
 
 | Code | Name | Meaning | Error code in the game |
 |---|---|---|---|

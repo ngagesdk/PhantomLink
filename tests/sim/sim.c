@@ -121,6 +121,7 @@ void sim_init(sim_world *w, int count, gc_u8 api, gc_u32 uid)
     w->now = 100000;
     w->count = count;
     gcs_default_config(&cfg);
+    strcpy(cfg.board_file, "sim-board-test.dat");
     cfg.link_grace_ms = 8000;
     cfg.reserve_ms = 30000;
     cfg.log_level = 3;

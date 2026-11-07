@@ -11,6 +11,9 @@ RUN cmake -S /src/server -B /build -DCMAKE_BUILD_TYPE=Release -DGCS_BUILD_TESTS=
 FROM debian:bookworm-slim
 COPY --from=build /build/gamecommsd /usr/local/bin/gamecommsd
 COPY server/deploy/gamecommsd.conf /etc/gamecommsd.conf
+RUN mkdir -p /var/lib/gamecommsd && chown nobody:nogroup /var/lib/gamecommsd
+WORKDIR /var/lib/gamecommsd
+VOLUME /var/lib/gamecommsd
 EXPOSE 9888/tcp 9888/udp
 USER nobody
 ENTRYPOINT ["/usr/local/bin/gamecommsd", "-c", "/etc/gamecommsd.conf"]

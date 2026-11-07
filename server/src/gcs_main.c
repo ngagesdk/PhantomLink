@@ -565,6 +565,9 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "access_key")) {
         return set_str(a->core.access_key, sizeof(a->core.access_key), val) ? 1 : -1;
     }
+    if (!strcmp(key, "board_file")) {
+        return *val && set_str(a->core.board_file, sizeof(a->core.board_file), val) ? 1 : -1;
+    }
     if (!strcmp(key, "log_file")) {
         return set_str(a->logfile, sizeof(a->logfile), val) ? 1 : -1;
     }
@@ -646,6 +649,7 @@ static void usage(const char *argv0)
            "  --discovery=0|1      answer LAN discovery on UDP port (default 1)\n"
            "  --name=TEXT          server name shown to devices\n"
            "  --access_key=TEXT    require this key from bridges (default none)\n"
+           "  --board_file=PATH    persistent message board file\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
            "  --reserve_ms=N       keep slots of lost players (default 180000)\n"

@@ -49,6 +49,11 @@ RESOURCE MENU_PANE r_pl_menu
         MENU_ITEM { command = EPlCmdSetup; txt = "Bridge setup mode"; },
         MENU_ITEM { command = EPlCmdFactory; txt = "Factory reset"; },
         MENU_ITEM { command = EPlCmdChoose; txt = "Choose bridge"; },
+        MENU_ITEM { command = EPlCmdBoard; txt = "Message board"; },
+        MENU_ITEM { command = EPlCmdBoardRefresh; txt = "Refresh board"; },
+        MENU_ITEM { command = EPlCmdBoardPost; txt = "Post message"; },
+        MENU_ITEM { command = EPlCmdBoardOlder; txt = "Older message"; },
+        MENU_ITEM { command = EPlCmdBoardNewer; txt = "Newer message"; },
         MENU_ITEM { command = EPlCmdAbout; txt = "About"; },
         MENU_ITEM { command = EAknCmdExit; txt = "Exit"; }
     };
@@ -72,7 +77,7 @@ RESOURCE DIALOG r_pl_text_query
                 {
                     flags = EEikEdwinNoHorizScrolling | EEikEdwinResizable;
                     width = 5;
-                    maxlength = 64;
+                    maxlength = 160;
                 };
             };
         }

@@ -8,12 +8,13 @@
 #ifndef PHANTOMLINKAPPUI_H
 #define PHANTOMLINKAPPUI_H
 
+#include "BoardClient.h"
 #include "BridgeClient.h"
 #include <aknappui.h>
 
 class CPhantomLinkView;
 
-class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver
+class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public MBoardObserver
 {
   public:
     void ConstructL();
@@ -27,12 +28,14 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver
   public: // from MBridgeClientObserver
     void BridgeFinished(TInt aError);
     void BridgeProgress(const TDesC &aText);
+    void BoardFinished(TInt aError, const gc_msg &aReply);
 
   private:
     enum TMode
     {
         EGames,
-        EBridge
+        EBridge,
+        EBoard
     };
     enum TOperation
     {
@@ -45,6 +48,9 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver
 
     void ShowGamesL();
     void ShowBridgeL();
+    void ShowBoardL();
+    void ReadBoardL(TUint32 aIndex);
+    void PostBoardL();
     void RefreshBridgeL();
     void SetStatusL(const TDesC &aText);
     void InstallSelectedL();
@@ -59,6 +65,9 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver
 
     CPhantomLinkView *iView;
     CBridgeClient *iClient;
+    CBoardClient *iBoardClient;
+    gc_msg iBoard;
+    TBuf<GC_MAX_NAME> iBoardName;
     TBridgeSettings iSettings;
     TMode iMode;
     TOperation iOperation;
