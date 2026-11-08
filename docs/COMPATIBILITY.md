@@ -264,9 +264,14 @@ nor has any). Every call that needs the network again reconnects.
 ## Limits common to all variants
 
 - At most 1024 bytes per send. The 2.x originals used 512 byte buffers,
-  1.x documents no limit. Larger sends return KErrOverflow. A send also
-  returns KErrOverflow while 16 messages are still unacknowledged on the
-  Bluetooth connection (the original would block instead).
+  1.x documents no limit. Larger sends return KErrOverflow.
+- Sends that do not fit into the Bluetooth link window (16 unacknowledged
+  messages) wait in a 16 KB queue in the DLL and go out as the bridge
+  acknowledges; only when that queue is full does a send return
+  KErrOverflow. The original blocked in SendData instead. Games such as
+  Warhammer and SSX send their whole setup in one loop and ignore the
+  result, so refusing these sends lost messages and the joining player
+  waited forever.
 - Latency is higher than on a direct Bluetooth connection: expect 20 to
   60 ms round trip on a local network, plus the network delay over the
   Internet.
