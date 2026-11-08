@@ -48,13 +48,20 @@ void CBridgePicker::StartL()
 void CBridgePicker::RunL()
 {
     TInt err = iStatus.Int();
+    /* take the address before releasing the notifier: the release may
+       clear the response, and a zero address gives KErrRfcommBadAddress
+       (-6352) when a game connects */
+    TBTDevAddr addr = iSearcher->BTDevAddr();
     /* release the notifier, otherwise the next selection in this session
-       is refused (forget, then select again) */
+       is refused */
     iSearcher->CancelSelection();
+    if (err == KErrNone && addr == TBTDevAddr()) {
+        err = KErrNotFound; /* nothing usable was selected */
+    }
     if (err == KErrNone) {
         TGcConfig config;
         config.Load();
-        config.SaveBridgeAddress(iSearcher->BTDevAddr());
+        config.SaveBridgeAddress(addr);
         TGcConfig check; /* did it reach the file? */
         check.Load();
         if (!check.iHasBridge) {
