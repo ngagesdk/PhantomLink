@@ -43,7 +43,7 @@ static const TGameEntry KGames[] = {
     /* { "Tom Clancy's Splinter Cell: Chaos Theory", 5 }, */
     /* { "Tomb Raider", 2 }, */
     { "Tony Hawk's Pro Skater", 2 },
-    /* { "Warhammer 40,000: Glory in Death", 11 }, */
+    { "Warhammer 40,000: Glory in Death", 11 },
     /* { "WWE Aftershock", 6 }, */
     /* { "Xanadu Next", 6 } */
 };
