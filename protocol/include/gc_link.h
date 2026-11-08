@@ -51,6 +51,17 @@ extern "C" {
 #define GC_LINK_QUEUE 16 /* max. unacknowledged + pending messages */
 #endif
 
+/* Bytes for the messages in the queue (a ring, see gc_link.c). The
+ * default always holds GC_LINK_QUEUE messages of the largest size (one
+ * extra message covers the space lost when the ring wraps), so only the
+ * message count limits the queue. A smaller value (ESP32: RAM) keeps the
+ * same message window for typical traffic and limits only bursts of
+ * large messages: gc_link_send() then also returns GC_LINK_E_FULL when
+ * the bytes run out, which owners already handle as a full queue. */
+#ifndef GC_LINK_QBUF
+#define GC_LINK_QBUF ((GC_LINK_QUEUE + 1) * GC_LINK_MAX_MSG)
+#endif
+
 /* frame types */
 #define GC_FT_HELLO     0x01
 #define GC_FT_HELLO_ACK 0x02
@@ -144,8 +155,11 @@ typedef struct
 {
     gc_u16 len;
     gc_u16 seq;
-    gc_u8 data[GC_LINK_MAX_MSG];
+    gc_u16 off; /* message bytes start at qbuf + off */
 } gc_link_slot;
+
+GC_STATIC_ASSERT(link_qbuf_fits_largest_msg, GC_LINK_QBUF >= GC_LINK_MAX_MSG);
+GC_STATIC_ASSERT(link_qbuf_offsets_fit_u16, GC_LINK_QBUF <= 65535);
 
 typedef struct
 {
@@ -165,6 +179,7 @@ typedef struct
     gc_u16 q_head; /* index of oldest queued message     */
     gc_u16 q_count;
     gc_u16 q_sent;  /* how many of q_count were transmitted */
+    gc_u16 q_wr;    /* qbuf offset after the newest message  */
     gc_u16 tx_next; /* sequence number of next new message  */
     gc_u32 t_last_tx;
     gc_u32 t_retx; /* deadline for retransmission          */
@@ -187,6 +202,7 @@ typedef struct
     gc_u32 st_backpressure;
 
     gc_u32 t_now; /* time of the input call in progress */
+    gc_u8 qbuf[GC_LINK_QBUF];
     gc_u8 scratch[GC_FRAME_MAX_BODY];
     gc_u8 txbuf[GC_FRAME_MAX_WIRE];
 } gc_link;
@@ -223,7 +239,8 @@ gc_u32 gc_link_next_timeout(const gc_link *l, gc_u32 now);
  *  DOWN with a resumable session (sent after resumption). */
 int gc_link_send(gc_link *l, const gc_u8 *msg, size_t len, gc_u32 now);
 
-/** Number of free queue slots. */
+/** Number of free queue slots (messages). With a GC_LINK_QBUF below the
+ *  default, a send can still fail with GC_LINK_E_FULL for lack of bytes. */
 int gc_link_free_slots(const gc_link *l);
 
 /** The transport went away (socket closed, BT disconnected). */

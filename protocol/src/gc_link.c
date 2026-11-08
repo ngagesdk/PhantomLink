@@ -102,6 +102,39 @@ static gc_link_slot *link_slot(gc_link *l, gc_u16 i)
     return &l->q[(l->q_head + i) % GC_LINK_QUEUE];
 }
 
+/* Place len bytes in qbuf. Messages are stored contiguously in order and
+ * are released oldest first (acknowledgement), so qbuf is a ring whose
+ * occupied range runs from the oldest message to q_wr. A message that
+ * does not fit before the end starts again at offset 0. Every message
+ * takes at least one byte, so q_wr == oldest offset means "full" while
+ * messages are queued. */
+static int link_alloc(gc_link *l, size_t len, gc_u16 *off)
+{
+    size_t need = len ? len : 1;
+    size_t head, tail = l->q_wr;
+
+    if (l->q_count == 0) {
+        *off = 0;
+    } else {
+        head = link_slot(l, 0)->off;
+        if (tail > head) {
+            if (GC_LINK_QBUF - tail >= need) {
+                *off = (gc_u16)tail;
+            } else if (head >= need) {
+                *off = 0;
+            } else {
+                return 0;
+            }
+        } else if (head - tail >= need) {
+            *off = (gc_u16)tail;
+        } else {
+            return 0;
+        }
+    }
+    l->q_wr = (gc_u16)(*off + need);
+    return 1;
+}
+
 /* transmit everything queued but not yet sent */
 static void link_flush(gc_link *l, gc_u32 now)
 {
@@ -110,7 +143,7 @@ static void link_flush(gc_link *l, gc_u32 now)
     }
     while (l->q_sent < l->q_count) {
         gc_link_slot *s = link_slot(l, l->q_sent);
-        link_tx_frame(l, GC_FT_DATA, s->seq, s->data, s->len, now);
+        link_tx_frame(l, GC_FT_DATA, s->seq, l->qbuf + s->off, s->len, now);
         if (l->q_sent == 0) {
             l->t_retx = now + l->rto_cur;
         }
@@ -126,7 +159,7 @@ static void link_retransmit(gc_link *l, gc_u32 now)
 
     for (i = 0; i < l->q_sent; i++) {
         gc_link_slot *s = link_slot(l, i);
-        link_tx_frame(l, GC_FT_DATA, s->seq, s->data, s->len, now);
+        link_tx_frame(l, GC_FT_DATA, s->seq, l->qbuf + s->off, s->len, now);
         l->st_retx++;
     }
     l->t_retx = now + l->rto_cur;
@@ -147,6 +180,7 @@ static void link_reset_session(gc_link *l)
 {
     l->q_head = 0;
     l->q_count = 0;
+    l->q_wr = 0;
     l->q_sent = 0;
     l->tx_next = 0;
     l->rx_next = 0;
@@ -338,9 +372,12 @@ int gc_link_send(gc_link *l, const gc_u8 *msg, size_t len, gc_u32 now)
         return GC_LINK_E_FULL;
     }
     s = link_slot(l, l->q_count);
+    if (!link_alloc(l, len, &s->off)) {
+        return GC_LINK_E_FULL;
+    }
     s->len = (gc_u16)len;
     s->seq = l->tx_next++;
-    memcpy(s->data, msg, len);
+    memcpy(l->qbuf + s->off, msg, len);
     l->q_count++;
     link_flush(l, now);
     return GC_LINK_OK;

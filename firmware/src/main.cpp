@@ -31,7 +31,7 @@
 extern "C" {
 #include "bridge_core.h"
 #include "bt_output.h"
-#include "tcp_frame_input.h"
+#include "esp32_glue.h"
 #include "tcp_output.h"
 }
 
@@ -140,7 +140,7 @@ static bool btEventOverflow = false;
 
 /* Callback-owned state is protected by btEventMux; the loop owns btTx. */
 #define BT_RX_BUFFER        4096
-#define BT_TX_CHUNK         512
+#define BT_TX_CHUNK         ESP32_BT_TX_CHUNK
 #define BT_WRITE_NONE       (-2)
 #define BT_WRITE_TIMEOUT_MS 10000
 static StreamBufferHandle_t btRx = nullptr;
@@ -905,15 +905,11 @@ static void btPump(uint32_t now)
         }
     }
     if (btMode == BT_GAME) {
-        uint8_t buf[256];
+        /* hand over what was read, as pcbridge does with recv() */
+        uint8_t buf[ESP32_BT_RX_READ];
         size_t n;
         while ((n = btRxRead(buf, sizeof(buf))) > 0) {
-            size_t pos = 0;
-            while (pos < n) {
-                size_t chunk = stream_frame_input_chunk(buf + pos, n - pos);
-                bridge_dev_input(&br, buf + pos, chunk, millis());
-                pos += chunk;
-            }
+            bridge_dev_input(&br, buf, n, millis());
         }
     } else if (btMode == BT_CONFIG) {
         while (btMode == BT_CONFIG && btRxAvailable() > 0) {
@@ -1106,32 +1102,14 @@ void loop()
         bridge_srv_disconnected(&br, millis());
     }
     if (tcpConnected) {
-        static tcp_frame_pause pause = {};
-        uint8_t buf[512];
-        size_t budget = 2048;
-        while (budget) {
-            /* A server ACK may be behind data in the TCP stream. Never
-               indefinitely block it or the server link's control frames. */
-            if (!tcp_frame_input_ready(&pause, br.dev_connected && br.dev.state == GC_LS_UP,
-                                       br.to_dev.count, BRIDGE_FIFO_LEN, br.srv.q_sent, millis())) {
-                break;
-            }
+        /* Read what arrived and hand it over as read, as pcbridge does. When
+           the device side is full the link layer leaves data unacknowledged
+           and the server resends it; ACKs and control frames never wait. */
+        uint8_t buf[ESP32_TCP_RX_READ];
+        size_t budget = ESP32_TCP_RX_BUDGET;
+        while (budget && tcpConnected && !tcpOutputFailed) { /* the link may close the connection */
             size_t chunk = budget < sizeof(buf) ? budget : sizeof(buf);
-            int n = recv(tcp.fd(), buf, chunk, MSG_PEEK | MSG_DONTWAIT);
-            if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
-                break;
-            }
-            if (n <= 0) {
-                if (n < 0) {
-                    Serial.printf("TCP read failed (%d); reconnecting\n", errno);
-                } else {
-                    Serial.println("TCP peer closed; reconnecting");
-                }
-                tcpOutputFailed = true;
-                break;
-            }
-            chunk = stream_frame_input_chunk(buf, (size_t)n);
-            n = recv(tcp.fd(), buf, chunk, MSG_DONTWAIT);
+            int n = recv(tcp.fd(), buf, chunk, MSG_DONTWAIT);
             if (n < 0 && (errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
                 break;
             }

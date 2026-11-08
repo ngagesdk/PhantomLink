@@ -73,12 +73,42 @@ add_executable(test_game_navigation ${ROOT}/tests/sim/test_game_navigation.c)
 target_include_directories(test_game_navigation PRIVATE ${ROOT}/app/src)
 add_test(NAME app_game_navigation COMMAND test_game_navigation)
 
-add_executable(test_tcp_frame_input ${ROOT}/tests/sim/test_tcp_frame_input.c
-    ${ROOT}/firmware/src/bridge_core.c ${ROOT}/protocol/src/gc_codec.c
-    ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c)
-target_include_directories(test_tcp_frame_input PRIVATE ${ROOT}/firmware/src ${ROOT}/protocol/include)
-target_compile_definitions(test_tcp_frame_input PRIVATE GC_LINK_QUEUE=4 BRIDGE_FIFO_LEN=4)
-add_test(NAME firmware_tcp_frame_input COMMAND test_tcp_frame_input)
+# Bridge parity: pcbridge and the ESP32 bridge, each with its own sizing and
+# transport glue, against the same N-Gage engine and server on links with
+# latency and limited bandwidth. The ESP32 copy of the link layer and bridge
+# core is built with the -D flags from firmware/platformio.ini and renamed
+# (tests/parity/esp32_symbols.h), so both run in one program.
+file(STRINGS ${ROOT}/firmware/platformio.ini GC_PIO_FLAGS REGEX "^[ \t]*-D[A-Za-z_][A-Za-z0-9_]*(=[^ \t;]*)?[ \t]*$")
+set(GC_ESP32_DEFS "")
+foreach(flag ${GC_PIO_FLAGS})
+    string(STRIP "${flag}" flag)
+    string(REGEX REPLACE "^-D" "" flag "${flag}")
+    if(NOT flag MATCHES "^CORE_DEBUG_LEVEL")
+        list(APPEND GC_ESP32_DEFS ${flag})
+    endif()
+endforeach()
+message(STATUS "ESP32 bridge sizing from platformio.ini: ${GC_ESP32_DEFS}")
+add_library(gc_bridge_esp32 STATIC ${ROOT}/tests/parity/esp32_gc_link.c ${ROOT}/tests/parity/esp32_bridge_core.c
+    ${ROOT}/tests/parity/bridge_profile.c)
+target_include_directories(gc_bridge_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/firmware/src ${ROOT}/tests/parity)
+target_compile_definitions(gc_bridge_esp32 PRIVATE BP_ESP32 ${GC_ESP32_DEFS})
+target_link_libraries(gc_bridge_esp32 PUBLIC gc_protocol)
+add_executable(test_parity ${ROOT}/tests/parity/test_parity.c ${ROOT}/tests/parity/bridge_profile.c)
+target_include_directories(test_parity PRIVATE ${ROOT}/tests/parity)
+target_link_libraries(test_parity gc_bridge_esp32 gc_dev_core gc_bridge_core gc_server_core)
+add_test(NAME bridge_parity COMMAND test_parity)
+
+# message storage of link queue and bridge FIFOs, default and ESP32 sizing
+foreach(sizing default esp32)
+    add_executable(test_queue_storage_${sizing} ${ROOT}/tests/parity/test_queue_storage.c
+        ${ROOT}/firmware/src/bridge_core.c ${ROOT}/protocol/src/gc_codec.c
+        ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c)
+    target_include_directories(test_queue_storage_${sizing} PRIVATE ${ROOT}/firmware/src ${ROOT}/protocol/include)
+    if(sizing STREQUAL "esp32")
+        target_compile_definitions(test_queue_storage_${sizing} PRIVATE ${GC_ESP32_DEFS})
+    endif()
+    add_test(NAME queue_storage_${sizing} COMMAND test_queue_storage_${sizing})
+endforeach()
 
 # real sockets: start gamecommsd, run gcsim against it
 add_executable(gamecommsd ${ROOT}/server/src/gcs_main.c)

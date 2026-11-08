@@ -36,15 +36,46 @@ static void blog(bridge *b, const char *fmt, ...)
 
 /* ---- fifo ---- */
 
+/* Where n bytes would go in buf, or -1. Same ring as the link queue
+ * (gc_link.c, link_alloc): messages are contiguous, released oldest
+ * first, and take at least one byte each. */
+static long fifo_place(const bridge_fifo *f, size_t n)
+{
+    size_t need = n ? n : 1;
+    size_t head, tail = f->wr;
+    if (f->count >= BRIDGE_FIFO_LEN || n > GC_LINK_MAX_MSG) {
+        return -1;
+    }
+    if (f->count == 0) {
+        return 0;
+    }
+    head = f->s[f->head].off;
+    if (tail > head) {
+        if (BRIDGE_FIFO_BYTES - tail >= need) {
+            return (long)tail;
+        }
+        return head >= need ? 0 : -1;
+    }
+    return head - tail >= need ? (long)tail : -1;
+}
+
+static int fifo_room(const bridge_fifo *f, size_t n)
+{
+    return fifo_place(f, n) >= 0;
+}
+
 static int fifo_push(bridge_fifo *f, const gc_u8 *d, size_t n)
 {
     bridge_slot *s;
-    if (f->count >= BRIDGE_FIFO_LEN || n > GC_LINK_MAX_MSG) {
+    long off = fifo_place(f, n);
+    if (off < 0) {
         return 0;
     }
     s = &f->s[(f->head + f->count) % BRIDGE_FIFO_LEN];
     s->len = (gc_u16)n;
-    memcpy(s->data, d, n);
+    s->off = (gc_u16)off;
+    memcpy(f->buf + off, d, n);
+    f->wr = (gc_u16)(off + (n ? n : 1));
     f->count++;
     return 1;
 }
@@ -66,6 +97,7 @@ static void fifo_clear(bridge_fifo *f)
 {
     f->head = 0;
     f->count = 0;
+    f->wr = 0;
 }
 
 /* move as much as possible from fifo into link */
@@ -76,7 +108,7 @@ static void fifo_drain(bridge *b, bridge_fifo *f, gc_link *l)
         return;
     }
     while ((s = fifo_peek(f)) != NULL && gc_link_free_slots(l) > 0) {
-        if (gc_link_send(l, s->data, s->len, b->now) != GC_LINK_OK) {
+        if (gc_link_send(l, f->buf + s->off, s->len, b->now) != GC_LINK_OK) {
             break;
         }
         fifo_pop(f);
@@ -184,9 +216,8 @@ static void dev_write_cb(void *ctx, const gc_u8 *d, size_t n)
 static int dev_can_accept(void *ctx, const gc_u8 *msg, size_t len)
 {
     bridge *b = (bridge *)ctx;
-    (void)msg;
-    (void)len;
-    return b->to_srv.count < BRIDGE_FIFO_LEN;
+    /* a REGISTER grows when the device id and the access key are added */
+    return fifo_room(&b->to_srv, len && msg[0] == GC_MT_REGISTER ? GC_LINK_MAX_MSG : len);
 }
 
 static void dev_msg_cb(void *ctx, const gc_u8 *d, size_t n)
@@ -283,8 +314,7 @@ static int srv_can_accept(void *ctx, const gc_u8 *msg, size_t len)
 {
     bridge *b = (bridge *)ctx;
     (void)msg;
-    (void)len;
-    return b->to_dev.count < BRIDGE_FIFO_LEN;
+    return fifo_room(&b->to_dev, len);
 }
 
 static void srv_msg_cb(void *ctx, const gc_u8 *d, size_t n)

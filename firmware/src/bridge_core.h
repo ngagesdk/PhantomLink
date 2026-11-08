@@ -24,7 +24,14 @@ extern "C" {
 #endif
 
 #ifndef BRIDGE_FIFO_LEN
-#define BRIDGE_FIFO_LEN 8
+#define BRIDGE_FIFO_LEN 8 /* messages per direction */
+#endif
+
+/* Bytes for the messages in one FIFO. As with GC_LINK_QBUF, the default
+ * makes the message count the only limit; the ESP32 uses less to save
+ * RAM, which keeps the message window and limits only large bursts. */
+#ifndef BRIDGE_FIFO_BYTES
+#define BRIDGE_FIFO_BYTES ((BRIDGE_FIFO_LEN + 1) * GC_LINK_MAX_MSG)
 #endif
 
 #define BRIDGE_VERSION "1.0.0"
@@ -32,14 +39,19 @@ extern "C" {
 typedef struct
 {
     gc_u16 len;
-    gc_u8 data[GC_LINK_MAX_MSG];
+    gc_u16 off; /* message bytes start at buf + off */
 } bridge_slot;
+
+GC_STATIC_ASSERT(bridge_fifo_fits_largest_msg, BRIDGE_FIFO_BYTES >= GC_LINK_MAX_MSG);
+GC_STATIC_ASSERT(bridge_fifo_offsets_fit_u16, BRIDGE_FIFO_BYTES <= 65535);
 
 typedef struct
 {
     bridge_slot s[BRIDGE_FIFO_LEN];
     int head;
     int count;
+    gc_u16 wr; /* buf offset after the newest message */
+    gc_u8 buf[BRIDGE_FIFO_BYTES];
 } bridge_fifo;
 
 typedef struct
