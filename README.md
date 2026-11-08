@@ -136,7 +136,6 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Pandemonium!                             | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Puyo Pop                                 | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Tomb Raider                              | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Used](https://img.shields.io/badge/Not%20Used-orange)    |
 | Tony Hawk's Pro Skater                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Asphalt Urban GT                         | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | FIFA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
@@ -150,7 +149,6 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Tom Clancy's Splinter Cell: Chaos Theory | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Call of Duty                             | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | FIFA Football 2005                       | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| High Seize                               | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | SSX Out of Bounds                        | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | WWE Aftershock                           | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Xanadu Next                              | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
