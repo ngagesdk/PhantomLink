@@ -10,6 +10,7 @@
 
 #include "BoardClient.h"
 #include "BridgeClient.h"
+#include "GcConfig.h"
 #include <aknappui.h>
 
 class CPhantomLinkView;
@@ -35,7 +36,21 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     {
         EGames,
         EBridge,
-        EBoard
+        EBoard,
+        EComms
+    };
+    /* rows of the GameComms settings page (GameComms.ini) */
+    enum TCommsRow
+    {
+        ECommsFile,
+        ECommsName,
+        ECommsAutoJoin,
+        ECommsLog,
+        ECommsRelease,
+        ECommsFollow,
+        ECommsAddress,
+        ECommsChannel,
+        ECommsRowCount
     };
     enum TOperation
     {
@@ -49,6 +64,11 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     void ShowGamesL();
     void ShowBridgeL();
     void ShowBoardL();
+    void ShowCommsL(TInt aCurrent);
+    void CommsText(TInt aRow, TDes &aText) const;
+    void EditCommsL();
+    void ResetCommsL();
+    void ForgetBridgeL();
     void ReadBoardL(TUint32 aIndex);
     void PostBoardL();
     void RefreshBridgeL();
@@ -70,6 +90,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     TBuf<GC_MAX_NAME> iBoardName;
     TBuf<GC_BOARD_TEXT_MAX> iBoardDraft;
     TBridgeSettings iSettings;
+    TGcConfig iComms; /* GameComms.ini as last read */
     TMode iMode;
     TOperation iOperation;
     TBuf<80> iStatus;

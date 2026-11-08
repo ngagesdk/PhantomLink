@@ -54,6 +54,9 @@ RESOURCE MENU_PANE r_pl_menu
         MENU_ITEM { command = EPlCmdBoardPost; txt = "Post message"; },
         MENU_ITEM { command = EPlCmdBoardOlder; txt = "Older message"; },
         MENU_ITEM { command = EPlCmdBoardNewer; txt = "Newer message"; },
+        MENU_ITEM { command = EPlCmdComms; txt = "GameComms settings"; },
+        MENU_ITEM { command = EPlCmdForgetBridge; txt = "Forget bridge"; },
+        MENU_ITEM { command = EPlCmdCommsReset; txt = "Delete settings file"; },
         MENU_ITEM { command = EPlCmdAbout; txt = "About"; },
         MENU_ITEM { command = EAknCmdExit; txt = "Exit"; }
     };

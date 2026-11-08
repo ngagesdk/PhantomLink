@@ -120,7 +120,14 @@ void CGcDiscoverer::DoPoll()
             e->RequestSessionList(this);
         }
     }
-    if (++iWaitTicks > KGcMaxPolls) {
+    {
+        /* the time the user spends picking the bridge does not count */
+        CGcEngine *e = CGcEngine::Current();
+        if (!e || !e->IsShowingDialog()) {
+            ++iWaitTicks;
+        }
+    }
+    if (iWaitTicks > KGcMaxPolls) {
         HelperLog(_L8("device search timed out (no answer from the server)"), 0);
         iTimer->Cancel();
         CGcEngine *e = CGcEngine::Current();

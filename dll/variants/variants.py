@@ -112,11 +112,11 @@ ORD56 = {56: ('gc2_SetLocalDeviceName', 'TInt CGameBTComms::SetLocalDeviceName(T
 ORD57 = {57: ('gcx_Disc_StartL', 'TInt CGameBTDiscoverer::StartFullL()  [internal helper]', 'V')}
 ORD58_63 = {
     58: ('gc2_EndSession', 'void CGameBTComms::EndSession()', 'V'),
-    59: ('gc2_DiscoverabilityOp', 'TInt CGameBTComms::<discoverability helper 3>()', 'I'),
-    60: ('gc2_DiscoverabilityOp', 'TInt CGameBTComms::<discoverability helper 2>()', 'I'),
+    59: ('gc2_IsDiscoverabilityModeLimited', 'TInt CGameBTComms::IsDiscoverabilityModeLimited(TBool&)', 'S'),
+    60: ('gc2_IsDiscoverable', 'TInt CGameBTComms::<visibility getter>(TBool&)', 'S'),
     61: ('gc2_SetDiscoverabilityModeLimited', 'TInt CGameBTComms::SetDiscoverabilityModeLimited(TBool)', 'V'),
     62: ('gcx_Disc_SetSearchMode', 'TInt CGameBTDiscoverer::SetSearchModeLimited(...)  [internal helper]', 'I'),
-    63: ('gc2_DiscoverabilityOp', 'TInt CGameBTComms::<discoverability helper 1>()', 'I'),
+    63: ('gc2_SetDiscoverable', 'TInt CGameBTComms::<visibility setter>(TBool)', 'S'),
 }
 
 VARIANTS = {

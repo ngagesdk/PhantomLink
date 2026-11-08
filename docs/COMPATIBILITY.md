@@ -132,12 +132,16 @@ The "Variants" column lists which variants have the export.
 | 56 | SetLocalDeviceName(THostName) | V | Full | v3 to v11 |
 | 57 | CGameBTDiscoverer::StartFullL() | V | Full | v5 to v11 |
 | 58 | EndSession() | V | Full | v10, v11 |
-| 59, 60, 63 | discoverability helpers | I | Full (1) | v10, v11 |
+| 59 | IsDiscoverabilityModeLimited(TBool&) | S | Full (1) | v10, v11 |
+| 60 | visibility getter (TBool&) | S | Full (1) | v10, v11 |
 | 61 | SetDiscoverabilityModeLimited(TBool) | V | Full (1) | v10, v11 |
 | 62 | discoverer search mode setter | I | Full (1) | v10, v11 |
+| 63 | visibility setter (TBool) | S | Full (1) | v10, v11 |
 
 (1) Returns KErrNone. Bluetooth discoverability has no meaning when the
-sessions run over the network.
+sessions run over the network. The getters 59 and 60 answer "not
+limited" and "visible"; the original writes the TBool& as well, and
+games read it without checking the return value.
 
 ### Helper objects
 
@@ -168,6 +172,94 @@ instead of the built-in list (Ashen does).
 | KErrIncompatibleGame from the Bluetooth service check | From the server's game UID check |
 | BluetoothPowerState and SetBluetoothPowerState | Report "on" and succeed. Bluetooth has to be on for the bridge anyway. |
 | Panic GC-MAIN 4 when Bluetooth is off | Not raised. A missing bridge is reported through the normal error callbacks. |
+
+## Why games fail
+
+Found by analysing the failing games listed in the README and the Rifts
+source code (November 2026). `python tools/gc_usage.py <game folder>`
+prints the same information for any game.
+
+### 1. The game does not use GameComms for multiplayer
+
+These games import only the Bluetooth power and name functions
+(ordinals 2, 27, 34, sometimes 56). Their multiplayer runs on their own
+RFCOMM sockets, so a GAMECOMMS.DLL replacement never sees any of it. The
+host search lists the bridge as a phone, the connection to it fails and
+the game stops in matchmaking. They cannot be fixed inside the DLL.
+
+| Game | Own stack |
+|---|---|
+| Pathway to Glory, Pathway to Glory: Ikusa Islands | inquiry by name, RFCOMM channel 4, no SDP |
+| Colin McRae Rally 2005 | own sockets (6R66_2.APP), GameComms only in a helper |
+| X-Men Legends, X-Men Legends II | own sockets and SDP records |
+| Worms World Party | the Mophun runtime (MOPHUN.DLL) has its own sockets and SDP records |
+
+Possible route: the bridge acts as the other phone (inquiry name of the
+remote host, RFCOMM server or client on the game's channel) and tunnels
+the raw bytes. One bridge address can stand in for one remote phone per
+channel.
+
+### 2. The game tags its Bluetooth name
+
+Many 2.x games write a game tag, their role and a session id into the
+phone's Bluetooth name and only accept hosts or clients that carry it.
+Rifts (source available) uses `6R49H<8 hex digits><name>` for a host and
+`6R49C...` for a client and sets the name itself with
+`RHostResolver::SetHostName` right before StartHostL / StartClientL. SSX
+builds a 3 character tag the same way. Others go through
+SetLocalDeviceName (Catan, Mile High Pinball, The Roots, Warhammer,
+Snakes, Glimmerati).
+
+The replacement used to take the name once, when the GameComms object
+was created, and sent it with the registration and the host open. A
+renamed host was listed without its tag, so clients rejected it, and a
+renamed client reached the host under its old name.
+
+Now (`FollowBtName=1`, default) the engine re-reads the Bluetooth name
+at StartHostL, StartClientL, SetHostAcceptMode, DeclareRemoteDevice and
+Connect. A changed name, or one set with SetLocalDeviceName, is used for
+the next registration and host open; an idle client registers again and
+a host whose session nobody has joined re-opens it under the new name.
+A name that was never changed keeps DeviceName= from GameComms.ini.
+Names are still limited to 32 bytes.
+
+### 3. "Bluetooth busy" while the bridge is connected
+
+Every failing game that uses GameComms (and most of the others) asks
+the Bluetooth stack for the number of ACL links (`KLMGetACLLinkCount` on
+an L2CAP socket) before it starts a host or a client, and refuses with
+"Bluetooth busy" if there is any. Glimmerati, for example, does this
+after every reset of its network code. With the original library there
+was no link between games; the replacement kept the bridge connection
+for as long as the GameComms object lived, so the second attempt in a
+session always failed.
+
+Now (`ReleaseBridge=1`, default) the bridge connection is closed about
+1.5 seconds after Disconnect() or EndSession() when nothing needs it any
+more (no search, no join, no connection; a host neither accepts players
+nor has any). Every call that needs the network again reconnects.
+
+### 4. Smaller problems found on the way
+
+- Ordinals 59 and 60 (v10, v11) are getters; the replacement left the
+  TBool& untouched (now: not limited, visible).
+- The helper classes found the GameComms engine through a single
+  thread-local pointer. Deleting a second, short-lived GameComms object
+  (Pathway to Glory creates them for the power state) cleared it, and
+  the discoverer then reported nothing. Engines are now kept in a list.
+- The discoverer gave up after 10 seconds even while the bridge
+  selection dialog was open. Time spent in that dialog no longer counts.
+
+### Not resolved
+
+- Catan uses the exported CGameBTDeviceList only as a container (it never
+  calls Show), which the inert list supports.
+- The King of Fighters Extreme and One do not rename the phone. Apart
+  from the "Bluetooth busy" check no cause was found statically; a
+  GameComms.log from hardware is needed.
+- Pandemonium! is packed (the .APP files are small loaders) and cannot
+  be analysed statically.
+- Snakes uses GameComms and its own SDP and RFCOMM code side by side.
 
 ## Limits common to all variants
 

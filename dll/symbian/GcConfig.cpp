@@ -10,11 +10,12 @@
 #include "GcConfig.h"
 #include <f32file.h>
 
-_LIT(KIniCard, "E:\\GameComms.ini");
 _LIT(KIniPhone, "C:\\System\\Data\\GameComms.ini");
+_LIT(KIniCard, "E:\\GameComms.ini");
+const TInt KMaxIniSize = 2048;
 
 TGcConfig::TGcConfig()
-    : iAutoJoin(EFalse), iLog(EFalse), iHasBridge(EFalse), iChannel(0)
+    : iAutoJoin(EFalse), iLog(EFalse), iReleaseBridge(ETrue), iFollowBtName(ETrue), iHasBridge(EFalse), iChannel(0)
 {
 }
 
@@ -82,16 +83,18 @@ void TGcConfig::Load()
     if (fs.Connect() != KErrNone) {
         return;
     }
-    iPath = KIniCard;
+    /* C: first: retail game cards in E: are read only, so settings that
+     * PhantomLink or the DLL writes always live on C: */
+    iPath = KIniPhone;
     if (file.Open(fs, iPath, EFileRead | EFileShareReadersOnly) != KErrNone) {
-        iPath = KIniPhone;
+        iPath = KIniCard;
         if (file.Open(fs, iPath, EFileRead | EFileShareReadersOnly) != KErrNone) {
             iPath.Zero();
             fs.Close();
             return;
         }
     }
-    HBufC8 *heap = HBufC8::New(2048); /* keep the game's stack small */
+    HBufC8 *heap = HBufC8::New(KMaxIniSize); /* keep the game's stack small */
     if (!heap) {
         file.Close();
         fs.Close();
@@ -125,6 +128,10 @@ void TGcConfig::Load()
             iAutoJoin = ToInt(val) != 0;
         } else if (key.CompareF(_L8("Log")) == 0) {
             iLog = ToInt(val) != 0;
+        } else if (key.CompareF(_L8("ReleaseBridge")) == 0) {
+            iReleaseBridge = ToInt(val) != 0;
+        } else if (key.CompareF(_L8("FollowBtName")) == 0) {
+            iFollowBtName = ToInt(val) != 0;
         } else if (key.CompareF(_L8("Address")) == 0) {
             iHasBridge = ParseAddr(val, iBridge);
         } else if (key.CompareF(_L8("Channel")) == 0) {
@@ -136,37 +143,88 @@ void TGcConfig::Load()
 
 void TGcConfig::SaveBridgeAddress(const TBTDevAddr &aAddr)
 {
-    /* Rewrites the file, keeping every line except [Bridge] Address. */
+    TBuf8<12> hex;
+    TInt i;
+    for (i = 0; i < 6; i++) {
+        hex.AppendNumFixedWidth(aAddr[i], EHex, 2);
+    }
+    SetValue(_L8("[Bridge]"), _L8("Address"), hex);
+    iBridge = aAddr; /* used for this session even if C: is full */
+    iHasBridge = ETrue;
+}
+
+const TDesC &TGcConfig::WritePath()
+{
+    return KIniPhone;
+}
+
+/* writes the whole settings file to C:, creating the folder if needed */
+static TInt WriteIni(RFs &aFs, const TDesC8 &aContent)
+{
+    RFile file;
+    TParsePtrC parse(KIniPhone);
+    TInt err = aFs.MkDirAll(parse.DriveAndPath());
+    if (err == KErrAlreadyExists) {
+        err = KErrNone;
+    }
+    if (err == KErrNone) {
+        err = file.Replace(aFs, KIniPhone, EFileWrite);
+    }
+    if (err == KErrNone) {
+        err = file.Write(aContent);
+        file.Close();
+    }
+    return err;
+}
+
+static TBool KeyIs(const TPtrC8 &aLine, const TDesC8 &aKey)
+{
+    TInt eq = aLine.Locate('=');
+    if (eq < 0) {
+        return EFalse;
+    }
+    TPtrC8 key = aLine.Left(eq);
+    Trim(key);
+    return key.CompareF(aKey) == 0;
+}
+
+TInt TGcConfig::SetValue(const TDesC8 &aSection, const TDesC8 &aKey, const TDesC8 &aValue)
+{
+    /* Rewrites the file on C: (retail game cards in E: are read only),
+     * keeping every other line, comments included.  The content is taken
+     * from the file in use, so settings from E:\GameComms.ini move to C:
+     * with the first change.  An empty value removes the key. */
     RFs fs;
     RFile file;
-    if (fs.Connect() != KErrNone) {
-        return;
+    TInt err = fs.Connect();
+    if (err != KErrNone) {
+        return err;
     }
-    TFileName path = iPath.Length() ? iPath : TFileName(KIniCard);
-    HBufC8 *inBuf = HBufC8::New(2048);
-    HBufC8 *outBuf = HBufC8::New(2300);
+    HBufC8 *inBuf = HBufC8::New(KMaxIniSize);
+    HBufC8 *outBuf = HBufC8::New(KMaxIniSize + 256);
     if (!inBuf || !outBuf) {
         delete inBuf;
         delete outBuf;
         fs.Close();
-        return;
+        return KErrNoMemory;
     }
     TPtr8 in = inBuf->Des();
     TPtr8 out = outBuf->Des();
-    if (file.Open(fs, path, EFileRead) == KErrNone) {
+    TFileName source = iPath.Length() ? iPath : TFileName(KIniPhone);
+    if (file.Open(fs, source, EFileRead | EFileShareReadersOnly) == KErrNone) {
         file.Read(in);
         file.Close();
     }
-    TPtrC8 rest(in);
-    TBool inBridge = EFalse, written = EFalse;
-    TBuf8<40> addrLine;
-    TInt i;
-    addrLine.Append(_L8("Address="));
-    for (i = 0; i < 6; i++) {
-        addrLine.AppendNumFixedWidth(aAddr[i], EHex, 2);
-    }
-    addrLine.Append(_L8("\r\n"));
 
+    TBuf8<80> newLine;
+    if (aValue.Length()) {
+        newLine.Append(aKey.Left(32));
+        newLine.Append('=');
+        newLine.Append(aValue.Left(40));
+        newLine.Append(_L8("\r\n"));
+    }
+    TPtrC8 rest(in);
+    TBool inSection = EFalse, written = aValue.Length() == 0;
     while (rest.Length() > 0) {
         TInt nl = rest.Locate('\n');
         TPtrC8 line = nl < 0 ? rest : rest.Left(nl + 1);
@@ -174,31 +232,96 @@ void TGcConfig::SaveBridgeAddress(const TBTDevAddr &aAddr)
         TPtrC8 t = line;
         Trim(t);
         if (t.Length() && t[0] == '[') {
-            if (inBridge && !written) {
-                out.Append(addrLine);
+            if (inSection && !written) {
+                out.Append(newLine);
                 written = ETrue;
             }
-            inBridge = t.CompareF(_L8("[Bridge]")) == 0;
-        } else if (inBridge && t.Length() >= 7 && t.Left(7).CompareF(_L8("Address")) == 0) {
-            continue; /* replaced below */
+            inSection = t.CompareF(aSection) == 0;
+        } else if (inSection && t.Length() && t[0] != ';' && t[0] != '#' && KeyIs(t, aKey)) {
+            continue; /* replaced */
         }
-        if (out.Length() + line.Length() < out.MaxLength() - 64) {
+        /* room for the line, its line break and the new section + key */
+        if (out.Length() + line.Length() + 2 + newLine.Length() + aSection.Length() + 4 <= out.MaxLength()) {
             out.Append(line);
+            if (nl < 0) {
+                out.Append(_L8("\r\n")); /* last line had no line break */
+            }
         }
     }
     if (!written) {
-        if (!inBridge) {
-            out.Append(_L8("\r\n[Bridge]\r\n"));
+        if (!inSection) {
+            out.Append(_L8("\r\n"));
+            out.Append(aSection);
+            out.Append(_L8("\r\n"));
         }
-        out.Append(addrLine);
+        out.Append(newLine);
     }
-    if (file.Replace(fs, path, EFileWrite) == KErrNone) {
-        file.Write(out);
-        file.Close();
+
+    err = WriteIni(fs, out);
+    if (err == KErrNone) {
+        iPath = KIniPhone;
     }
     fs.Close();
     delete inBuf;
     delete outBuf;
-    iBridge = aAddr;
-    iHasBridge = ETrue;
+    return err;
+}
+
+TInt TGcConfig::RemoveSection(const TDesC8 &aSection)
+{
+    /* Same rules as SetValue: the result is written to C:.  Used to
+     * forget the bridge, so that the next game asks for one again. */
+    RFs fs;
+    RFile file;
+    TInt err = fs.Connect();
+    if (err != KErrNone) {
+        return err;
+    }
+    HBufC8 *inBuf = HBufC8::New(KMaxIniSize);
+    HBufC8 *outBuf = HBufC8::New(KMaxIniSize + 4);
+    if (!inBuf || !outBuf) {
+        delete inBuf;
+        delete outBuf;
+        fs.Close();
+        return KErrNoMemory;
+    }
+    TPtr8 in = inBuf->Des();
+    TPtr8 out = outBuf->Des();
+    TBool found = EFalse;
+    if (iPath.Length() && file.Open(fs, iPath, EFileRead | EFileShareReadersOnly) == KErrNone) {
+        file.Read(in);
+        file.Close();
+    }
+    TPtrC8 rest(in);
+    TBool inSection = EFalse;
+    while (rest.Length() > 0) {
+        TInt nl = rest.Locate('\n');
+        TPtrC8 line = nl < 0 ? rest : rest.Left(nl + 1);
+        rest.Set(nl < 0 ? TPtrC8() : rest.Mid(nl + 1));
+        TPtrC8 t = line;
+        Trim(t);
+        if (t.Length() && t[0] == '[') {
+            inSection = t.CompareF(aSection) == 0;
+            found = found || inSection;
+        }
+        if (inSection) {
+            continue; /* header and all of its lines */
+        }
+        if (out.Length() + line.Length() + 2 <= out.MaxLength()) {
+            out.Append(line);
+            if (nl < 0) {
+                out.Append(_L8("\r\n"));
+            }
+        }
+    }
+    if (found) {
+        err = WriteIni(fs, out);
+        if (err == KErrNone) {
+            iPath = KIniPhone;
+        }
+    }
+    fs.Close();
+    delete inBuf;
+    delete outBuf;
+    return err;
 }

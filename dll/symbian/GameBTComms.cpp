@@ -333,6 +333,7 @@ void CGameBTComms2::StartHostL(TInt aShowList, CEikAppUi *aAppUi)
         User::Panic(KGcMainPanic, 2); /* as the original */
     }
     EnsureEngineL();
+    iEngine->RefreshName(); /* games tag the Bluetooth name right before */
     iEngine->LogNum(_L8("StartHostL, show list"), aShowList);
     iEngine->SetAppUi(aAppUi);
     gcd_v2_start(&iEngine->Dev(), 1, aShowList && aAppUi, iEngine->Now());
@@ -346,6 +347,7 @@ void CGameBTComms2::StartClientL(TInt aShowList, CEikAppUi *aAppUi)
         User::Panic(KGcMainPanic, 2);
     }
     EnsureEngineL();
+    iEngine->RefreshName();
     iEngine->LogNum(_L8("StartClientL, show list"), aShowList);
     iEngine->SetAppUi(aAppUi);
     gcd_v2_start(&iEngine->Dev(), 0, aShowList && aAppUi, iEngine->Now());
@@ -383,12 +385,8 @@ TInt CGameBTComms2::SetBluetoothPowerState(TBool /*aState*/)
 TInt CGameBTComms2::SetLocalDeviceName(const TDesC &aName)
 {
     if (iEngine) {
-        TInt i;
-        TPtrC n = aName.Left(GC_MAX_NAME);
-        for (i = 0; i < n.Length(); i++) {
-            iEngine->Dev().cfg.name[i] = (char)(n[i] < 0x80 ? n[i] : '?');
-        }
-        iEngine->Dev().cfg.name[i] = '\0';
+        /* also tells the server if the old name is already known there */
+        iEngine->SetLocalName(aName);
     }
     return KErrNone;
 }
@@ -398,6 +396,7 @@ TInt CGameBTComms2::DeclareRemoteDevice(const TDeviceDetails &aDevice)
     if (!iEngine || gcd_role(&iEngine->Dev()) == GCD_ROLE_IDLE) {
         return KErrNotReady;
     }
+    iEngine->RefreshName();
     gcd_device dev;
     GcDetailsToDevice(aDevice, dev);
     TInt r = gcd_v2_declare(&iEngine->Dev(), &dev, iEngine->Now());
@@ -411,6 +410,7 @@ TInt CGameBTComms2::Connect()
     if (!iEngine || gcd_role(&iEngine->Dev()) == GCD_ROLE_IDLE) {
         return KErrNotReady;
     }
+    iEngine->RefreshName(); /* before joining: the host sees this name */
     TInt r = gcd_v2_connect(&iEngine->Dev(), GCD_ALL, iEngine->Now());
     iEngine->LogNum(_L8("Connect, result"), r);
     iEngine->EnsureTransport();
@@ -436,6 +436,7 @@ void CGameBTComms2::Disconnect()
     gcd_v2_disconnect(&iEngine->Dev(), GCD_ALL, 0, iEngine->Now());
     iEngine->LogNum(_L8("Disconnect"), 0);
     iEngine->Kick();
+    iEngine->RequestRelease(); /* only if nothing is left to do */
 }
 
 TInt CGameBTComms2::Disconnect(TUint16 aClientId, TBool aPermanently)
@@ -470,8 +471,12 @@ TInt CGameBTComms2::SetHostAcceptMode(TInt aMode)
     if (!iEngine || gcd_role(&iEngine->Dev()) != GCD_ROLE_HOST) {
         User::Panic(KGcMainPanic, 1);
     }
+    iEngine->RefreshName();
     TInt r = gcd_v2_set_accept_mode(&iEngine->Dev(), aMode, iEngine->Now());
     iEngine->LogNum(_L8("SetHostAcceptMode"), aMode);
+    if (r == KErrNone && aMode != GCD_ACCEPT_NONE) {
+        iEngine->EnsureTransport(); /* the link may have been released */
+    }
     iEngine->Kick();
     return r;
 }
@@ -489,6 +494,8 @@ void CGameBTComms2::EndSession()
     /* v10/v11: drops the role object; the engine stays for re-use */
     if (iEngine) {
         gcd_end_session(&iEngine->Dev(), iEngine->Now());
+        iEngine->Kick();
+        iEngine->RequestRelease();
     }
 }
 

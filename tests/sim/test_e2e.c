@@ -552,6 +552,180 @@ static void test_v2_real_bt_device_declared(void)
 }
 
 /* ================================================================ */
+/* names: many 2.x games tag the Bluetooth name (Rifts: "6R49H<id>",  */
+/* "6R49C<id>") and only accept hosts/clients carrying their tag      */
+/* ================================================================ */
+
+static gcd_event *discover(int i)
+{
+    gcd_discover_once(&W.n[i].dev, W.now);
+    sim_run(&W, 500);
+    return sim_last(&W, i, GCD_EV_DISCOVERED);
+}
+
+static void test_v2_host_renamed_before_anybody_joined(void)
+{
+    gcd_event *e;
+    gc_u32 old;
+    sim_init(&W, 2, GC_API_V2, UID);
+    sim_run(&W, 500);
+    gcd_v2_start(&W.n[0].dev, 1, 0, W.now);
+    gcd_v2_set_accept_mode(&W.n[0].dev, GCD_ACCEPT_CONFIRM, W.now);
+    sim_run(&W, 300);
+    old = W.n[0].dev.session_id;
+    CHECK(old != 0);
+    /* unchanged name: nothing happens */
+    CHECK_EQ(gcd_set_name(&W.n[0].dev, "ngage0", W.now), 0);
+    CHECK_EQ(gcd_set_name(&W.n[0].dev, "6R49H00000000ngage0", W.now), 1);
+    sim_run(&W, 300);
+    CHECK_EQ(W.n[0].dev.session_open, 1);
+    CHECK(W.n[0].dev.session_id != old);
+    CHECK_EQ(gcd_v2_accept_mode(&W.n[0].dev), GCD_ACCEPT_CONFIRM);
+    gcd_v2_start(&W.n[1].dev, 0, 0, W.now);
+    e = discover(1);
+    CHECK(e && e->id == 1); /* only the new session is listed */
+    if (e && e->id == 1) {
+        gcd_device host = ((gcd_device *)e->data)[0];
+        CHECK(strcmp(host.name, "6R49H00000000ngage0") == 0);
+        CHECK_EQ(host.session_id, W.n[0].dev.session_id);
+        gcd_v2_declare(&W.n[1].dev, &host, W.now);
+        gcd_v2_connect(&W.n[1].dev, GCD_ALL, W.now);
+    }
+    sim_run(&W, 400);
+    CHECK_EQ(sim_count(&W, 0, GCD_EV2_CONFIRM_DEVICE), 1);
+    sim_free(&W);
+}
+
+static void test_v2_client_renamed_after_registration(void)
+{
+    gcd_event *e;
+    sim_init(&W, 2, GC_API_V2, UID);
+    sim_run(&W, 500); /* both registered under their old names */
+    gcd_v2_start(&W.n[0].dev, 1, 0, W.now);
+    gcd_v2_set_accept_mode(&W.n[0].dev, GCD_ACCEPT_CONFIRM, W.now);
+    sim_run(&W, 300);
+    gcd_v2_start(&W.n[1].dev, 0, 0, W.now);
+    CHECK_EQ(gcd_set_name(&W.n[1].dev, "6R49C00000000ngage1", W.now), 1);
+    sim_run(&W, 300);
+    CHECK_EQ(W.n[1].dev.registered, 1);
+    e = discover(1);
+    CHECK(e && e->id == 1);
+    if (e && e->id == 1) {
+        gcd_device host = ((gcd_device *)e->data)[0];
+        gcd_v2_declare(&W.n[1].dev, &host, W.now);
+        gcd_v2_connect(&W.n[1].dev, GCD_ALL, W.now);
+    }
+    sim_run(&W, 400);
+    e = sim_last(&W, 0, GCD_EV2_CONFIRM_DEVICE);
+    CHECK(e && strcmp(e->dev.name, "6R49C00000000ngage1") == 0);
+    sim_free(&W);
+}
+
+static void test_v2_rename_keeps_a_joined_session(void)
+{
+    gc_u32 sid;
+    v2_connect_all(1, GCD_ACCEPT_ALL);
+    sid = W.n[0].dev.session_id;
+    CHECK_EQ(gcd_set_name(&W.n[0].dev, "renamed host", W.now), 1);
+    CHECK_EQ(gcd_set_name(&W.n[1].dev, "renamed client", W.now), 1);
+    sim_run(&W, 300);
+    CHECK_EQ(W.n[0].dev.session_id, sid);
+    CHECK_EQ(gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now), 0);
+    sim_run(&W, 400);
+    CHECK_EQ(sim_count(&W, 1, GCD_EV2_CONNECTED), 1);
+    CHECK_EQ(sim_last(&W, 1, GCD_EV2_CONNECTED)->err, 0);
+    sim_free(&W);
+}
+
+/* ================================================================ */
+/* bridge link released between sessions: most 2.x games refuse to  */
+/* start ("Bluetooth busy") while any Bluetooth link exists          */
+/* ================================================================ */
+
+static void test_v2_quiet_states(void)
+{
+    v2_connect_all(1, GCD_ACCEPT_ALL);
+    CHECK_EQ(gcd_is_quiet(&W.n[0].dev), 0); /* accepting, has a player */
+    CHECK_EQ(gcd_is_quiet(&W.n[1].dev), 0); /* in a session */
+    gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now);
+    sim_run(&W, 400);
+    CHECK_EQ(gcd_is_quiet(&W.n[0].dev), 0);
+    gcd_v2_disconnect(&W.n[1].dev, GCD_ALL, 0, W.now);
+    sim_run(&W, 400);
+    CHECK_EQ(gcd_is_quiet(&W.n[1].dev), 1);
+    gcd_v2_disconnect(&W.n[0].dev, 1, 1, W.now); /* forget the player */
+    sim_run(&W, 400);
+    CHECK_EQ(gcd_is_quiet(&W.n[0].dev), 1);
+    gcd_discover_once(&W.n[1].dev, W.now);
+    CHECK_EQ(gcd_is_quiet(&W.n[1].dev), 0); /* a search is running */
+    sim_free(&W);
+}
+
+/* the game came back before the link was closed */
+static void test_v2_release_undone(void)
+{
+    v2_connect_all(1, GCD_ACCEPT_ALL);
+    gcd_v2_disconnect(&W.n[0].dev, 1, 1, W.now);
+    sim_run(&W, 300);
+    gcd_release(&W.n[0].dev, W.now);
+    sim_run(&W, 300);
+    CHECK_EQ(W.n[0].dev.session_open, 0);
+    gcd_resume(&W.n[0].dev, W.now);
+    gcd_v2_set_accept_mode(&W.n[0].dev, GCD_ACCEPT_ALL, W.now);
+    sim_run(&W, 300);
+    CHECK_EQ(W.n[0].dev.session_open, 1);
+    CHECK(discover(1) && sim_last(&W, 1, GCD_EV_DISCOVERED)->id == 1);
+    sim_free(&W);
+}
+
+static void test_v2_release_and_play_again(void)
+{
+    gcd_event *e;
+    int ev0, ev1;
+    v2_connect_all(1, GCD_ACCEPT_ALL);
+    gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now);
+    sim_run(&W, 400);
+    gcd_v2_disconnect(&W.n[1].dev, GCD_ALL, 0, W.now);
+    gcd_v2_disconnect(&W.n[0].dev, 1, 1, W.now);
+    sim_run(&W, 400);
+    ev0 = W.n[0].n_ev;
+    ev1 = W.n[1].n_ev;
+    /* both drop the bridge link on purpose */
+    gcd_release(&W.n[0].dev, W.now);
+    gcd_release(&W.n[1].dev, W.now);
+    sim_run(&W, 200);
+    CHECK_EQ(W.n[0].dev.session_open, 0); /* no re-open before the link closes */
+    sim_spp_drop(&W, 0);
+    sim_spp_drop(&W, 1);
+    sim_run(&W, 120000); /* long enough for the link layer to give up */
+    /* no loss is reported to the game */
+    CHECK_EQ(sim_count(&W, 0, GCD_EV2_DISCONNECTED), 1);
+    CHECK_EQ(sim_count(&W, 1, GCD_EV2_DISCONNECTED), 1);
+    CHECK_EQ(sim_count(&W, 1, GCD_EV2_CONNECTED), 1);
+    (void)ev0;
+    (void)ev1;
+    /* next round: the host opens its door again, the link comes back */
+    gcd_v2_set_accept_mode(&W.n[0].dev, GCD_ACCEPT_ALL, W.now);
+    sim_spp_restore(&W, 0);
+    sim_spp_restore(&W, 1);
+    sim_run(&W, 1500);
+    CHECK_EQ(W.n[0].dev.session_open, 1);
+    e = discover(1);
+    CHECK(e && e->id == 1);
+    if (e && e->id == 1) {
+        gcd_device host = ((gcd_device *)e->data)[0];
+        gcd_v2_declare(&W.n[1].dev, &host, W.now);
+        gcd_v2_connect(&W.n[1].dev, GCD_ALL, W.now);
+    }
+    sim_run(&W, 400);
+    CHECK_EQ(gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now), 0);
+    sim_run(&W, 400);
+    CHECK_EQ(sim_count(&W, 1, GCD_EV2_CONNECTED), 2);
+    CHECK_EQ(sim_last(&W, 1, GCD_EV2_CONNECTED)->err, 0);
+    sim_free(&W);
+}
+
+/* ================================================================ */
 /* transport robustness                                              */
 /* ================================================================ */
 
@@ -785,6 +959,12 @@ int main(void)
     RUN(test_v2_disconnect);
     RUN(test_v2_client_ui_selection);
     RUN(test_v2_real_bt_device_declared);
+    RUN(test_v2_host_renamed_before_anybody_joined);
+    RUN(test_v2_client_renamed_after_registration);
+    RUN(test_v2_rename_keeps_a_joined_session);
+    RUN(test_v2_quiet_states);
+    RUN(test_v2_release_and_play_again);
+    RUN(test_v2_release_undone);
     RUN(test_tcp_drop_resumes_without_loss);
     RUN(test_bridge_reboot_reports_loss);
     RUN(test_noisy_bluetooth_link);

@@ -58,8 +58,8 @@ EXPORTS
 	gc2_SetLocalDeviceName @ 56 NONAME ; TInt CGameBTComms::SetLocalDeviceName(THostName)
 	gcx_Disc_StartL_57=gcx_Disc_StartL @ 57 NONAME ; TInt CGameBTDiscoverer::StartFullL()  [internal helper]
 	gc2_EndSession @ 58 NONAME ; void CGameBTComms::EndSession()
-	gc2_DiscoverabilityOp_59=gc2_DiscoverabilityOp @ 59 NONAME ; TInt CGameBTComms::<discoverability helper 3>()
-	gc2_DiscoverabilityOp_60=gc2_DiscoverabilityOp @ 60 NONAME ; TInt CGameBTComms::<discoverability helper 2>()
+	gc2_IsDiscoverabilityModeLimited @ 59 NONAME ; TInt CGameBTComms::IsDiscoverabilityModeLimited(TBool&)
+	gc2_IsDiscoverable @ 60 NONAME ; TInt CGameBTComms::<visibility getter>(TBool&)
 	gc2_SetDiscoverabilityModeLimited @ 61 NONAME ; TInt CGameBTComms::SetDiscoverabilityModeLimited(TBool)
 	gcx_Disc_SetSearchMode @ 62 NONAME ; TInt CGameBTDiscoverer::SetSearchModeLimited(...)  [internal helper]
-	gc2_DiscoverabilityOp_63=gc2_DiscoverabilityOp @ 63 NONAME ; TInt CGameBTComms::<discoverability helper 1>()
+	gc2_SetDiscoverable @ 63 NONAME ; TInt CGameBTComms::<visibility setter>(TBool)

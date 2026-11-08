@@ -16,6 +16,7 @@
 #include "GcPlatform.h"
 #include "GcTransport.h"
 #include <e32base.h>
+#include <es_sock.h>
 #include <f32file.h>
 
 class CGcListControl;
@@ -52,8 +53,22 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     gcd_dev &Dev() { return *iDev; }
     gc_u32 Now();
 
-    /** Bring up the bridge connection if necessary. */
+    /** Bring up the bridge connection if necessary (cancels a pending
+     *  release, see RequestRelease). */
     void EnsureTransport();
+    /** Close the bridge connection once nothing needs it any more
+     *  (after Disconnect / EndSession).  Many 2.x games refuse to start
+     *  a multiplayer game while any Bluetooth link exists ("Bluetooth
+     *  busy"); with the original library there was none between games. */
+    void RequestRelease();
+
+    /** The game may rename the phone's Bluetooth device itself to tag it
+     *  for its host search (RHostResolver::SetHostName, e.g. Rifts,
+     *  SSX).  Picks up such a rename; called by the API functions after
+     *  which the name matters. */
+    void RefreshName();
+    /** SetLocalDeviceName(). */
+    void SetLocalName(const TDesC &aName);
     /** Run the engine after an API call (timers, event delivery). */
     void Kick();
 
@@ -92,6 +107,8 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     static TInt TimerCallBack(TAny *aSelf);
     static TInt DispatchCallBack(TAny *aSelf);
     static TInt RetryCallBack(TAny *aSelf);
+    static TInt ReleaseCallBack(TAny *aSelf);
+    void DoRelease();
     void Tick();
     void Dispatch();
     void ShowListL(const gcd_event &aEvent, TBool aHostConfirm);
@@ -109,6 +126,10 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     CGcTransport *iTransport;
     CPeriodic *iTimer;
     CPeriodic *iRetry;
+    CPeriodic *iRelease;
+    TInt iReleaseStage;
+    THostName iBtName; /* Bluetooth name as last seen */
+    TBool iBtNameKnown;
     CAsyncCallBack *iDispatcher;
     CGcListControl *iList;
     CGcListControl *iDoomedList;

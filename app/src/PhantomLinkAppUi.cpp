@@ -29,6 +29,9 @@
 
 const TInt KStatusLine = 0;
 
+_LIT8(KSecConfig, "[Config]");
+_LIT8(KSecBridge, "[Bridge]");
+
 CPhantomLinkAppUi::CPhantomLinkAppUi() : iMode(EGames), iOperation(ENone)
 {
 }
@@ -135,6 +138,248 @@ void CPhantomLinkAppUi::ShowBoardL()
     iView->SetListL(items, 0, EFalse);
 }
 
+/* ------------------------------------------------------------------ */
+/* GameComms settings (GameComms.ini, always written to C:)            */
+/* ------------------------------------------------------------------ */
+
+static void AppendOnOff(TDes &aText, const TDesC &aLabel, TBool aOn)
+{
+    aText.Append(aLabel);
+    aText.Append(aOn ? _L("on") : _L("off"));
+}
+
+void CPhantomLinkAppUi::ShowCommsL(TInt aCurrent)
+{
+    iMode = EComms;
+    iComms = TGcConfig();
+    iComms.Load();
+    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(ECommsRowCount);
+    CleanupStack::PushL(items);
+    TBuf<120> line;
+    for (TInt row = 0; row < ECommsRowCount; row++) {
+        CommsText(row, line);
+        items->AppendL(line);
+    }
+    CleanupStack::Pop(items);
+    iView->SetListL(items, aCurrent, EFalse);
+}
+
+void CPhantomLinkAppUi::CommsText(TInt aRow, TDes &aText) const
+{
+    aText.Copy(_L("\t"));
+    switch (aRow) {
+    case ECommsFile:
+        aText.Append(_L("File: "));
+        if (iComms.iPath.Length() == 0) {
+            aText.Append(_L("none, defaults"));
+        } else if (iComms.iPath.CompareF(TGcConfig::WritePath()) == 0) {
+            aText.Append(_L("C:\\System\\Data"));
+        } else {
+            aText.Append(iComms.iPath.Left(40));
+            aText.Append(_L(" (read only)"));
+        }
+        break;
+    case ECommsName:
+        aText.Append(_L("Player name: "));
+        if (iComms.iDeviceName.Length()) {
+            TBuf<GC_MAX_NAME + 1> name;
+            CnvUtfConverter::ConvertToUnicodeFromUtf8(name, iComms.iDeviceName);
+            aText.Append(name);
+        } else {
+            aText.Append(_L("Bluetooth name"));
+        }
+        break;
+    case ECommsAutoJoin:
+        AppendOnOff(aText, _L("Join first game: "), iComms.iAutoJoin);
+        break;
+    case ECommsLog:
+        AppendOnOff(aText, _L("Write log: "), iComms.iLog);
+        break;
+    case ECommsRelease:
+        AppendOnOff(aText, _L("Release bridge: "), iComms.iReleaseBridge);
+        break;
+    case ECommsFollow:
+        AppendOnOff(aText, _L("Follow BT name: "), iComms.iFollowBtName);
+        break;
+    case ECommsAddress:
+        aText.Append(_L("Bridge: "));
+        if (iComms.iHasBridge) {
+            for (TInt i = 0; i < 6; i++) {
+                aText.AppendNumFixedWidth(iComms.iBridge[i], EHex, 2);
+            }
+        } else {
+            aText.Append(_L("ask on first use"));
+        }
+        break;
+    case ECommsChannel:
+        aText.Append(_L("Bridge channel: "));
+        if (iComms.iChannel > 0) {
+            aText.AppendNum(iComms.iChannel);
+        } else {
+            aText.Append(_L("auto"));
+        }
+        break;
+    default:
+        break;
+    }
+}
+
+void CPhantomLinkAppUi::EditCommsL()
+{
+    TInt row = iView->CurrentIndex();
+    TInt err = KErrNone;
+    switch (row) {
+    case ECommsFile:
+        if (iComms.iPath.Length() && iComms.iPath.CompareF(TGcConfig::WritePath()) != 0) {
+            InfoL(_L("Settings come from E:. The first change copies them to C:\\System\\Data, which is used from then on."));
+        } else {
+            InfoL(_L("Settings are stored in C:\\System\\Data\\GameComms.ini. Game cards are read only."));
+        }
+        return;
+    case ECommsName:
+    {
+        TBuf<GC_MAX_NAME> name;
+        CnvUtfConverter::ConvertToUnicodeFromUtf8(name, iComms.iDeviceName);
+        CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(name);
+        dialog->SetMaxLength(GC_MAX_NAME);
+        if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Name (- = BT name)"))) {
+            return;
+        }
+        TBuf8<GC_MAX_NAME> name8;
+        if (name.Compare(_L("-")) != 0 && CnvUtfConverter::ConvertFromUnicodeToUtf8(name8, name) != 0) {
+            ErrorL(_L("Name is too long in UTF-8"));
+            return;
+        }
+        err = iComms.SetValue(KSecConfig, _L8("DeviceName"), name8); /* empty: remove */
+        break;
+    }
+    case ECommsAutoJoin:
+        err = iComms.SetValue(KSecConfig, _L8("AutoJoin"), iComms.iAutoJoin ? _L8("0") : _L8("1"));
+        break;
+    case ECommsLog:
+        err = iComms.SetValue(KSecConfig, _L8("Log"), iComms.iLog ? _L8("0") : _L8("1"));
+        break;
+    case ECommsRelease:
+        err = iComms.SetValue(KSecConfig, _L8("ReleaseBridge"), iComms.iReleaseBridge ? _L8("0") : _L8("1"));
+        break;
+    case ECommsFollow:
+        err = iComms.SetValue(KSecConfig, _L8("FollowBtName"), iComms.iFollowBtName ? _L8("0") : _L8("1"));
+        break;
+    case ECommsAddress:
+    {
+        TBuf<12> text;
+        if (iComms.iHasBridge) {
+            for (TInt i = 0; i < 6; i++) {
+                text.AppendNumFixedWidth(iComms.iBridge[i], EHex, 2);
+            }
+        }
+        CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(text);
+        dialog->SetMaxLength(12);
+        if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Address (- = ask)"))) {
+            return;
+        }
+        TBuf8<12> addr;
+        if (text.Compare(_L("-")) != 0) {
+            TBool ok = text.Length() == 12;
+            for (TInt i = 0; ok && i < text.Length(); i++) {
+                TChar c(text[i]);
+                ok = c.IsHexDigit();
+            }
+            if (!ok) {
+                ErrorL(_L("Enter 12 hex digits, for example 0002ee112233"));
+                return;
+            }
+            addr.Copy(text);
+        }
+        err = iComms.SetValue(KSecBridge, _L8("Address"), addr); /* empty: forget */
+        break;
+    }
+    case ECommsChannel:
+    {
+        TBuf<2> text;
+        if (iComms.iChannel > 0) {
+            text.AppendNum(iComms.iChannel);
+        } else {
+            text.Append('0');
+        }
+        CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(text);
+        dialog->SetMaxLength(2);
+        if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Channel (0 = auto)"))) {
+            return;
+        }
+        TLex lex(text);
+        TInt channel = 0;
+        if (lex.Val(channel) != KErrNone || !lex.Eos() || channel < 0 || channel > 30) {
+            ErrorL(_L("Channel must be 0 to 30"));
+            return;
+        }
+        TBuf8<2> value;
+        if (channel > 0) {
+            value.AppendNum(channel);
+        }
+        err = iComms.SetValue(KSecBridge, _L8("Channel"), value); /* empty: auto */
+        break;
+    }
+    default:
+        return;
+    }
+    if (err != KErrNone) {
+        TBuf<100> text;
+        text.Copy(_L("Could not write C:\\System\\Data\\GameComms.ini, error "));
+        text.AppendNum(err);
+        ErrorL(text);
+    }
+    ShowCommsL(row);
+}
+
+void CPhantomLinkAppUi::ForgetBridgeL()
+{
+    iComms = TGcConfig();
+    iComms.Load();
+    if (!iComms.iHasBridge && iComms.iChannel <= 0) {
+        InfoL(_L("No bridge saved. The next game asks for one."));
+        return;
+    }
+    if (!ConfirmL(_L("Forget the saved bridge? The next game asks for one."))) {
+        return;
+    }
+    TInt err = iComms.RemoveSection(KSecBridge);
+    if (err != KErrNone) {
+        TBuf<100> text;
+        text.Copy(_L("Could not write C:\\System\\Data\\GameComms.ini, error "));
+        text.AppendNum(err);
+        ErrorL(text);
+        return;
+    }
+    if (iMode == EComms) {
+        ShowCommsL(ECommsAddress);
+    }
+    InfoL(_L("Bridge forgotten. Choose the new one when a game connects."));
+}
+
+void CPhantomLinkAppUi::ResetCommsL()
+{
+    if (!ConfirmL(_L("Delete GameComms.ini on C:? The saved bridge is forgotten too."))) {
+        return;
+    }
+    RFs fs;
+    User::LeaveIfError(fs.Connect());
+    TInt err = fs.Delete(TGcConfig::WritePath());
+    fs.Close();
+    if (err == KErrNone || err == KErrNotFound || err == KErrPathNotFound) {
+        ShowCommsL(0);
+        if (iComms.iPath.Length()) {
+            InfoL(_L("Deleted. The read only file on E: is used now."));
+        } else {
+            InfoL(_L("Deleted. GameComms uses its defaults."));
+        }
+    } else {
+        TBuf<100> text;
+        DescribeError(err, text);
+        ErrorL(text);
+    }
+}
+
 void CPhantomLinkAppUi::ReadBoardL(TUint32 aIndex)
 {
     TBuf8<GC_MAX_NAME> name;
@@ -214,7 +459,11 @@ void CPhantomLinkAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane *aMenuPa
     TBool games = iMode == EGames;
     TBool bridge = iMode == EBridge;
     TBool board = iMode == EBoard;
+    TBool comms = iMode == EComms;
     aMenuPane->SetItemDimmed(EPlCmdSelect, EFalse);
+    aMenuPane->SetItemDimmed(EPlCmdComms, comms);
+    aMenuPane->SetItemDimmed(EPlCmdCommsReset, !comms);
+    aMenuPane->SetItemDimmed(EPlCmdForgetBridge, !comms && !bridge);
     aMenuPane->SetItemDimmed(EPlCmdGames, games);
     aMenuPane->SetItemDimmed(EPlCmdBridge, bridge);
     aMenuPane->SetItemDimmed(EPlCmdRead, !bridge);
@@ -251,6 +500,8 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
     case EPlCmdSelect:
         if (iMode == EGames) {
             InstallSelectedL();
+        } else if (iMode == EComms) {
+            EditCommsL();
         } else if (iMode == EBoard) {
             if (iBoard.u.board.count) {
                 TBuf<GC_BOARD_TEXT_MAX> text;
@@ -312,6 +563,16 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
         break;
     case EPlCmdAbout:
         ShowAboutL();
+        break;
+    case EPlCmdComms:
+        iBoardClient->Close();
+        ShowCommsL(0);
+        break;
+    case EPlCmdCommsReset:
+        ResetCommsL();
+        break;
+    case EPlCmdForgetBridge:
+        ForgetBridgeL();
         break;
     default:
         break;
@@ -577,5 +838,5 @@ void CPhantomLinkAppUi::ErrorL(const TDesC &aText)
 
 void CPhantomLinkAppUi::ShowAboutL()
 {
-    InfoL(_L("PhantomLink: pick your game to install its gamecomms.dll, or set up the ESP32 bridge over Bluetooth."));
+    InfoL(_L("PhantomLink: pick your game to install its gamecomms.dll, set up the ESP32 bridge over Bluetooth, or change the GameComms settings (stored on C:)."));
 }

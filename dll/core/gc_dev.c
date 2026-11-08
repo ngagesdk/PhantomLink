@@ -356,7 +356,9 @@ static void kick_role(gcd_dev *d)
         return;
     }
     if (d->want_role == GCD_ROLE_HOST && !d->session_open) {
-        do_host_open(d);
+        if (!d->released) {
+            do_host_open(d);
+        }
     } else if (d->want_role == GCD_ROLE_CLIENT && d->selecting) {
         do_discover(d);
     } else if (d->want_role == GCD_ROLE_CLIENT && d->joining && d->target_set) {
@@ -1173,6 +1175,7 @@ void gcd_transport_up(gcd_dev *d, gc_u32 now)
 {
     d->now = now;
     d->transport_up = 1;
+    d->released = 0;
     gc_link_start(&d->link, d->cfg.link_id, now);
 }
 
@@ -1202,7 +1205,7 @@ void gcd_poll(gcd_dev *d, gc_u32 now)
         }
         return;
     }
-    if (d->want_role == GCD_ROLE_HOST && !d->session_open && !GC_TIME_BEFORE(now, d->t_retry)) {
+    if (d->want_role == GCD_ROLE_HOST && !d->session_open && !d->released && !GC_TIME_BEFORE(now, d->t_retry)) {
         do_host_open(d);
     }
     if ((d->selecting || d->discover_once) && !GC_TIME_BEFORE(now, d->t_discover)) {
@@ -1772,4 +1775,95 @@ void gcd_end_session(gcd_dev *d, gc_u32 now)
     d->now = now;
     leave_network(d, GC_LEFT_LEAVE);
     reset_role(d);
+}
+
+/* ------------------------------------------------------------------ */
+/* public: local name and bridge link lifetime                         */
+/* ------------------------------------------------------------------ */
+
+int gcd_set_name(gcd_dev *d, const char *name, gc_u32 now)
+{
+    int i;
+    d->now = now;
+    if (!name || !name[0]) {
+        return 0;
+    }
+    {
+        char n[GC_MAX_NAME + 1];
+        copy_name(n, name); /* compare what would actually be sent */
+        if (name_eq(d->cfg.name, n)) {
+            return 0;
+        }
+        copy_name(d->cfg.name, n);
+    }
+    dlog(d, "local name changed", 0);
+    if (!ready(d)) {
+        return 1; /* used by the coming registration / host open */
+    }
+    if (d->role == GCD_ROLE_HOST) {
+        if (d->session_open && d->conn_state == GCD_CS_NOT_CONNECTED) {
+            for (i = 1; i < GC_MAX_PLAYERS; i++) {
+                if (d->peer[i].present) {
+                    return 1; /* somebody is in: keep the session */
+                }
+            }
+            /* nobody has seen this session yet: open it again under the
+               new name (clients only find a host by its name) */
+            leave_network(d, GC_LEFT_LEAVE);
+            d->session_id = 0;
+            d->t_retry = now;
+            kick_role(d);
+        }
+        return 1;
+    }
+    if (!d->session_open && !d->joining) {
+        /* the host learns a client's name from its registration */
+        d->registered = 0;
+        send_register(d);
+    }
+    return 1;
+}
+
+int gcd_is_quiet(const gcd_dev *d)
+{
+    int i;
+    if (d->discover_once || d->selecting || d->joining) {
+        return 0;
+    }
+    if (d->conn_state != GCD_CS_NOT_CONNECTED) {
+        return 0;
+    }
+    if (d->role == GCD_ROLE_CLIENT && d->session_open) {
+        return 0;
+    }
+    if (d->role == GCD_ROLE_HOST) {
+        if (d->accept_mode != GCD_ACCEPT_NONE) {
+            return 0;
+        }
+        for (i = 1; i < GC_MAX_PLAYERS; i++) {
+            if (d->peer[i].present) {
+                return 0;
+            }
+        }
+    }
+    return 1;
+}
+
+void gcd_release(gcd_dev *d, gc_u32 now)
+{
+    d->now = now;
+    leave_network(d, GC_LEFT_LEAVE);
+    d->session_id = 0;
+    d->discover_once = 0;
+    d->released = 1; /* a host re-opens when the link is back */
+}
+
+void gcd_resume(gcd_dev *d, gc_u32 now)
+{
+    d->now = now;
+    if (!d->released) {
+        return;
+    }
+    d->released = 0;
+    d->t_retry = now; /* a host re-opens with the next poll */
 }

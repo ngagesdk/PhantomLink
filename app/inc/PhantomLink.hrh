@@ -26,7 +26,10 @@ enum TPhantomLinkCommands
     EPlCmdBoardPost,
     EPlCmdBoardOlder,
     EPlCmdBoardNewer,
-    EPlCmdAbout
+    EPlCmdAbout,
+    EPlCmdComms,
+    EPlCmdCommsReset,
+    EPlCmdForgetBridge
 };
 
 #endif /* PHANTOMLINK_HRH */
