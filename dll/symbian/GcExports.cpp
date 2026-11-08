@@ -14,6 +14,9 @@
 
 #include "GameBTComms.h"
 #include "GcHelpers.h"
+#include <coeaui.h>
+#include <coecntrl.h>
+#include <coemain.h>
 
 #ifndef GC_VARIANT
 #define GC_VARIANT 6
@@ -158,20 +161,57 @@ GC_EXPORT TInt gc2_SetDiscoverable(CGameBTComms2 * /*aThis*/, TBool /*aOn*/) { r
 /* GameComms 2.x helper classes that the original exported as well:   */
 /* device list control, device discoverer and SDP resolver.  The       */
 /* discoverer and resolver work (Ashen uses them for its host search); */
-/* the list control is an inert, memory-safe stand-in so that a game   */
-/* that references it keeps working; see docs/COMPATIBILITY.md.        */
+/* the list control is a stand-in that never shows itself, so that a   */
+/* game that references it keeps working; see docs/COMPATIBILITY.md.   */
 /* ================================================================== */
 
-class CGcCompatList : public CBase
+/* The original CGameBTDeviceList is a window-owning CCoeControl that   */
+/* is created invisible (CreateWindowL, SetRect, ActivateL,             */
+/* MakeVisible(EFalse)) and lets every key through while invisible.     */
+/* Games put it on the AppUi control stack themselves: Xanadu Next      */
+/* creates two in its AppUi::ConstructL, AddToStackL()s them, then      */
+/* RemoveFromStack()s and deletes them through the vtable.  It has to   */
+/* be a real CCoeControl for that: CONE reads its control flags and     */
+/* calls its virtuals (focus, key events), which on a plain CBase       */
+/* object ran off the end of the heap cell and crashed at start-up.     */
+
+class CGcCompatList : public CCoeControl
 {
   public:
     CGcCompatList() : iArray(4) {}
+    ~CGcCompatList()
+    {
+        /* games remove it themselves; harmless if not on the stack */
+        if (iCoeEnv && iCoeEnv->AppUi()) {
+            static_cast<CCoeAppUi *>(iCoeEnv->AppUi())->RemoveFromStack(this);
+        }
+    }
+    void ConstructL(const TRect &aRect)
+    {
+        if (!iCoeEnv) {
+            return; /* no UI environment: storage only */
+        }
+        CreateWindowL();
+        SetRect(aRect);
+        ActivateL();
+        MakeVisible(EFalse);
+    }
+    /* never shown, so never takes keys (like the original while hidden) */
+    TKeyResponse OfferKeyEventL(const TKeyEvent &, TEventCode) { return EKeyWasNotConsumed; }
+
     CArrayFixFlat<TDeviceDetails> iArray;
+
+  private:
+    void Draw(const TRect &) const {}
 };
 
-GC_EXPORT CGcCompatList *gcx_List_NewL(const TRect *, TAny *, TInt, RSGEDebugLog *)
+GC_EXPORT CGcCompatList *gcx_List_NewL(const TRect *aRect, TAny *, TInt, RSGEDebugLog *)
 {
-    return new (ELeave) CGcCompatList;
+    CGcCompatList *self = new (ELeave) CGcCompatList;
+    CleanupStack::PushL(self);
+    self->ConstructL(aRect ? *aRect : TRect());
+    CleanupStack::Pop();
+    return self;
 }
 
 GC_EXPORT void gcx_List_dtor(CGcCompatList *aThis, TInt aFlags)
@@ -210,8 +250,8 @@ GC_EXPORT TInt gcx_List_Count(CGcCompatList *aThis) { return aThis->iArray.Count
 GC_EXPORT void gcx_List_Reset(CGcCompatList *aThis) { aThis->iArray.Reset(); }
 GC_EXPORT TInt gcx_List_CurrentItem(CGcCompatList *) { return -1; }
 GC_EXPORT TAny *gcx_List_ListBox(CGcCompatList *) { return NULL; }
-GC_EXPORT void gcx_List_Show(CGcCompatList *) {}
-GC_EXPORT void gcx_List_Hide(CGcCompatList *) {}
+GC_EXPORT void gcx_List_Show(CGcCompatList *) {} /* stays hidden: the replacement has no picker */
+GC_EXPORT void gcx_List_Hide(CGcCompatList *aThis) { aThis->MakeVisible(EFalse); }
 
 /* ---- device discoverer and service resolver: working versions, see
  *      GcHelpers.h (games like Ashen search for hosts with them) ---- */
