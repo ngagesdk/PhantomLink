@@ -130,10 +130,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 
 | Game                                     | Use      | md5sum of the original           | Ordinals |                              Status                              |
 | ---------------------------------------- | -------- | -------------------------------- | -------- | :--------------------------------------------------------------: |
-| Nokia N-Gage SDK 1.0 Beta                | SDK only | cb326c500bdb795494d55d30196b8711 | 33       |                                                                  |
 | Marcel Desailly Pro Soccer               | v1       | 79c25cdd1972c287712475ee544c7bf3 | 33       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| MotoGP                                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Pandemonium!                             | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Puyo Pop                                 | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Tony Hawk's Pro Skater                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
@@ -160,7 +157,6 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Glimmerati                               | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | ONE                                      | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| System Rush                              | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The Roots: Gates of Chaos                | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Asphalt: Urban GT 2                      | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
