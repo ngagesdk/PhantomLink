@@ -59,7 +59,7 @@ following:
 
 You need one of the following devices to connect your N-Gage to PhantomLink:
 
-- An ESP32 development board with Bluetooth support (currently unstable)
+- An ESP32 development board with Bluetooth support.
 
 - A Linux PC with Bluetooth support.
 
