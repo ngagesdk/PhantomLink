@@ -186,7 +186,7 @@ static void txq_flush(gcd_dev *d)
         off += 2 + n; /* sent (or failed for good, e.g. link down): drop */
     }
     if (off) {
-        memmove(d->txq, d->txq + off, d->txq_len - off);
+        gc_memmove(d->txq, d->txq + off, d->txq_len - off); /* no libc memmove in the DLL */
         d->txq_len -= off;
     }
 }
