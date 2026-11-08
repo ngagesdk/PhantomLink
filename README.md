@@ -143,7 +143,6 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | NCAA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Rayman 3                                 | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Tom Clancy's Ghost Recon: Jungle Storm   | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| The Sims Bustin' Out                     | v4       | c2f184012cd0635f3065b7d5042702ce | 56       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Catan                                    | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Mile High Pinball                        | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Requiem of Hell                          | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
@@ -155,7 +154,6 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | SSX Out of Bounds                        | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | WWE Aftershock                           | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Xanadu Next                              | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
-| Snakes                                   | v7       | f07f48ee44cca60046f40ce41858a160 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Ashen                                    | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Bomberman                                | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Crash Nitro Kart                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
@@ -163,7 +161,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Tiger Woods PGA Tour 2004                | v9       | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Glimmerati                               | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | ONE                                      | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | System Rush                              | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The Roots: Gates of Chaos                | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Asphalt: Urban GT 2                      | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |

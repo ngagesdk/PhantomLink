@@ -102,7 +102,7 @@ add_dependencies(PhantomLink PhantomLink.rsc)
 
 # SIS installer: the application plus all game variants as dlls\gcvN.dll.
 # The app's game list refers to every variant, so all of them are required.
-set(PL_ALL_VARIANTS 1 2 3 4 5 6 7 8 9 10 11)
+set(PL_ALL_VARIANTS 1 2 3 5 6 7 8 9 10 11)
 foreach(v ${PL_ALL_VARIANTS})
     if(NOT "${v}" IN_LIST GC_VARIANTS)
         message(FATAL_ERROR "PhantomLink.sis needs all DLL variants, but variant ${v} is not in GC_VARIANTS. Build all variants or use -DGC_BUILD_APP=OFF.")

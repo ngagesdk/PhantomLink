@@ -34,12 +34,10 @@ static const TGameEntry KGames[] = {
     { "Rayman 3", 3 },
     /* { "Requiem of Hell", 5 }, */
     { "Rifts: Promise of Power", 10 },
-    /* { "Snakes", 7 }, */
-    /* { "SSX Out of Bounds", 6 }, */
+    /* {"SSX Out of Bounds", 6}, */
     /* { "System Rush", 10 }, */
     /* { "The King of Fighters Extreme", 5 }, */
     /* { "The Roots: Gates of Chaos", 10 }, */
-    /* { "The Sims Bustin' Out", 4 }, */
     { "Tiger Woods PGA Tour 2004", 9 },
     { "Tom Clancy's Ghost Recon: Jungle Storm", 3 },
     /* { "Tom Clancy's Splinter Cell: Chaos Theory", 5 }, */

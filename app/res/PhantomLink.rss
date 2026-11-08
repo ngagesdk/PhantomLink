@@ -42,7 +42,7 @@ RESOURCE MENU_PANE r_pl_menu
     {
         MENU_ITEM { command = EPlCmdSelect; txt = "Select"; },
         MENU_ITEM { command = EPlCmdGames; txt = "Games"; },
-        MENU_ITEM { command = EPlCmdBridge; txt = "Bridge setup"; },
+        MENU_ITEM { command = EPlCmdBridge; txt = "ESP32 setup"; },
         MENU_ITEM { command = EPlCmdRead; txt = "Read from bridge"; },
         MENU_ITEM { command = EPlCmdWrite; txt = "Send to bridge"; },
         MENU_ITEM { command = EPlCmdReboot; txt = "Reboot bridge"; },
