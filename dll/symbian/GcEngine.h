@@ -148,6 +148,7 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     RFs iFs;
     RFile iLogFile;
     TBool iLogOpen;
+    TInt iLogSize; /* bytes in the log file, kept below KGcLogMax */
     TBool iDispatching;
     gcd_event *iEvent; /* scratch, heap: events are ~1.1 KB */
     MGcSessionListObserver *iListObserver;
