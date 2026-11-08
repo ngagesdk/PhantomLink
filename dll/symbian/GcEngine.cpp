@@ -18,6 +18,8 @@
 static const TInt KGcTlsHandle = 0x101f5ee2;
 
 _LIT(KGcLogFile, "C:\\System\\Data\\GameComms.log"); /* game cards are read only */
+/* C: is small (games quit when it is full): the log starts over beyond this */
+const TInt KGcLogMax = 32 * 1024;
 _LIT(KGcSelectHost, "Select game");
 _LIT(KGcConfirmPlayers, "Players");
 
@@ -157,8 +159,15 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
             err = iLogFile.Create(iFs, KGcLogFile, EFileWrite | EFileShareAny);
         }
         if (err == KErrNone) {
+            TInt size = 0;
+            iLogFile.Size(size);
+            if (size >= KGcLogMax) {
+                iLogFile.SetSize(0); /* start over */
+                size = 0;
+            }
             TInt pos = 0;
             iLogFile.Seek(ESeekEnd, pos);
+            iLogSize = size;
             iLogOpen = ETrue;
         }
     }
@@ -259,12 +268,23 @@ void CGcEngine::Log(const TDesC8 &aText)
     if (!iLogOpen) {
         return;
     }
+    if (iLogSize + aText.Length() + 18 > KGcLogMax) {
+        /* keep the newest lines: start the file over */
+        TInt pos = 0;
+        iLogFile.SetSize(0);
+        iLogFile.Seek(ESeekStart, pos);
+        iLogSize = 0;
+    }
     TBuf8<16> ts;
     ts.Num(iMs);
     ts.Append(' ');
-    iLogFile.Write(ts);
+    if (iLogFile.Write(ts) != KErrNone) {
+        iLogOpen = EFalse; /* e.g. C: full: stop logging, do not fill it up */
+        return;
+    }
     iLogFile.Write(aText);
     iLogFile.Write(_L8("\r\n"));
+    iLogSize += ts.Length() + aText.Length() + 2;
 }
 
 void CGcEngine::LogNum(const TDesC8 &aText, TInt aValue)
