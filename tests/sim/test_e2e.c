@@ -385,6 +385,69 @@ static void test_v2_data(void)
     sim_free(&W);
 }
 
+/* Warhammer sends its army in one loop without returning to the active
+ * scheduler: more messages than the link window, none may get lost */
+static void test_v2_burst_is_queued_not_lost(void)
+{
+    int k, ok = 1;
+    char msg[16];
+    v2_connect_all(2, GCD_ACCEPT_ALL);
+    gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now);
+    sim_run(&W, 300);
+    sim_clear(&W, 0);
+    sim_clear(&W, 1);
+    sim_clear(&W, 2);
+    for (k = 0; k < 60; k++) { /* client -> host, no time passes */
+        sprintf(msg, "unit %02d", k);
+        ok &= gcd_v2_send(&W.n[1].dev, GCD_ALL, (const gc_u8 *)msg, strlen(msg), W.now) == 0;
+    }
+    for (k = 0; k < 40; k++) { /* host -> all clients */
+        sprintf(msg, "squad %02d", k);
+        ok &= gcd_v2_send(&W.n[0].dev, GCD_ALL, (const gc_u8 *)msg, strlen(msg), W.now) == 0;
+    }
+    CHECK(ok);
+    CHECK(W.n[1].dev.txq_len > 0); /* more than the window: queued */
+    sim_run(&W, 3000);
+    CHECK_EQ(W.n[1].dev.txq_len, 0);
+    CHECK_EQ(sim_count(&W, 0, GCD_EV2_DATA), 60);
+    CHECK_EQ(sim_count(&W, 1, GCD_EV2_DATA), 40);
+    CHECK_EQ(sim_count(&W, 2, GCD_EV2_DATA), 40);
+    {
+        int i, n = 0, inorder = 1;
+        for (i = 0; i < W.n[0].n_ev; i++) {
+            if (W.n[0].ev[i].type == GCD_EV2_DATA) {
+                sprintf(msg, "unit %02d", n++);
+                inorder &= data_eq(&W.n[0].ev[i], msg);
+            }
+        }
+        CHECK(inorder);
+    }
+    sim_free(&W);
+}
+
+/* the queue has a limit: beyond it the send is refused, nothing breaks */
+static void test_v2_burst_beyond_queue_is_refused(void)
+{
+    static gc_u8 big[GC_MAX_DATA];
+    int k, refused = 0, sent = 0;
+    v2_connect_all(1, GCD_ACCEPT_ALL);
+    gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now);
+    sim_run(&W, 300);
+    sim_clear(&W, 0);
+    memset(big, 'x', sizeof(big));
+    for (k = 0; k < 64; k++) {
+        if (gcd_v2_send(&W.n[1].dev, GCD_ALL, big, sizeof(big), W.now) == GCD_KErrOverflow) {
+            refused++;
+        } else {
+            sent++;
+        }
+    }
+    CHECK(refused > 0);
+    sim_run(&W, 5000);
+    CHECK_EQ(sim_count(&W, 0, GCD_EV2_DATA), sent);
+    sim_free(&W);
+}
+
 static void test_v2_not_connected_errors(void)
 {
     v2_connect_all(1, GCD_ACCEPT_ALL);
@@ -952,6 +1015,8 @@ int main(void)
     RUN(test_v2_accept_all_and_connect);
     RUN(test_v2_data);
     RUN(test_v2_not_connected_errors);
+    RUN(test_v2_burst_is_queued_not_lost);
+    RUN(test_v2_burst_beyond_queue_is_refused);
     RUN(test_v2_confirm_mode);
     RUN(test_v2_game_host_search);
     RUN(test_v2_game_host_search_early);

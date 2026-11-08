@@ -131,6 +131,14 @@ typedef struct
 
 GC_STATIC_ASSERT(gcd_event_data_aligned, (sizeof(gcd_device) % 4) == 0);
 
+/* Game messages the link cannot take yet (its window of GC_LINK_QUEUE
+ * unacknowledged messages is full) wait here instead of being refused:
+ * the original library blocked in SendData, and games such as Warhammer
+ * send a whole army in one loop without looking at the result. */
+#ifndef GCD_TXQ_BYTES
+#define GCD_TXQ_BYTES 16384
+#endif
+
 #ifndef GCD_EVENT_QUEUE
 #define GCD_EVENT_QUEUE 24
 #endif
@@ -218,6 +226,11 @@ typedef struct
     int temp_disc; /* v1 client temporarily disconnected */
     int ready_sent;
     char host_name[GC_MAX_NAME + 1];
+
+    /* outgoing game and control messages waiting for link window space,
+     * each stored as a 2 byte length and the encoded message */
+    gc_u8 txq[GCD_TXQ_BYTES];
+    size_t txq_len;
 
     /* events */
     gcd_event ev[GCD_EVENT_QUEUE];

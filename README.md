@@ -168,7 +168,9 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 
 Always use the matching version. v1 and v2 to v11 have different APIs and
-cannot be mixed. Other combinations are not tested.
+cannot be mixed. Other combinations are not tested. Games not listed are
+unsupported because they use their own custom Bluetooth stack or
+implementation.
 
 ## Status
 

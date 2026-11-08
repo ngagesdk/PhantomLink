@@ -167,6 +167,56 @@ static int send_raw(gcd_dev *d, const gc_u8 *buf, size_t n)
     return GCD_KErrNotReady;
 }
 
+/* ---- send queue for game / control messages (see GCD_TXQ_BYTES) ---- */
+
+static void txq_clear(gcd_dev *d)
+{
+    d->txq_len = 0;
+}
+
+/* hand queued messages to the link while its window has room */
+static void txq_flush(gcd_dev *d)
+{
+    size_t off = 0;
+    while (off + 2 <= d->txq_len) {
+        size_t n = ((size_t)d->txq[off] << 8) | d->txq[off + 1];
+        if (send_raw(d, d->txq + off + 2, n) == GCD_KErrOverflow) {
+            break; /* window still full: keep it and everything after it */
+        }
+        off += 2 + n; /* sent (or failed for good, e.g. link down): drop */
+    }
+    if (off) {
+        memmove(d->txq, d->txq + off, d->txq_len - off);
+        d->txq_len -= off;
+    }
+}
+
+/* like send_raw, but waits in the queue instead of failing when the link
+ * window is full; order is kept with everything queued before */
+static int send_queued(gcd_dev *d, const gc_u8 *buf, size_t n)
+{
+    if (!n) {
+        return GCD_KErrArgument;
+    }
+    if (d->txq_len) {
+        txq_flush(d);
+    }
+    if (!d->txq_len) {
+        int r = send_raw(d, buf, n);
+        if (r != GCD_KErrOverflow) {
+            return r;
+        }
+    }
+    if (d->txq_len + 2 + n > sizeof(d->txq)) {
+        return GCD_KErrOverflow; /* really too much at once */
+    }
+    d->txq[d->txq_len++] = (gc_u8)(n >> 8);
+    d->txq[d->txq_len++] = (gc_u8)n;
+    memcpy(d->txq + d->txq_len, buf, n);
+    d->txq_len += n;
+    return GCD_KErrNone;
+}
+
 static int send_msg(gcd_dev *d, const gc_msg *m)
 {
     gc_u8 buf[64 + GC_MAX_LIST * 48];
@@ -181,7 +231,7 @@ static int send_ctl(gcd_dev *d, gc_u8 dst, gc_u8 type, const gc_u8 *arg, size_t 
     if (alen) {
         memcpy(p + 1, arg, alen);
     }
-    return send_raw(d, buf, gc_msg_encode_data(dst, GC_CH_CONTROL, p, alen + 1, buf, sizeof(buf)));
+    return send_queued(d, buf, gc_msg_encode_data(dst, GC_CH_CONTROL, p, alen + 1, buf, sizeof(buf)));
 }
 
 static int send_ctl_i32(gcd_dev *d, gc_u8 dst, gc_u8 type, int v)
@@ -267,6 +317,7 @@ static void reset_role(gcd_dev *d)
     d->ready_sent = 0;
     d->connect_all_pending = 0;
     d->accept_mode = GCD_ACCEPT_NONE;
+    txq_clear(d); /* nothing of an old session may reach a new one */
 }
 
 /* leave whatever we have on the server */
@@ -377,6 +428,7 @@ static void kick_role(gcd_dev *d)
 static void session_lost(gcd_dev *d, int err, int host_quit)
 {
     int i;
+    txq_clear(d);
 
     if (d->role == GCD_ROLE_CLIENT) {
         int had = d->session_open || d->joining;
@@ -1183,6 +1235,9 @@ void gcd_transport_input(gcd_dev *d, const gc_u8 *data, size_t len, gc_u32 now)
 {
     d->now = now;
     gc_link_input(&d->link, data, len, now);
+    if (d->txq_len && gc_link_is_up(&d->link)) {
+        txq_flush(d); /* acknowledgements make room */
+    }
 }
 
 void gcd_transport_down(gcd_dev *d, gc_u32 now)
@@ -1198,6 +1253,9 @@ void gcd_poll(gcd_dev *d, gc_u32 now)
     gc_link_poll(&d->link, now);
     if (!gc_link_is_up(&d->link)) {
         return;
+    }
+    if (d->txq_len) {
+        txq_flush(d);
     }
     if (!d->registered) {
         if (!GC_TIME_BEFORE(now, d->t_reg_retry)) {
@@ -1423,7 +1481,7 @@ int gcd_v1_send(gcd_dev *d, int dst, const gc_u8 *data, size_t len, gc_u32 now)
         }
         dst = GC_SLOT_HOST;
     }
-    return send_raw(d, buf, gc_msg_encode_data((gc_u8)dst, GC_CH_GAME, data, len, buf, sizeof(buf)));
+    return send_queued(d, buf, gc_msg_encode_data((gc_u8)dst, GC_CH_GAME, data, len, buf, sizeof(buf)));
 }
 
 int gcd_v1_pause(gcd_dev *d, gc_u32 now)
@@ -1752,7 +1810,7 @@ int gcd_v2_send(gcd_dev *d, int id, const gc_u8 *data, size_t len, gc_u32 now)
             int i, r = GCD_KErrNone, n = 0;
             for (i = 1; i < GC_MAX_PLAYERS; i++) {
                 if (d->peer[i].connected2) {
-                    int e = send_raw(d, buf, gc_msg_encode_data((gc_u8)i, GC_CH_GAME, data, len, buf, sizeof(buf)));
+                    int e = send_queued(d, buf, gc_msg_encode_data((gc_u8)i, GC_CH_GAME, data, len, buf, sizeof(buf)));
                     n++;
                     if (e != GCD_KErrNone) {
                         r = e;
@@ -1767,7 +1825,7 @@ int gcd_v2_send(gcd_dev *d, int id, const gc_u8 *data, size_t len, gc_u32 now)
     } else {
         return GCD_KErrNotReady;
     }
-    return send_raw(d, buf, gc_msg_encode_data((gc_u8)id, GC_CH_GAME, data, len, buf, sizeof(buf)));
+    return send_queued(d, buf, gc_msg_encode_data((gc_u8)id, GC_CH_GAME, data, len, buf, sizeof(buf)));
 }
 
 void gcd_end_session(gcd_dev *d, gc_u32 now)
@@ -1856,6 +1914,7 @@ void gcd_release(gcd_dev *d, gc_u32 now)
     d->session_id = 0;
     d->discover_once = 0;
     d->released = 1; /* a host re-opens when the link is back */
+    txq_clear(d);
 }
 
 void gcd_resume(gcd_dev *d, gc_u32 now)
