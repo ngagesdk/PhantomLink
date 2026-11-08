@@ -54,7 +54,8 @@ static TBool ParseAddr(const TDesC8 &aText, TBTDevAddr &aAddr)
         return EFalse;
     }
     aAddr = TBTDevAddr(TPtrC8(b, 6));
-    return ETrue;
+    /* 000000000000 is no address (left by a failed selection): ask again */
+    return aAddr != TBTDevAddr();
 }
 
 static TInt ToInt(const TDesC8 &aText)

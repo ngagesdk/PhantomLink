@@ -122,7 +122,13 @@ void CGcTransport::ConnectL()
         return;
     }
     if (iConfig.iHasBridge) {
-        iObserver.TransportProgress(_L8("using saved bridge address, channel"), iConfig.iChannel);
+        TBuf8<48> step;
+        step.Copy(_L8("using saved bridge "));
+        for (TInt i = 0; i < 6; i++) {
+            step.AppendNumFixedWidth(iConfig.iBridge[i], EHex, 2);
+        }
+        step.Append(_L8(", channel"));
+        iObserver.TransportProgress(step, iConfig.iChannel);
         iSearcher->SetDeviceAddress(iConfig.iBridge);
         if (iConfig.iChannel > 0) {
             ConnectSocketL(iConfig.iChannel);

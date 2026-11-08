@@ -447,7 +447,7 @@ void CPhantomLinkAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane *aMenuPa
     aMenuPane->SetItemDimmed(EPlCmdSelect, EFalse);
     aMenuPane->SetItemDimmed(EPlCmdComms, comms);
     aMenuPane->SetItemDimmed(EPlCmdCommsReset, !comms);
-    aMenuPane->SetItemDimmed(EPlCmdLog, EFalse); /* also refreshes the log page */
+    aMenuPane->SetItemDimmed(EPlCmdLog, EFalse); /* on the log page: refresh */
     aMenuPane->SetItemDimmed(EPlCmdLogClear, iMode != ELog);
     aMenuPane->SetItemDimmed(EPlCmdGames, games);
     aMenuPane->SetItemDimmed(EPlCmdBridge, bridge);
@@ -491,7 +491,11 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
         } else if (iMode == EComms) {
             EditCommsL();
         } else if (iMode == ELog) {
-            ShowLogL(); /* refresh */
+            /* the list cuts long lines: show the whole line */
+            TPtrC line = iView->ItemText(iView->CurrentIndex());
+            if (line.Length() > 1) {
+                InfoL(line.Mid(1)); /* without the leading tab */
+            }
         } else if (iMode == EBoard) {
             if (iBoard.u.board.count) {
                 TBuf<GC_BOARD_TEXT_MAX> text;

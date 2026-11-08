@@ -78,6 +78,18 @@ void CPhantomLinkView::ReplaceItemL(TInt aIndex, const TDesC &aText)
     iListBox->DrawNow();
 }
 
+TPtrC CPhantomLinkView::ItemText(TInt aIndex) const
+{
+    if (!iListBox) {
+        return TPtrC();
+    }
+    MDesCArray *items = iListBox->Model()->ItemTextArray();
+    if (aIndex < 0 || aIndex >= items->MdcaCount()) {
+        return TPtrC();
+    }
+    return items->MdcaPoint(aIndex);
+}
+
 TInt CPhantomLinkView::CurrentIndex() const
 {
     return iListBox ? iListBox->CurrentItemIndex() : -1;

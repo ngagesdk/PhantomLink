@@ -26,6 +26,8 @@ class CPhantomLinkView : public CCoeControl
     /** Replaces the text of one line (the line count stays the same). */
     void ReplaceItemL(TInt aIndex, const TDesC &aText);
     TInt CurrentIndex() const;
+    /** Text of a list item (empty if out of range). */
+    TPtrC ItemText(TInt aIndex) const;
 
   public: // from CCoeControl
     TKeyResponse OfferKeyEventL(const TKeyEvent &aKeyEvent, TEventCode aType);
