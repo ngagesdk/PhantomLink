@@ -69,6 +69,8 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     void RefreshName();
     /** SetLocalDeviceName(). */
     void SetLocalName(const TDesC &aName);
+    /** Writes "<aWhat>: <name other players see>" to the log. */
+    void LogName(const TDesC8 &aWhat);
     /** Run the engine after an API call (timers, event delivery). */
     void Kick();
 
@@ -130,6 +132,7 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     TInt iReleaseStage;
     THostName iBtName; /* Bluetooth name as last seen */
     TBool iBtNameKnown;
+    TInt iNameTicks;
     CAsyncCallBack *iDispatcher;
     CGcListControl *iList;
     CGcListControl *iDoomedList;

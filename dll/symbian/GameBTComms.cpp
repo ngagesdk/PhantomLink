@@ -335,6 +335,7 @@ void CGameBTComms2::StartHostL(TInt aShowList, CEikAppUi *aAppUi)
     EnsureEngineL();
     iEngine->RefreshName(); /* games tag the Bluetooth name right before */
     iEngine->LogNum(_L8("StartHostL, show list"), aShowList);
+    iEngine->LogName(_L8("hosting as"));
     iEngine->SetAppUi(aAppUi);
     gcd_v2_start(&iEngine->Dev(), 1, aShowList && aAppUi, iEngine->Now());
     iEngine->EnsureTransport();
@@ -349,6 +350,7 @@ void CGameBTComms2::StartClientL(TInt aShowList, CEikAppUi *aAppUi)
     EnsureEngineL();
     iEngine->RefreshName();
     iEngine->LogNum(_L8("StartClientL, show list"), aShowList);
+    iEngine->LogName(_L8("joining as"));
     iEngine->SetAppUi(aAppUi);
     gcd_v2_start(&iEngine->Dev(), 0, aShowList && aAppUi, iEngine->Now());
     iEngine->EnsureTransport();
