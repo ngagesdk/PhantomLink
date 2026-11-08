@@ -22,7 +22,7 @@ class CPhantomLinkView : public CCoeControl
     ~CPhantomLinkView();
 
     /** Replaces the list. Takes ownership of aItems (also if it leaves). */
-    void SetListL(CDesCArray *aItems, TInt aCurrent, TBool aGameNavigation);
+    void SetListL(CDesCArray *aItems, TInt aCurrent, TBool aGameNavigation, TBool aBoardNavigation = EFalse);
     /** Replaces the text of one line (the line count stays the same). */
     void ReplaceItemL(TInt aIndex, const TDesC &aText);
     TInt CurrentIndex() const;
@@ -40,6 +40,7 @@ class CPhantomLinkView : public CCoeControl
 
     CAknSingleStyleListBox *iListBox;
     TBool iGameNavigation;
+    TBool iBoardNavigation;
 };
 
 #endif /* PHANTOMLINKVIEW_H */

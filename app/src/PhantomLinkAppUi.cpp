@@ -138,7 +138,7 @@ void CPhantomLinkAppUi::ShowBoardL()
         items->AppendL(line);
     }
     CleanupStack::Pop(items);
-    iView->SetListL(items, 0, EFalse);
+    iView->SetListL(items, 0, EFalse, ETrue);
 }
 
 /* ------------------------------------------------------------------ */
