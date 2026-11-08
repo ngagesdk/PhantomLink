@@ -14,35 +14,33 @@ static const TGameEntry KGames[] = {
     { "Asphalt Urban GT", 3 },
     { "Asphalt: Urban GT 2", 11 },
     { "Bomberman", 8 },
-    {"Call of Duty", 6},
-    { "Catan", 5 },
-    { "Crash Nitro Kart", 8 },
+    { "Call of Duty", 6},
+    /*{"Catan", 5},*/
+    /*{"Crash Nitro Kart", 8},*/
     { "FIFA Football 2004", 3 },
-    { "FIFA Football 2005", 6 },
+    /*{"FIFA Football 2005", 6},*/
     { "Glimmerati", 10 },
     { "Marcel Desailly Pro Soccer", 1 },
     { "Mile High Pinball", 5 },
-    { "MotoGP", 2 },
     { "NCAA Football 2004", 3 },
-    {"ONE", 10},
+    /*{"ONE", 10},*/
     { "Operation Shadow", 8 },
     { "Pandemonium!", 2 },
     { "Puyo Pop", 2 },
-    { "Puzzle Bobble VS", 2, },
+    /*{"Puzzle Bobble VS", 2,},*/
     { "Rayman 3", 3 },
-    { "Requiem of Hell", 5 },
+    /*{"Requiem of Hell", 5},*/
     { "Rifts: Promise of Power", 10 },
-    {"SSX Out of Bounds", 6},
-    { "System Rush", 10 },
-    { "The King of Fighters Extreme", 5 },
+    /*{"SSX Out of Bounds", 6},*/
+    /*{"The King of Fighters Extreme", 5},*/
     { "The Roots: Gates of Chaos", 10 },
     { "Tiger Woods PGA Tour 2004", 9 },
     { "Tom Clancy's Ghost Recon: Jungle Storm", 3 },
-    { "Tom Clancy's Splinter Cell: Chaos Theory", 5 },
+    /*{"Tom Clancy's Splinter Cell: Chaos Theory", 5},*/
     { "Tony Hawk's Pro Skater", 2 },
     { "Warhammer 40,000: Glory in Death", 11 },
-    { "WWE Aftershock", 6 },
-    { "Xanadu Next", 6 }
+    { "WWE Aftershock", 6 }
+    /*{"Xanadu Next", 6}*/
 };
 
 TInt GameCount()
