@@ -22,6 +22,10 @@ _LIT(KGcResolverPanic, "GC-RESOLVER");
 
 const TInt KGcPollUs = 250000; /* look for the engine / wait for the answer */
 const TInt KGcMaxPolls = 40;   /* give up after 10 s: report "nothing found" */
+/* time spent connecting to the bridge and registering (the link is
+   released after every session, so each search may start with a fresh
+   connection) does not count either, up to 30 s */
+const TInt KGcMaxConnectPolls = 120;
 
 static void HelperLog(const TDesC8 &aText, TInt aValue)
 {
@@ -76,6 +80,7 @@ TInt CGcDiscoverer::StartL()
     iRequested = EFalse;
     iFoundCount = 0;
     iWaitTicks = 0;
+    iConnectTicks = 0;
     HelperLog(_L8("game starts a device search"), 0);
     iTimer->Cancel();
     iTimer->Start(0, KGcPollUs, TCallBack(Poll, this));
@@ -124,7 +129,11 @@ void CGcDiscoverer::DoPoll()
         /* the time the user spends picking the bridge does not count */
         CGcEngine *e = CGcEngine::Current();
         if (!e || !e->IsShowingDialog()) {
-            ++iWaitTicks;
+            if (e && !e->IsRegistered() && iConnectTicks < KGcMaxConnectPolls) {
+                ++iConnectTicks;
+            } else {
+                ++iWaitTicks;
+            }
         }
     }
     if (iWaitTicks > KGcMaxPolls) {

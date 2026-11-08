@@ -129,6 +129,13 @@ class RSGEDebugLog
 const TUint8 KGcAddrMagic0 = 0x47; /* 'G' */
 const TUint8 KGcAddrMagic1 = 0x43; /* 'C' */
 
+/* Names travel as UTF-8 (at most GC_MAX_NAME bytes).  Every character must
+ * survive the trip: games put binary tags into the Bluetooth name (SSX:
+ * the three low bytes of its game uid, e.g. 0x1F 0xD4 0x02) and compare
+ * them on the other phone. */
+void GcNameToUtf8(const TDesC &aName, char *aOut); /* aOut: GC_MAX_NAME + 1 */
+void GcUtf8ToName(const char *aText, TDes &aOut);  /* bad bytes as Latin-1 */
+
 void GcDeviceToDetails(const gcd_device &aDev, TDeviceDetails &aDetails);
 void GcDetailsToDevice(const TDeviceDetails &aDetails, gcd_device &aDev);
 

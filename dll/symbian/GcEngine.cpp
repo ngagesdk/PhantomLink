@@ -84,16 +84,10 @@ static void UnregisterEngine(CGcEngine *aEngine)
     }
 }
 
-/* the name as the protocol carries it: up to 32 bytes, non-ASCII as '?'
- * (same mapping as SetLocalDeviceName always used) */
+/* the name as the protocol carries it (UTF-8, up to 32 bytes) */
 static void NameFromDes(const TDesC &aName, char *aOut)
 {
-    TInt i;
-    TPtrC n = aName.Left(GC_MAX_NAME);
-    for (i = 0; i < n.Length(); i++) {
-        aOut[i] = (char)(n[i] < 0x80 ? n[i] : '?');
-    }
-    aOut[i] = '\0';
+    GcNameToUtf8(aName, aOut);
 }
 
 /* the phone's current Bluetooth device name */
@@ -132,7 +126,7 @@ CGcEngine::CGcEngine(MGcEventSink &aSink) : iSink(aSink)
 {
 }
 
-static void GetBluetoothNameL(TDes8 &aName)
+static void GetBluetoothNameL(THostName &aName)
 {
     /* the local Bluetooth name is the natural "DID" of a device */
     RSocketServ ss;
@@ -144,9 +138,7 @@ static void GetBluetoothNameL(TDes8 &aName)
     User::LeaveIfError(ss.FindProtocol(KBTLinkManager(), pd));
     User::LeaveIfError(hr.Open(ss, pd.iAddrFamily, pd.iProtocol));
     CleanupClosePushL(hr);
-    THostName name;
-    User::LeaveIfError(hr.GetHostName(name));
-    aName.Copy(name.Left(32));
+    User::LeaveIfError(hr.GetHostName(aName));
     CleanupStack::PopAndDestroy(2);
 }
 
@@ -182,18 +174,20 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
     cfg.variant = aVariant;
     cfg.game_uid = aGameUid;
     cfg.auto_join = iConfig.iAutoJoin ? 1 : 0;
-    TBuf8<33> name = iConfig.iDeviceName;
-    if (name.Length() == 0) {
-        TRAPD(err, GetBluetoothNameL(name));
-        if (err != KErrNone || name.Length() == 0) {
-            name = _L8("N-Gage");
+    if (iConfig.iDeviceName.Length() > 0) {
+        TInt i; /* DeviceName= is UTF-8 already */
+        for (i = 0; i < iConfig.iDeviceName.Length() && i < GC_MAX_NAME; i++) {
+            cfg.name[i] = (char)iConfig.iDeviceName[i];
         }
+        cfg.name[i] = '\0';
+    } else {
+        THostName bt;
+        TRAPD(err, GetBluetoothNameL(bt));
+        if (err != KErrNone || bt.Length() == 0) {
+            bt = _L("N-Gage");
+        }
+        NameFromDes(bt, cfg.name);
     }
-    TInt i;
-    for (i = 0; i < name.Length() && i < GC_MAX_NAME; i++) {
-        cfg.name[i] = (char)name[i];
-    }
-    cfg.name[i] = '\0';
     TTime t;
     t.UniversalTime();
     cfg.link_id = t.Int64().Low() ^ (TUint32)this ^ 0x5A5A0000;
@@ -205,8 +199,8 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
     ops.wake = OpWake;
 
     /* gcd_dev is ~64 KB.  Apps get a 1 MB heap and Warhammer fills almost
-     * all of it at start-up (its game object alone is ~460 KB): taking our
-     * state from there made it quit with "insufficient memory".  The
+     * all of it at start-up (its game object alone is ~460 KB): with our
+     * state taken from there it quit right after start-up.  The
      * original GameComms needs only a few KB, so our state goes into a
      * local chunk of its own; the game's heap is used only as fallback. */
     iHeap = UserHeap::ChunkHeap(NULL, KGcHeapMin, KGcHeapMax);
@@ -365,13 +359,23 @@ void CGcEngine::RefreshName()
     if (ReadBluetoothName(live) != KErrNone || live.Length() == 0) {
         return;
     }
-    if (iBtNameKnown && live == iBtName) {
+    /* The name we report (GetLocalDeviceName) with something put in front
+     * of it: the game tagged it.  SSX prefixes the name it got from us
+     * with a 3 character tag and only renames when the tag is missing, so
+     * from the second game on the phone keeps "<tag><DeviceName>" from
+     * the last session and never changes while we run.  Without this the
+     * host kept the untagged DeviceName= and clients found no host. */
+    TBuf<GC_MAX_NAME> cur;
+    GcUtf8ToName(iDev->cfg.name, cur);
+    TBool tagged = cur.Length() > 0 && live.Left(GC_MAX_NAME) != cur &&
+                   live.Find(cur.Left(cur.Length() < 16 ? cur.Length() : 16)) > 0;
+    if (iBtNameKnown && live == iBtName && !tagged) {
         return; /* not renamed: keep DeviceName= / SetLocalDeviceName */
     }
     TBool first = !iBtNameKnown;
     iBtName = live;
     iBtNameKnown = ETrue;
-    if (first) {
+    if (first && !tagged) {
         return; /* nothing to compare with */
     }
     char name[GC_MAX_NAME + 1];
@@ -699,7 +703,7 @@ void CGcEngine::RefreshListL()
     TInt i;
     for (i = 0; i < iListCount; i++) {
         TBuf<GC_MAX_NAME + 1> name;
-        name.Copy(TPtrC8((const TUint8 *)iListItems[i].name, User::StringLength((const TUint8 *)iListItems[i].name)));
+        GcUtf8ToName(iListItems[i].name, name);
         items->AppendL(name);
     }
     iList->SetItemsL(*items);

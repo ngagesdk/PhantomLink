@@ -691,6 +691,31 @@ static void test_v2_host_renamed_before_anybody_joined(void)
     sim_free(&W);
 }
 
+/* SSX tags the Bluetooth name with the three low bytes of its game uid
+ * 0x101fd402: U+001F U+00D4 U+0002, which the DLL sends as UTF-8.  The
+ * server used to replace control characters in names with '?', so the
+ * client saw "???Jakob" and reported "None found". */
+static void test_v2_binary_name_tag_survives(void)
+{
+    static const char tagged[] = "\x1f\xc3\x94\x02Jakob";
+    gcd_event *e;
+    sim_init(&W, 2, GC_API_V2, UID);
+    sim_run(&W, 500);
+    gcd_v2_start(&W.n[0].dev, 1, 0, W.now);
+    gcd_v2_set_accept_mode(&W.n[0].dev, GCD_ACCEPT_CONFIRM, W.now);
+    sim_run(&W, 300);
+    CHECK_EQ(gcd_set_name(&W.n[0].dev, tagged, W.now), 1);
+    sim_run(&W, 300);
+    gcd_v2_start(&W.n[1].dev, 0, 0, W.now);
+    e = discover(1);
+    CHECK(e && e->id == 1);
+    if (e && e->id == 1) {
+        gcd_device host = ((gcd_device *)e->data)[0];
+        CHECK(strcmp(host.name, tagged) == 0);
+    }
+    sim_free(&W);
+}
+
 static void test_v2_client_renamed_after_registration(void)
 {
     gcd_event *e;
@@ -1058,6 +1083,7 @@ int main(void)
     RUN(test_v2_client_ui_selection);
     RUN(test_v2_real_bt_device_declared);
     RUN(test_v2_host_renamed_before_anybody_joined);
+    RUN(test_v2_binary_name_tag_survives);
     RUN(test_v2_client_renamed_after_registration);
     RUN(test_v2_rename_keeps_a_joined_session);
     RUN(test_v2_quiet_states);
