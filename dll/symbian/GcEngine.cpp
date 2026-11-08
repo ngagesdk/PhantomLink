@@ -20,6 +20,9 @@ static const TInt KGcTlsHandle = 0x101f5ee2;
 _LIT(KGcLogFile, "C:\\System\\Data\\GameComms.log"); /* game cards are read only */
 /* C: is small (games quit when it is full): the log starts over beyond this */
 const TInt KGcLogMax = 32 * 1024;
+/* private heap for the engine state (gcd_dev ~64 KB + one event) */
+const TInt KGcHeapMin = 0x1000;
+const TInt KGcHeapMax = 0x40000;
 _LIT(KGcSelectHost, "Select game");
 _LIT(KGcConfirmPlayers, "Players");
 
@@ -201,8 +204,23 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
     ops.log = OpLog;
     ops.wake = OpWake;
 
-    iDev = new (ELeave) gcd_dev;
-    iEvent = new (ELeave) gcd_event;
+    /* gcd_dev is ~64 KB.  Apps get a 1 MB heap and Warhammer fills almost
+     * all of it at start-up (its game object alone is ~460 KB): taking our
+     * state from there made it quit with "insufficient memory".  The
+     * original GameComms needs only a few KB, so our state goes into a
+     * local chunk of its own; the game's heap is used only as fallback. */
+    iHeap = UserHeap::ChunkHeap(NULL, KGcHeapMin, KGcHeapMax);
+    iOwnHeap = iHeap != NULL;
+    if (!iOwnHeap) {
+        iHeap = &User::Heap();
+    }
+    iDev = (gcd_dev *)iHeap->Alloc(sizeof(gcd_dev));
+    iEvent = (gcd_event *)iHeap->Alloc(sizeof(gcd_event));
+    if (!iDev || !iEvent) {
+        User::Leave(KErrNoMemory);
+    }
+    Mem::FillZ(iDev, sizeof(gcd_dev));
+    Mem::FillZ(iEvent, sizeof(gcd_event));
     gcd_init(iDev, &cfg, &ops, this);
 
     iTransport = CGcTransport::NewL(*this, iConfig);
@@ -247,8 +265,15 @@ CGcEngine::~CGcEngine()
     delete iRetry;
     delete iTimer;
     delete iTransport;
-    delete iEvent;
-    delete iDev;
+    if (iHeap) {
+        iHeap->Free(iEvent);
+        iHeap->Free(iDev);
+        if (iOwnHeap) {
+            iHeap->Close(); /* frees the chunk */
+        }
+    }
+    iEvent = NULL;
+    iDev = NULL;
     if (iLogOpen) {
         iLogFile.Close();
     }
