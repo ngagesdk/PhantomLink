@@ -24,6 +24,7 @@ _LIT(KGcConfirmPlayers, "Players");
 const TInt KGcTimerUs = 20000;    /* 50 Hz engine tick while active */
 const TInt KGcRetryUs = 3000000;  /* bridge reconnect interval      */
 const TInt KGcReleaseUs = 750000; /* release: leave, then close     */
+const TInt KGcNameTicks = 100;    /* re-read the BT name every 2 s while waiting */
 
 /* Every live engine of the thread, newest last.  A game may create a
  * short-lived GameComms object next to its main one (Pathway to Glory
@@ -463,6 +464,38 @@ void CGcEngine::Tick()
         iDoomedList = NULL;
     }
     gcd_poll(iDev, Now());
+    /* A game may rename the phone a moment before or after StartHostL /
+     * StartClientL, and the Bluetooth stack may report the new name late.
+     * Keep looking while a host waits for its first player or a client
+     * has not joined yet: only then does the name decide who finds whom. */
+    if (iWantTransport && ++iNameTicks >= KGcNameTicks) {
+        iNameTicks = 0;
+        TInt role = gcd_role(iDev);
+        TBool waiting = EFalse;
+        if (role == GCD_ROLE_CLIENT) {
+            waiting = !iDev->session_open && !iDev->joining;
+        } else if (role == GCD_ROLE_HOST && iDev->conn_state == GCD_CS_NOT_CONNECTED) {
+            TInt i;
+            waiting = ETrue;
+            for (i = 1; i < GC_MAX_PLAYERS; i++) {
+                if (iDev->peer[i].present) {
+                    waiting = EFalse;
+                }
+            }
+        }
+        if (waiting) {
+            RefreshName();
+        }
+    }
+}
+
+void CGcEngine::LogName(const TDesC8 &aWhat)
+{
+    TBuf8<80> t;
+    t.Copy(aWhat);
+    t.Append(_L8(": "));
+    t.Append(TPtrC8((const TUint8 *)iDev->cfg.name, User::StringLength((const TUint8 *)iDev->cfg.name)));
+    Log(t);
 }
 
 /* ---- transport ---- */
@@ -545,6 +578,16 @@ void CGcEngine::Dispatch()
             MGcSessionListObserver *obs = iListObserver;
             iListObserver = NULL;
             LogNum(_L8("open games found"), iEvent->id);
+            {
+                TInt k;
+                const gcd_device *found = (const gcd_device *)iEvent->data;
+                for (k = 0; k < iEvent->id; k++) {
+                    TBuf8<80> t;
+                    t.Copy(_L8("  game: "));
+                    t.Append(TPtrC8((const TUint8 *)found[k].name, User::StringLength((const TUint8 *)found[k].name)));
+                    Log(t);
+                }
+            }
             if (obs) {
                 obs->SessionList((const gcd_device *)iEvent->data, iEvent->id);
             }
