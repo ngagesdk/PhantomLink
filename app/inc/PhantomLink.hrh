@@ -29,7 +29,8 @@ enum TPhantomLinkCommands
     EPlCmdAbout,
     EPlCmdComms,
     EPlCmdCommsReset,
-    EPlCmdForgetBridge
+    EPlCmdLog,
+    EPlCmdLogClear
 };
 
 #endif /* PHANTOMLINK_HRH */

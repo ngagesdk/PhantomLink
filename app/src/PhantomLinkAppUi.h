@@ -41,7 +41,8 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
         EGames,
         EBridge,
         EBoard,
-        EComms
+        EComms,
+        ELog
     };
     /* rows of the GameComms settings page (GameComms.ini) */
     enum TCommsRow
@@ -52,7 +53,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
         ECommsLog,
         ECommsRelease,
         ECommsFollow,
-        ECommsBridge, /* one click: select a bridge, or forget the saved one */
+        ECommsBridge, /* no bridge saved: one click selects one */
         ECommsRowCount
     };
     enum TOperation
@@ -71,7 +72,8 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     void CommsText(TInt aRow, TDes &aText) const;
     void EditCommsL();
     void ResetCommsL();
-    void ForgetBridgeL();
+    void ShowLogL();
+    void ClearLogL();
     void ReadBoardL(TUint32 aIndex);
     void PostBoardL();
     void RefreshBridgeL();

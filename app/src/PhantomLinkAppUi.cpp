@@ -30,7 +30,8 @@
 const TInt KStatusLine = 0;
 
 _LIT8(KSecConfig, "[Config]");
-_LIT8(KSecBridge, "[Bridge]");
+_LIT(KGcLogPath, "C:\\System\\Data\\GameComms.log"); /* written by GAMECOMMS.DLL */
+const TInt KLogTail = 3000;                          /* bytes shown from the end of the log */
 
 CPhantomLinkAppUi::CPhantomLinkAppUi() : iMode(EGames), iOperation(ENone)
 {
@@ -198,7 +199,7 @@ void CPhantomLinkAppUi::CommsText(TInt aRow, TDes &aText) const
         break;
     case ECommsBridge:
         if (iComms.iHasBridge) {
-            aText.Append(_L("Forget bridge "));
+            aText.Append(_L("Bridge: "));
             for (TInt i = 0; i < 6; i++) {
                 aText.AppendNumFixedWidth(iComms.iBridge[i], EHex, 2);
             }
@@ -250,7 +251,7 @@ void CPhantomLinkAppUi::EditCommsL()
         break;
     case ECommsBridge:
         if (iComms.iHasBridge) {
-            ForgetBridgeL();
+            InfoL(_L("To use another bridge, choose Delete settings file. The next game or Select bridge asks again."));
         } else {
             /* games like Rifts cannot show the selection themselves */
             iPicker->StartL();
@@ -268,26 +269,80 @@ void CPhantomLinkAppUi::EditCommsL()
     ShowCommsL(row);
 }
 
-void CPhantomLinkAppUi::ForgetBridgeL()
+/* Shows the end of the GameComms log, newest line first.  The first line a
+ * game writes when it creates its GameComms object is "GameComms
+ * replacement, api ..."; if it never appears, the game did not load this
+ * gamecomms.dll (another copy is found first, or the game does not use it). */
+void CPhantomLinkAppUi::ShowLogL()
 {
-    iComms = TGcConfig();
-    iComms.Load();
-    if (!iComms.iHasBridge && iComms.iChannel <= 0) {
-        InfoL(_L("No bridge saved. The next game asks for one."));
-        return;
-    }
-    TInt err = iComms.RemoveSection(KSecBridge);
+    iMode = ELog;
+    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(32);
+    CleanupStack::PushL(items);
+    RFs fs;
+    User::LeaveIfError(fs.Connect());
+    CleanupClosePushL(fs);
+    RFile file;
+    TInt err = file.Open(fs, KGcLogPath, EFileRead | EFileShareAny);
     if (err != KErrNone) {
+        items->AppendL(_L("\tNo log. Turn on Write log"));
+        items->AppendL(_L("\tin GameComms settings, then"));
+        items->AppendL(_L("\tstart a multiplayer game."));
+    } else {
+        CleanupClosePushL(file);
+        TInt size = 0;
+        file.Size(size);
+        TInt pos = size > KLogTail ? size - KLogTail : 0;
+        file.Seek(ESeekStart, pos);
+        HBufC8 *buf = HBufC8::NewLC(KLogTail);
+        TPtr8 data = buf->Des();
+        file.Read(data);
+        if (pos > 0) {
+            TInt nl = data.Locate('\n'); /* drop the cut first line */
+            data.Delete(0, nl < 0 ? data.Length() : nl + 1);
+        }
+        TBuf<120> line;
+        while (data.Length() > 0) {
+            TInt nl = data.LocateReverse('\n');
+            TPtrC8 last = nl < 0 ? TPtrC8(data) : data.Mid(nl + 1);
+            TInt len = last.Length();
+            while (len > 0 && (last[len - 1] == '\r' || last[len - 1] == ' ')) {
+                len--;
+            }
+            if (len > 0) {
+                line.Copy(_L("\t"));
+                TBuf<118> text;
+                text.Copy(last.Left(Min(len, 118)));
+                line.Append(text);
+                items->AppendL(line);
+            }
+            data.SetLength(nl < 0 ? 0 : nl);
+        }
+        if (items->Count() == 0) {
+            items->AppendL(_L("\tLog is empty"));
+        }
+        CleanupStack::PopAndDestroy(2); /* buf, file */
+    }
+    CleanupStack::PopAndDestroy(); /* fs */
+    CleanupStack::Pop(items);
+    iView->SetListL(items, 0, EFalse);
+}
+
+void CPhantomLinkAppUi::ClearLogL()
+{
+    RFs fs;
+    User::LeaveIfError(fs.Connect());
+    TInt err = fs.Delete(KGcLogPath);
+    fs.Close();
+    if (err != KErrNone && err != KErrNotFound && err != KErrPathNotFound) {
         TBuf<100> text;
-        text.Copy(_L("Could not write C:\\System\\Data\\GameComms.ini, error "));
-        text.AppendNum(err);
+        DescribeError(err, text);
         ErrorL(text);
         return;
     }
-    if (iMode == EComms) {
-        ShowCommsL(ECommsBridge);
+    if (iMode == ELog) {
+        ShowLogL();
     }
-    InfoL(_L("Bridge forgotten. Select a new one here, or when a game connects."));
+    InfoL(_L("Log cleared"));
 }
 
 void CPhantomLinkAppUi::ResetCommsL()
@@ -392,7 +447,8 @@ void CPhantomLinkAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane *aMenuPa
     aMenuPane->SetItemDimmed(EPlCmdSelect, EFalse);
     aMenuPane->SetItemDimmed(EPlCmdComms, comms);
     aMenuPane->SetItemDimmed(EPlCmdCommsReset, !comms);
-    aMenuPane->SetItemDimmed(EPlCmdForgetBridge, !comms && !bridge);
+    aMenuPane->SetItemDimmed(EPlCmdLog, EFalse); /* also refreshes the log page */
+    aMenuPane->SetItemDimmed(EPlCmdLogClear, iMode != ELog);
     aMenuPane->SetItemDimmed(EPlCmdGames, games);
     aMenuPane->SetItemDimmed(EPlCmdBridge, bridge);
     aMenuPane->SetItemDimmed(EPlCmdRead, !bridge);
@@ -434,6 +490,8 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
             InstallSelectedL();
         } else if (iMode == EComms) {
             EditCommsL();
+        } else if (iMode == ELog) {
+            ShowLogL(); /* refresh */
         } else if (iMode == EBoard) {
             if (iBoard.u.board.count) {
                 TBuf<GC_BOARD_TEXT_MAX> text;
@@ -503,8 +561,12 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
     case EPlCmdCommsReset:
         ResetCommsL();
         break;
-    case EPlCmdForgetBridge:
-        ForgetBridgeL();
+    case EPlCmdLog:
+        iBoardClient->Close();
+        ShowLogL();
+        break;
+    case EPlCmdLogClear:
+        ClearLogL();
         break;
     default:
         break;
