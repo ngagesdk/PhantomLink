@@ -48,8 +48,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
         ECommsLog,
         ECommsRelease,
         ECommsFollow,
-        ECommsAddress,
-        ECommsChannel,
+        ECommsForgetBridge, /* one click removes the [Bridge] section */
         ECommsRowCount
     };
     enum TOperation

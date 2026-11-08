@@ -130,7 +130,7 @@ ConnectedClientEndedGame.
 
 | Where | What | How |
 |---|---|---|
-| N-Gage | player name, bridge address, auto join, log, bridge release, name following | `C:\System\Data\GameComms.ini` (optional; PhantomLink "GameComms settings"; `E:\GameComms.ini` is read as a fallback) |
+| N-Gage | player name, bridge address, auto join, log, bridge release, name following | `C:\System\Data\GameComms.ini` (optional; PhantomLink "GameComms settings"; the bridge address is saved automatically) |
 | ESP32 | Wi-Fi, server, access key, Bluetooth name and PIN | serial console or setup web page |
 | PC bridge | server, access key, PIN, number of N-Gages | `gcbridge.ini` or command line |
 | Server | port, limits, timeouts, access key, logging | `gamecommsd.conf` or command line |

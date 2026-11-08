@@ -100,9 +100,8 @@ The game list is kept in sync with the README by
    of the same variant. Using a different variant will not work.
 3. Optional: change the settings in PhantomLink ("GameComms settings" in
    the Options menu). They are stored in `C:\System\Data\GameComms.ini`,
-   because retail game cards in E: are read only. You can also write the
-   file yourself; `E:\GameComms.ini` is still read when there is none on
-   C:, and the first change made by PhantomLink or the DLL copies it to C:.
+   the only place the file is read from: retail game cards in E: are read
+   only. You can also write the file yourself.
 
 ```ini
 [Config]
@@ -126,7 +125,8 @@ FollowBtName=1
 The first time, the phone shows the Bluetooth device selection. Pick the
 bridge (default name `GameCommsBridge`, PIN `1234`). Its address is then
 saved to `C:\System\Data\GameComms.ini`. To switch to another bridge
-later, choose "Forget bridge" in PhantomLink; the next game asks again.
+later, select "Forget saved bridge" in PhantomLink's GameComms settings
+(or "Forget bridge" in the Options menu); the next game asks again.
 
 ### Checking a game
 
