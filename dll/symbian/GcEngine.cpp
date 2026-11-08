@@ -17,12 +17,101 @@
 /* euser.lib of the 6.1 SDK lacks Dll::Tls; use the underlying UserSvr calls, keyed by the DLL's UID3 */
 static const TInt KGcTlsHandle = 0x101f5ee2;
 
-_LIT(KGcLogFile, "E:\\GameComms.log");
+_LIT(KGcLogFile, "C:\\System\\Data\\GameComms.log"); /* game cards are read only */
 _LIT(KGcSelectHost, "Select game");
 _LIT(KGcConfirmPlayers, "Players");
 
-const TInt KGcTimerUs = 20000;   /* 50 Hz engine tick while active */
-const TInt KGcRetryUs = 3000000; /* bridge reconnect interval      */
+const TInt KGcTimerUs = 20000;    /* 50 Hz engine tick while active */
+const TInt KGcRetryUs = 3000000;  /* bridge reconnect interval      */
+const TInt KGcReleaseUs = 750000; /* release: leave, then close     */
+
+/* Every live engine of the thread, newest last.  A game may create a
+ * short-lived GameComms object next to its main one (Pathway to Glory
+ * does, for the Bluetooth power state); deleting it must not make the
+ * helper classes lose the main engine. */
+const TInt KGcMaxEngines = 8;
+struct TGcEngineList
+{
+    TInt iCount;
+    CGcEngine *iItems[KGcMaxEngines];
+};
+
+static void RegisterEngine(CGcEngine *aEngine)
+{
+    TGcEngineList *list = (TGcEngineList *)UserSvr::DllTls(KGcTlsHandle);
+    if (!list) {
+        list = (TGcEngineList *)User::Alloc(sizeof(TGcEngineList));
+        if (!list) {
+            return;
+        }
+        list->iCount = 0;
+        if (UserSvr::DllSetTls(KGcTlsHandle, list) != KErrNone) {
+            User::Free(list);
+            return;
+        }
+    }
+    if (list->iCount < KGcMaxEngines) {
+        list->iItems[list->iCount++] = aEngine;
+    }
+}
+
+static void UnregisterEngine(CGcEngine *aEngine)
+{
+    TGcEngineList *list = (TGcEngineList *)UserSvr::DllTls(KGcTlsHandle);
+    TInt i;
+    if (!list) {
+        return;
+    }
+    for (i = 0; i < list->iCount; i++) {
+        if (list->iItems[i] == aEngine) {
+            TInt k;
+            for (k = i; k + 1 < list->iCount; k++) {
+                list->iItems[k] = list->iItems[k + 1];
+            }
+            list->iCount--;
+            break;
+        }
+    }
+    if (list->iCount == 0) {
+        UserSvr::DllSetTls(KGcTlsHandle, NULL);
+        User::Free(list);
+    }
+}
+
+/* the name as the protocol carries it: up to 32 bytes, non-ASCII as '?'
+ * (same mapping as SetLocalDeviceName always used) */
+static void NameFromDes(const TDesC &aName, char *aOut)
+{
+    TInt i;
+    TPtrC n = aName.Left(GC_MAX_NAME);
+    for (i = 0; i < n.Length(); i++) {
+        aOut[i] = (char)(n[i] < 0x80 ? n[i] : '?');
+    }
+    aOut[i] = '\0';
+}
+
+/* the phone's current Bluetooth device name */
+static TInt ReadBluetoothName(THostName &aName)
+{
+    RSocketServ ss;
+    TInt err = ss.Connect();
+    if (err != KErrNone) {
+        return err;
+    }
+    _LIT(KBTLinkManager, "BTLinkManager");
+    TProtocolDesc pd;
+    err = ss.FindProtocol(KBTLinkManager(), pd);
+    if (err == KErrNone) {
+        RHostResolver hr;
+        err = hr.Open(ss, pd.iAddrFamily, pd.iProtocol);
+        if (err == KErrNone) {
+            err = hr.GetHostName(aName);
+            hr.Close();
+        }
+    }
+    ss.Close();
+    return err;
+}
 
 CGcEngine *CGcEngine::NewL(MGcEventSink &aSink, TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
 {
@@ -59,6 +148,8 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
 {
     iConfig.Load();
     if (iConfig.iLog && iFs.Connect() == KErrNone) {
+        TParsePtrC logPath(KGcLogFile);
+        iFs.MkDirAll(logPath.DriveAndPath()); /* KErrAlreadyExists is fine */
         /* append, so that several GameComms objects of one game share the log */
         TInt err = iLogFile.Open(iFs, KGcLogFile, EFileWrite | EFileShareAny);
         if (err == KErrNotFound) {
@@ -107,6 +198,8 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
     iTransport = CGcTransport::NewL(*this, iConfig);
     iTimer = CPeriodic::NewL(CActive::EPriorityStandard);
     iRetry = CPeriodic::NewL(CActive::EPriorityIdle);
+    iRelease = CPeriodic::NewL(CActive::EPriorityIdle);
+    iBtNameKnown = ReadBluetoothName(iBtName) == KErrNone && iBtName.Length() > 0;
     TCallBack dispatch(DispatchCallBack, this);
     iDispatcher = new (ELeave) CAsyncCallBack(dispatch, CActive::EPriorityStandard);
 
@@ -115,7 +208,7 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
     iTickPeriodUs = period.Int();
     iLastTick = User::TickCount();
     iTimer->Start(KGcTimerUs, KGcTimerUs, TCallBack(TimerCallBack, this));
-    UserSvr::DllSetTls(KGcTlsHandle, this); /* for the helper classes (no writable static data in DLLs) */
+    RegisterEngine(this); /* for the helper classes (no writable static data in DLLs) */
 
     TBuf8<96> line;
     line.Copy(_L8("GameComms replacement, api "));
@@ -131,9 +224,9 @@ void CGcEngine::ConstructL(TUint8 aApi, TUint8 aVariant, TUint32 aGameUid)
 
 CGcEngine::~CGcEngine()
 {
-    if (UserSvr::DllTls(KGcTlsHandle) == this) {
-        UserSvr::DllSetTls(KGcTlsHandle, NULL);
-    }
+    UnregisterEngine(this);
+    delete iRelease;
+    iRelease = NULL;
     if (iDev) {
         gcd_end_session(iDev, Now());
         gc_link_close(&iDev->link, GC_LR_LOCAL);
@@ -184,6 +277,13 @@ void CGcEngine::LogNum(const TDesC8 &aText, TInt aValue)
 
 void CGcEngine::EnsureTransport()
 {
+    if (iRelease) {
+        iRelease->Cancel();
+    }
+    if (iReleaseStage) {
+        gcd_resume(iDev, Now()); /* left the server, but kept the link */
+    }
+    iReleaseStage = 0;
     iWantTransport = ETrue;
     LogNum(_L8("bridge connection wanted, busy"), iTransport->IsBusy() ? 1 : 0);
     if (!iTransport->IsBusy()) {
@@ -204,7 +304,93 @@ void CGcEngine::Kick()
 
 CGcEngine *CGcEngine::Current()
 {
-    return (CGcEngine *)UserSvr::DllTls(KGcTlsHandle);
+    TGcEngineList *list = (TGcEngineList *)UserSvr::DllTls(KGcTlsHandle);
+    return list && list->iCount > 0 ? list->iItems[list->iCount - 1] : NULL;
+}
+
+/* ---- local name ---- */
+
+void CGcEngine::RefreshName()
+{
+    if (!iConfig.iFollowBtName) {
+        return;
+    }
+    THostName live;
+    if (ReadBluetoothName(live) != KErrNone || live.Length() == 0) {
+        return;
+    }
+    if (iBtNameKnown && live == iBtName) {
+        return; /* not renamed: keep DeviceName= / SetLocalDeviceName */
+    }
+    TBool first = !iBtNameKnown;
+    iBtName = live;
+    iBtNameKnown = ETrue;
+    if (first) {
+        return; /* nothing to compare with */
+    }
+    char name[GC_MAX_NAME + 1];
+    NameFromDes(live, name);
+    if (gcd_set_name(iDev, name, Now())) {
+        TBuf8<64> t;
+        t.Copy(_L8("game renamed the phone: "));
+        t.Append(TPtrC8((const TUint8 *)name, User::StringLength((const TUint8 *)name)));
+        Log(t);
+        Kick();
+    }
+}
+
+void CGcEngine::SetLocalName(const TDesC &aName)
+{
+    char name[GC_MAX_NAME + 1];
+    NameFromDes(aName, name);
+    if (gcd_set_name(iDev, name, Now())) {
+        Log(_L8("local name set by the game"));
+        Kick();
+    }
+}
+
+/* ---- bridge link release ---- */
+
+void CGcEngine::RequestRelease()
+{
+    if (!iConfig.iReleaseBridge || !iWantTransport) {
+        return;
+    }
+    iRelease->Cancel();
+    iReleaseStage = 0;
+    iRelease->Start(KGcReleaseUs, KGcReleaseUs, TCallBack(ReleaseCallBack, this));
+}
+
+TInt CGcEngine::ReleaseCallBack(TAny *aSelf)
+{
+    ((CGcEngine *)aSelf)->DoRelease();
+    return 0;
+}
+
+void CGcEngine::DoRelease()
+{
+    if (!gcd_is_quiet(iDev) || iList || iSelectingBridge || iListObserver) {
+        iRelease->Cancel(); /* in use again */
+        if (iReleaseStage) {
+            gcd_resume(iDev, Now());
+        }
+        iReleaseStage = 0;
+        return;
+    }
+    if (iReleaseStage == 0) {
+        /* first leave the server session while the link is still up */
+        gcd_release(iDev, Now());
+        Kick();
+        iReleaseStage = 1;
+        return;
+    }
+    iRelease->Cancel();
+    iReleaseStage = 0;
+    Log(_L8("bridge link released, nothing needs it"));
+    iWantTransport = EFalse;
+    iRetry->Cancel();
+    iTransport->Disconnect();
+    gcd_transport_down(iDev, Now());
 }
 
 void CGcEngine::RequestSessionList(MGcSessionListObserver *aObserver)

@@ -183,6 +183,7 @@ typedef struct
     /* transport / registration */
     int transport_up;
     int registered;
+    int released;  /* link given up on purpose (gcd_release) */
     int server_up; /* from BRIDGE_STATUS */
     gc_u32 t_reg_retry;
 
@@ -273,6 +274,31 @@ int gcd_v2_set_accept_mode(gcd_dev *d, int mode, gc_u32 now);
 int gcd_v2_accept_mode(const gcd_dev *d);
 int gcd_v2_send(gcd_dev *d, int id, const gc_u8 *data, size_t len, gc_u32 now);
 void gcd_end_session(gcd_dev *d, gc_u32 now);
+
+/* ---- local name and bridge link lifetime (2.x) ---- */
+
+/** The name other players see changed: the game called SetLocalDeviceName
+ *  or renamed the phone's Bluetooth device itself (many 2.x games put a
+ *  game tag, their role and a session id into the Bluetooth name and
+ *  filter the host search by it).  The new name is used for the next
+ *  registration and host open.  Where it can be done without disturbing
+ *  a session the server is updated at once: an idle client registers
+ *  again, a host whose session nobody has joined yet re-opens it.
+ *  Returns 1 if the name changed. */
+int gcd_set_name(gcd_dev *d, const char *name, gc_u32 now);
+
+/** Nothing on the network needs the bridge link right now: no search,
+ *  no join, no connection, and a host neither accepts players nor has
+ *  any. */
+int gcd_is_quiet(const gcd_dev *d);
+
+/** The bridge link is about to be closed on purpose: leave the server
+ *  session without reporting a loss.  The role is kept; a host re-opens
+ *  its session when the link is back. */
+void gcd_release(gcd_dev *d, gc_u32 now);
+
+/** Undo gcd_release when the link was kept after all. */
+void gcd_resume(gcd_dev *d, gc_u32 now);
 
 #ifdef __cplusplus
 }

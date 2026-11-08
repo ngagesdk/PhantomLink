@@ -123,7 +123,8 @@ these themselves.
 | 56 | SetLocalDeviceName(THostName) | v3 and later [V] |
 | 58 | EndSession() | v10 and later, deletes the role object [V] |
 | 61 | SetDiscoverabilityModeLimited(TBool) | v10 and later, refreshed every 55 seconds by a timer [V] |
-| 59, 60, 63 | discoverability helpers | v10 and later, no arguments, KErrGeneral if the helper is missing. Exact names unknown. [I] |
+| 59 | IsDiscoverabilityModeLimited(TBool&) | v10 and later, writes ETrue for the limited inquiry access code [S] |
+| 60, 63 | visibility getter (TBool&) and setter (TBool) | v10 and later, through the BTENG settings; the getter writes the negated stored flag, the setter stores the negated argument. Exact names unknown. [S] |
 
 - Function names such as Connect, DeclareRemoteDevice, EndSession,
   SendData, SetHostAcceptMode and SetDiscoverabilityModeLimited come from
@@ -133,7 +134,8 @@ these themselves.
 - Internal helper classes are exported too: a device list control, a
   device discoverer and a service resolver (ordinals 3, 4, 10, 12, 13, 16
   to 19, 21, 23 to 26, 28, 31, 35, 38, 50, 51, 54, 55, 57, 62). The library
-  uses them internally. There is no evidence that games call them. [V]
+  uses them internally, and most later games call the discoverer (and
+  some the resolver) for their own host search. [V]
 
 ### 2.3 Original Bluetooth behaviour (2.x)
 
@@ -228,7 +230,7 @@ The previous code, now in `legacy/`:
 
 | Question | Status | How it is handled |
 |---|---|---|
-| Exact names of v10 ordinals 59, 60, 63 and of the helper class methods | [I] | Implemented as harmless functions returning KErrNone. Nothing depends on them. |
-| Meaning of the first argument of 2.x StartHostL and StartClientL | only non-zero tested [V] | Treated as "show the built-in list". |
-| Whether any game calls the exported helper classes | Ashen (v8) uses the discoverer for its own host search (seen on hardware) | Discoverer and resolver implemented on top of the server's session list (see 2.4). The device list is still inert. |
+| Exact names of v10 ordinals 60, 63 and of the helper class methods | [S] | 59 and 60 write their TBool& (games read it), 63 returns KErrNone. |
+| Meaning of the first argument of 2.x StartHostL and StartClientL | most later games pass 0 (Rifts calls `StartHostL()` with default arguments) [V] | Treated as "show the built-in list". |
+| Whether any game calls the exported helper classes | Ashen (v8) uses the discoverer (seen on hardware); Catan, Glimmerati, KOF Extreme, Mile High Pinball, One, The Roots, SSX, Snakes, Warhammer and Rifts import it too | Discoverer and resolver implemented on top of the server's session list (see 2.4). The device list is still inert. |
 | Order of callbacks within one event in 1.x, for example HostDisconnected before EndMultiPlayerGame | [D] | Follows the SDK documentation. Kept in one place in `dll/core/gc_dev.c` and covered by tests. |

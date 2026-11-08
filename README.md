@@ -89,7 +89,8 @@ games with other players regardless of physical distance.
 - `server/` - endpoint server (`gamecommsd`)
 - `protocol/` - protocol library shared by all three parts
 - `tests/` - automated tests
-- `tools/` - variant identification and reverse engineering scripts
+- `tools/` - variant identification and reverse engineering scripts;
+  `tools/gc_usage.py` shows how a game uses GameComms
 
 ## Documentation
 

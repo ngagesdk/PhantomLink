@@ -132,7 +132,27 @@ GC_EXPORT TInt gc2_SetHostAcceptMode(CGameBTComms2 *aThis, TInt aMode) { return 
 GC_EXPORT TInt gc2_HostAcceptMode(CGameBTComms2 *aThis) { return aThis->HostAcceptMode(); }
 GC_EXPORT void gc2_EndSession(CGameBTComms2 *aThis) { aThis->EndSession(); }
 GC_EXPORT TInt gc2_SetDiscoverabilityModeLimited(CGameBTComms2 *aThis, TBool aLimited) { return aThis->SetDiscoverabilityModeLimited(aLimited); }
-GC_EXPORT TInt gc2_DiscoverabilityOp(CGameBTComms2 * /*aThis*/) { return KErrNone; }
+/* v10/v11 ordinals 59 and 60 are getters: the original writes the answer
+ * to a TBool& (verified in the v10 code).  Games read it unconditionally,
+ * so leaving it untouched hands them an uninitialised stack value. */
+GC_EXPORT TInt gc2_IsDiscoverabilityModeLimited(CGameBTComms2 * /*aThis*/, TBool *aLimited)
+{
+    if (aLimited) {
+        *aLimited = EFalse; /* general discoverable mode */
+    }
+    return KErrNone;
+}
+
+GC_EXPORT TInt gc2_IsDiscoverable(CGameBTComms2 * /*aThis*/, TBool *aOn)
+{
+    if (aOn) {
+        *aOn = ETrue;
+    }
+    return KErrNone;
+}
+
+/* ordinal 63: the matching setter (TBool), nothing to do on the network */
+GC_EXPORT TInt gc2_SetDiscoverable(CGameBTComms2 * /*aThis*/, TBool /*aOn*/) { return KErrNone; }
 
 /* ================================================================== */
 /* GameComms 2.x helper classes that the original exported as well:   */
