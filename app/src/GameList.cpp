@@ -20,8 +20,6 @@ static const TGameEntry KGames[] = {
     { "FIFA Football 2004", 3 },
     /* { "FIFA Football 2005", 6 }, */
     /* { "Glimmerati", 10 }, */
-    /* { "Habbo Islands", 11 }, */
-    /* { "High Seize", 6 }, */
     { "Marcel Desailly Pro Soccer", 1 },
     /* { "Mile High Pinball", 5 }, */
     /* { "MotoGP", 2 }, */
@@ -34,14 +32,13 @@ static const TGameEntry KGames[] = {
     { "Rayman 3", 3 },
     /* { "Requiem of Hell", 5 }, */
     { "Rifts: Promise of Power", 10 },
-    /* {"SSX Out of Bounds", 6}, */
+    {"SSX Out of Bounds", 6},
     /* { "System Rush", 10 }, */
     /* { "The King of Fighters Extreme", 5 }, */
     /* { "The Roots: Gates of Chaos", 10 }, */
     { "Tiger Woods PGA Tour 2004", 9 },
     { "Tom Clancy's Ghost Recon: Jungle Storm", 3 },
     /* { "Tom Clancy's Splinter Cell: Chaos Theory", 5 }, */
-    /* { "Tomb Raider", 2 }, */
     { "Tony Hawk's Pro Skater", 2 },
     { "Warhammer 40,000: Glory in Death", 11 },
     /* { "WWE Aftershock", 6 }, */
