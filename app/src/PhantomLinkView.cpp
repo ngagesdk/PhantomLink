@@ -34,7 +34,7 @@ CPhantomLinkView::~CPhantomLinkView()
     delete iListBox;
 }
 
-void CPhantomLinkView::SetListL(CDesCArray *aItems, TInt aCurrent, TBool aGameNavigation)
+void CPhantomLinkView::SetListL(CDesCArray *aItems, TInt aCurrent, TBool aGameNavigation, TBool aBoardNavigation)
 {
     CleanupStack::PushL(aItems);
     CAknSingleStyleListBox *listBox = new (ELeave) CAknSingleStyleListBox;
@@ -61,6 +61,7 @@ void CPhantomLinkView::SetListL(CDesCArray *aItems, TInt aCurrent, TBool aGameNa
     delete iListBox;
     iListBox = listBox;
     iGameNavigation = aGameNavigation;
+    iBoardNavigation = aBoardNavigation;
     DrawNow();
 }
 
@@ -103,6 +104,16 @@ TKeyResponse CPhantomLinkView::OfferKeyEventL(const TKeyEvent &aKeyEvent, TEvent
     if (aType == EEventKey && (aKeyEvent.iCode == EKeyDevice3 || aKeyEvent.iCode == EKeyEnter)) {
         iEikonEnv->EikAppUi()->HandleCommandL(EPlCmdSelect);
         return EKeyWasConsumed;
+    }
+    if (iBoardNavigation && aType == EEventKey) {
+        if (aKeyEvent.iCode == EKeyLeftArrow) {
+            iEikonEnv->EikAppUi()->HandleCommandL(EPlCmdBoardOlder);
+            return EKeyWasConsumed;
+        }
+        if (aKeyEvent.iCode == EKeyRightArrow) {
+            iEikonEnv->EikAppUi()->HandleCommandL(EPlCmdBoardNewer);
+            return EKeyWasConsumed;
+        }
     }
     if (iGameNavigation && aType == EEventKey) {
         TGameNavigationDirection direction;
