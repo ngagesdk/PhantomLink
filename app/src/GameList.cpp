@@ -16,7 +16,6 @@ static const TGameEntry KGames[] = {
     { "Bomberman", 8 },
     /* {"Call of Duty", 6}, */
     /* { "Catan", 5 }, */
-    /* { "Colin McRae Rally 2005", 8 }, */
     /* { "Crash Nitro Kart", 8 }, */
     { "FIFA Football 2004", 3 },
     /* { "FIFA Football 2005", 6 }, */
@@ -30,8 +29,6 @@ static const TGameEntry KGames[] = {
     /* {"ONE", 10}, */
     { "Operation Shadow", 8 },
     /* { "Pandemonium!", 2 }, */
-    /* { "Pathway to Glory", 5 }, */
-    /* { "Pathway to Glory: Ikusa Islands", 6 }, */
     { "Puyo Pop", 2 },
     /* { "Puzzle Bobble VS", 2, }, */
     { "Rayman 3", 3 },
@@ -49,10 +46,7 @@ static const TGameEntry KGames[] = {
     /* { "Tomb Raider", 2 }, */
     { "Tony Hawk's Pro Skater", 2 },
     /* { "Warhammer 40,000: Glory in Death", 11 }, */
-    /* { "Worms World Party", 6 }, */
     /* { "WWE Aftershock", 6 }, */
-    /* { "X-Men Legends", 6 }, */
-    /* { "X-Men Legends II: Rise of Apocalypse", 6 }, */
     /* { "Xanadu Next", 6 } */
 };
 

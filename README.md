@@ -146,24 +146,18 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | The Sims Bustin' Out                     | v4       | c2f184012cd0635f3065b7d5042702ce | 56       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Catan                                    | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Mile High Pinball                        | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Pathway to Glory                         | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Requiem of Hell                          | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The King of Fighters Extreme             | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Tom Clancy's Splinter Cell: Chaos Theory | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Call of Duty                             | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | FIFA Football 2005                       | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | High Seize                               | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
-| Pathway to Glory: Ikusa Islands          | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | SSX Out of Bounds                        | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | WWE Aftershock                           | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
-| Worms World Party                        | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| X-Men Legends                            | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| X-Men Legends II: Rise of Apocalypse     | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Xanadu Next                              | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
 | Snakes                                   | v7       | f07f48ee44cca60046f40ce41858a160 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Ashen                                    | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Bomberman                                | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Colin McRae Rally 2005                   | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Crash Nitro Kart                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Operation Shadow                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |                                                                 |
 | Tiger Woods PGA Tour 2004                | v9       | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
@@ -173,7 +167,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | System Rush                              | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The Roots: Gates of Chaos                | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Asphalt: Urban GT 2                      | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Habbo Islands                            | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Not%20Used](https://img.shields.io/badge/Not%20Used-orange)    |
+| Habbo Islands                            | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Unsupported](https://img.shields.io/badge/Unsupported-red)     |
 | Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 
 Always use the matching version. v1 and v2 to v11 have different APIs and
