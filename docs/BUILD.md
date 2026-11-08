@@ -125,8 +125,8 @@ FollowBtName=1
 The first time, the phone shows the Bluetooth device selection. Pick the
 bridge (default name `GameCommsBridge`, PIN `1234`). Its address is then
 saved to `C:\System\Data\GameComms.ini`. To switch to another bridge
-later, select "Forget bridge" in PhantomLink's GameComms settings; the
-next game asks again. Some games cannot show the selection themselves
+later, choose "Delete settings file" in PhantomLink's GameComms settings;
+the next game asks again. Some games cannot show the selection themselves
 (Rifts): select the bridge in PhantomLink first ("Select bridge" in the
 GameComms settings), then the game connects to it without asking.
 
@@ -362,9 +362,9 @@ but may on others.
    "Ports (COM & LPT)" in Device Manager.
 3. Start the bridge with `gcbridge --com=COM5`, or set `com = COM5` in
    `gcbridge.ini`.
-4. On the N-Gage, open PhantomLink and choose "Forget bridge" in the
-   Options menu (on the GameComms settings or bridge setup page). Then
-   start a multiplayer game and select this PC.
+4. On the N-Gage, open PhantomLink's GameComms settings and choose
+   "Delete settings file" in the Options menu. Then start a multiplayer
+   game and select this PC.
 
 Every incoming COM port publishes its own Serial Port service and the
 N-Gage uses the last one it finds, so remove incoming ports you do not need
@@ -535,8 +535,12 @@ radio links. With real hardware:
 6. Repeat for each variant group: v1, v2, v3 and v4, v5 to v9, v10 and v11.
 
 For debugging, turn on "Write log" in PhantomLink's GameComms settings
-(`Log=1`; the log is `C:\System\Data\GameComms.log`) and set
-`log_level=3` on the server. The bridge console command `status` shows connection statistics.
+(`Log=1`; the log is `C:\System\Data\GameComms.log`, shown newest first
+by "GameComms log" in PhantomLink) and set `log_level=3` on the server.
+If a game writes nothing at all, not even "GameComms replacement, api
+...", it did not load this gamecomms.dll: look for another copy in the
+game's own folder or in `\System\Libs` on the memory card.
+The bridge console command `status` shows connection statistics.
 The ESP32 console also reports SPP close status, port status and whether the
 close was remote or local. Capture the messages following a drop as well as
 those leading up to it; controller `ASSERT_WARN` output alone does not identify

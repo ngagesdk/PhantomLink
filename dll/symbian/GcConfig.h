@@ -15,7 +15,7 @@
  *                            ;     name made by the game itself
  *  [Bridge]
  *  Address=0002ee112233      ; Bluetooth address of the bridge, saved automatically
- *                            ; after the first selection ("Forget bridge" removes it)
+ *                            ; after the first selection
  *  Channel=0                 ; RFCOMM channel, 0 = SDP lookup (optional, by hand)
  *
  *  Copyright (c) 2023-2026, Michael Fitzmayer. All rights reserved.
@@ -41,9 +41,6 @@ class TGcConfig
      *  (WritePath), keeping all other lines.  An empty aValue removes
      *  the key.  Call Load() afterwards to refresh the members. */
     TInt SetValue(const TDesC8 &aSection, const TDesC8 &aKey, const TDesC8 &aValue);
-    /** Removes aSection ("[Bridge]") with all of its keys.  KErrNone if
-     *  the section did not exist. */
-    TInt RemoveSection(const TDesC8 &aSection);
     /** The file every change is written to. */
     static const TDesC &WritePath();
 
