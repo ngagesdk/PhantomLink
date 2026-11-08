@@ -46,6 +46,7 @@ typedef struct
     gcd_event ev[SIM_MAX_EVT];
     int n_ev;
     char name[16];
+    int hold_events; /* 1: the "game" takes no events (busy) */
 } sim_node;
 
 typedef struct

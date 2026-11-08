@@ -1141,6 +1141,21 @@ static void on_msg(void *ctx, const gc_u8 *buf, size_t len)
     }
 }
 
+/* Back-pressure: take a message from the bridge only while the game's
+ * event queue has room for what it may produce.  Otherwise it is not
+ * acknowledged and the bridge sends it again a moment later; dropping it
+ * (the old behaviour) lost game data when a whole setup arrived at once,
+ * and Warhammer crashed on the incomplete army. */
+#define GCD_EVENT_RESERVE 4 /* events one message can produce at most */
+
+static int on_can_accept(void *ctx, const gc_u8 *msg, size_t len)
+{
+    gcd_dev *d = (gcd_dev *)ctx;
+    (void)msg;
+    (void)len;
+    return d->ev_count + GCD_EVENT_RESERVE <= GCD_EVENT_QUEUE;
+}
+
 static void on_write(void *ctx, const gc_u8 *data, size_t len)
 {
     gcd_dev *d = (gcd_dev *)ctx;
@@ -1219,7 +1234,7 @@ void gcd_init(gcd_dev *d, const gcd_config *cfg, const gcd_ops *ops, void *ctx)
     lo.on_msg = on_msg;
     lo.on_state = on_state;
     lo.on_hello = NULL;
-    lo.can_accept = NULL;
+    lo.can_accept = on_can_accept;
     gc_link_init(&d->link, &lc, &lo, d);
 }
 
