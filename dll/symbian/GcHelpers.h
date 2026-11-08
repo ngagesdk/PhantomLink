@@ -61,6 +61,7 @@ class CGcDiscoverer : public CBase, public MGcSessionListObserver
     TBool iRequested; /* engine asked for the session list */
     TBool iCancelled;
     TInt iWaitTicks;
+    TInt iConnectTicks;         /* polls spent while the engine connects/registers */
     CPeriodic *iTimer;          /* waits for the engine / the answer */
     CAsyncCallBack *iDeliverer; /* reports outside of the engine's dispatch */
     gcd_device iFound[GCD_MAX_SESSIONS];

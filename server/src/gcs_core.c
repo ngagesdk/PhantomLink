@@ -819,8 +819,11 @@ static void h_register(gcs_peer *p, const gc_msg *m)
     p->api = m->u.reg.api;
     p->variant = m->u.reg.variant;
     memcpy(p->device_id, m->u.reg.device_id, GC_DEVICE_ID_LEN);
+    /* names are kept byte for byte: games tag the Bluetooth name with
+     * binary bytes (SSX: the low bytes of its game uid, control characters
+     * included) and compare them on the other phone.  Log lines are
+     * cleaned in logf_() instead. */
     copy_name(p->name, m->u.reg.name[0] ? m->u.reg.name : "N-Gage");
-    sanitize_name(p->name);
     LOG_I("peer %u registered: '%s' api %u variant %u id %02x%02x%02x%02x%02x%02x", p->peer_id, p->name, p->api,
           p->variant, p->device_id[0], p->device_id[1], p->device_id[2], p->device_id[3], p->device_id[4],
           p->device_id[5]);
@@ -870,8 +873,7 @@ static void h_host_open(gcs_peer *p, const gc_msg *m)
     s->state = GC_SS_LOBBY;
     s->created = core->now;
     s->seq = ++core->next_seq;
-    copy_name(s->name, m->u.host_open.name[0] ? m->u.host_open.name : p->name);
-    sanitize_name(s->name);
+    copy_name(s->name, m->u.host_open.name[0] ? m->u.host_open.name : p->name); /* raw, see h_register */
     s->m[0].state = M_ACTIVE;
     s->m[0].peer = p;
     memcpy(s->m[0].device_id, p->device_id, GC_DEVICE_ID_LEN);
@@ -1240,6 +1242,7 @@ static void h_board(gcs_peer *p, const gc_msg *m, const gc_u8 *data, size_t len)
             }
             memset(record, 0, sizeof(record));
             memcpy(record, p->name, strlen(p->name));
+            sanitize_name((char *)record); /* the board is shown as text */
             if (!utc || strftime((char *)record + GC_MAX_NAME + 1, GC_BOARD_TIME_MAX + 1,
                                  "%Y-%m-%d %H:%M UTC", utc) == 0) {
                 failed = 1;

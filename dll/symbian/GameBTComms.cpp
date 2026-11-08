@@ -13,9 +13,55 @@ _LIT(KGcMainPanic, "GC-MAIN");
 /* helpers                                                             */
 /* ------------------------------------------------------------------ */
 
+void GcNameToUtf8(const TDesC &aName, char *aOut)
+{
+    TInt i, n = 0;
+    for (i = 0; i < aName.Length(); i++) {
+        TUint c = aName[i];
+        TInt len = c < 0x80 ? 1 : (c < 0x800 ? 2 : 3);
+        if (c == 0) {
+            continue; /* cannot be carried in a C string */
+        }
+        if (n + len > GC_MAX_NAME) {
+            break; /* never cut a character in half */
+        }
+        if (len == 1) {
+            aOut[n++] = (char)c;
+        } else if (len == 2) {
+            aOut[n++] = (char)(0xC0 | (c >> 6));
+            aOut[n++] = (char)(0x80 | (c & 0x3F));
+        } else {
+            aOut[n++] = (char)(0xE0 | (c >> 12));
+            aOut[n++] = (char)(0x80 | ((c >> 6) & 0x3F));
+            aOut[n++] = (char)(0x80 | (c & 0x3F));
+        }
+    }
+    aOut[n] = '\0';
+}
+
+void GcUtf8ToName(const char *aText, TDes &aOut)
+{
+    const TUint8 *p = (const TUint8 *)aText;
+    aOut.Zero();
+    while (*p && aOut.Length() < aOut.MaxLength()) {
+        TUint c = *p;
+        if (c >= 0xC2 && c <= 0xDF && (p[1] & 0xC0) == 0x80) {
+            c = ((c & 0x1F) << 6) | (p[1] & 0x3F);
+            p += 2;
+        } else if (c >= 0xE0 && c <= 0xEF && (p[1] & 0xC0) == 0x80 && (p[2] & 0xC0) == 0x80 &&
+                   (c != 0xE0 || p[1] >= 0xA0)) {
+            c = ((c & 0x0F) << 12) | ((p[1] & 0x3F) << 6) | (p[2] & 0x3F);
+            p += 3;
+        } else {
+            p++; /* ASCII, or not UTF-8 (older peers, ini text): Latin-1 */
+        }
+        aOut.Append((TChar)c);
+    }
+}
+
 static void Utf8ToDes(const char *aText, TDes &aOut)
 {
-    aOut.Copy(TPtrC8((const TUint8 *)aText, User::StringLength((const TUint8 *)aText)).Left(aOut.MaxLength()));
+    GcUtf8ToName(aText, aOut);
 }
 
 void GcDeviceToDetails(const gcd_device &aDev, TDeviceDetails &aDetails)
@@ -39,12 +85,7 @@ void GcDetailsToDevice(const TDeviceDetails &aDetails, gcd_device &aDev)
 {
     Mem::FillZ(&aDev, sizeof(aDev));
     TBTDevAddr a = aDetails.iAddress.BTAddr();
-    TInt i;
-    TPtrC name = aDetails.iName.Left(GC_MAX_NAME);
-    for (i = 0; i < name.Length(); i++) {
-        aDev.name[i] = (char)(name[i] < 0x80 ? name[i] : '?');
-    }
-    aDev.name[i] = '\0';
+    GcNameToUtf8(aDetails.iName, aDev.name);
     if (a[0] == KGcAddrMagic0 && a[1] == KGcAddrMagic1) {
         TUint32 v = ((TUint32)a[2] << 24) | ((TUint32)a[3] << 16) | ((TUint32)a[4] << 8) | a[5];
         if ((v & 0xFF000000u) == 0xFF000000u) {
@@ -70,7 +111,8 @@ static TInt LocalName(CGcEngine *aEngine, THostName &aName)
     TGcConfig cfg;
     cfg.Load();
     if (cfg.iDeviceName.Length()) {
-        aName.Copy(cfg.iDeviceName);
+        TBuf8<34> utf8 = cfg.iDeviceName; /* UTF-8 */
+        GcUtf8ToName((const char *)utf8.PtrZ(), aName);
         return KErrNone;
     }
     RSocketServ ss;

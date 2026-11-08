@@ -51,6 +51,7 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     ~CGcEngine();
 
     gcd_dev &Dev() { return *iDev; }
+    TBool IsRegistered() const { return iDev && iDev->registered; }
     gc_u32 Now();
 
     /** Bring up the bridge connection if necessary (cancels a pending
