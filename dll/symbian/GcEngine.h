@@ -151,6 +151,10 @@ class CGcEngine : public CBase, public MGcTransportObserver, public MGcListObser
     TInt iLogSize; /* bytes in the log file, kept below KGcLogMax */
     TBool iDispatching;
     gcd_event *iEvent; /* scratch, heap: events are ~1.1 KB */
+    /* iDev and iEvent live in a heap of our own: the game's heap is only
+     * 1 MB and some games (Warhammer) fill it almost completely */
+    RHeap *iHeap;
+    TBool iOwnHeap;
     MGcSessionListObserver *iListObserver;
 };
 
