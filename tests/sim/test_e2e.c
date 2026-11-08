@@ -425,6 +425,38 @@ static void test_v2_burst_is_queued_not_lost(void)
     sim_free(&W);
 }
 
+/* the receiving game is busy while a burst arrives: nothing is dropped,
+ * the bridge resends what the full event queue could not take */
+static void test_v2_burst_to_busy_receiver(void)
+{
+    int k, i, n = 0, inorder = 1;
+    char msg[16];
+    v2_connect_all(1, GCD_ACCEPT_ALL);
+    gcd_v2_connect(&W.n[0].dev, GCD_ALL, W.now);
+    sim_run(&W, 300);
+    sim_clear(&W, 1);
+    W.n[1].hold_events = 1;
+    for (k = 0; k < 80; k++) {
+        sprintf(msg, "army %02d", k);
+        CHECK_EQ(gcd_v2_send(&W.n[0].dev, GCD_ALL, (const gc_u8 *)msg, strlen(msg), W.now), 0);
+    }
+    sim_run(&W, 1500);
+    CHECK(W.n[1].dev.ev_count <= GCD_EVENT_QUEUE);
+    W.n[1].hold_events = 0;
+    sim_run(&W, 8000);
+    CHECK_EQ(W.n[1].dev.ev_dropped, 0);
+    CHECK_EQ(sim_count(&W, 1, GCD_EV2_DATA), 80);
+    for (i = 0; i < W.n[1].n_ev; i++) {
+        if (W.n[1].ev[i].type == GCD_EV2_DATA) {
+            sprintf(msg, "army %02d", n++);
+            inorder &= data_eq(&W.n[1].ev[i], msg);
+        }
+    }
+    CHECK(inorder);
+    CHECK_EQ(gcd_connect_state(&W.n[1].dev), GCD_CS_CONNECTED);
+    sim_free(&W);
+}
+
 /* the queue has a limit: beyond it the send is refused, nothing breaks */
 static void test_v2_burst_beyond_queue_is_refused(void)
 {
@@ -1017,6 +1049,7 @@ int main(void)
     RUN(test_v2_not_connected_errors);
     RUN(test_v2_burst_is_queued_not_lost);
     RUN(test_v2_burst_beyond_queue_is_refused);
+    RUN(test_v2_burst_to_busy_receiver);
     RUN(test_v2_confirm_mode);
     RUN(test_v2_game_host_search);
     RUN(test_v2_game_host_search_early);

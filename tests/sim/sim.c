@@ -212,7 +212,7 @@ void sim_run(sim_world *w, int ms)
             deliver(&s->tcp_to_bridge, f_bridge_srv, &s->br, w->now);
             gcd_poll(&s->dev, w->now);
             bridge_poll(&s->br, w->now);
-            while (gcd_pop_event(&s->dev, &e)) {
+            while (!s->hold_events && gcd_pop_event(&s->dev, &e)) {
                 if (getenv("SIM_LOG")) {
                     printf("      [%s] EVENT type %d id %d err %d len %u\n", s->name, e.type, e.id, e.err, e.len);
                 }
