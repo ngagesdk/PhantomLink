@@ -10,12 +10,13 @@
 
 #include "BoardClient.h"
 #include "BridgeClient.h"
+#include "BridgePicker.h"
 #include "GcConfig.h"
 #include <aknappui.h>
 
 class CPhantomLinkView;
 
-class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public MBoardObserver
+class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public MBoardObserver, public MBridgePickerObserver
 {
   public:
     void ConstructL();
@@ -30,6 +31,9 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     void BridgeFinished(TInt aError);
     void BridgeProgress(const TDesC &aText);
     void BoardFinished(TInt aError, const gc_msg &aReply);
+
+  public: // from MBridgePickerObserver
+    void BridgePicked(TInt aError);
 
   private:
     enum TMode
@@ -48,7 +52,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
         ECommsLog,
         ECommsRelease,
         ECommsFollow,
-        ECommsForgetBridge, /* one click removes the [Bridge] section */
+        ECommsBridge, /* one click: select a bridge, or forget the saved one */
         ECommsRowCount
     };
     enum TOperation
@@ -85,6 +89,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     CPhantomLinkView *iView;
     CBridgeClient *iClient;
     CBoardClient *iBoardClient;
+    CBridgePicker *iPicker;
     gc_msg iBoard;
     TBuf<GC_MAX_NAME> iBoardName;
     TBuf<GC_BOARD_TEXT_MAX> iBoardDraft;

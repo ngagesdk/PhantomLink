@@ -33,7 +33,7 @@ static const TGameEntry KGames[] = {
     /* { "Puzzle Bobble VS", 2, }, */
     { "Rayman 3", 3 },
     /* { "Requiem of Hell", 5 }, */
-    /* { "Rifts: Promise of Power", 10 }, */
+    { "Rifts: Promise of Power", 10 },
     /* { "Snakes", 7 }, */
     /* { "SSX Out of Bounds", 6 }, */
     /* { "System Rush", 10 }, */

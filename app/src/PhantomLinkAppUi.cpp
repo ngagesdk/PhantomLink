@@ -43,6 +43,7 @@ void CPhantomLinkAppUi::ConstructL()
     AddToStackL(iView);
     iClient = CBridgeClient::NewL(*this);
     iBoardClient = CBoardClient::NewL(*this);
+    iPicker = CBridgePicker::NewL(*this);
     iBoardName = _L("N-Gage");
     Mem::FillZ(&iBoard, sizeof(iBoard));
     iStatus = _L("not read");
@@ -51,6 +52,7 @@ void CPhantomLinkAppUi::ConstructL()
 
 CPhantomLinkAppUi::~CPhantomLinkAppUi()
 {
+    delete iPicker;
     delete iBoardClient;
     delete iClient;
     if (iView) {
@@ -194,8 +196,15 @@ void CPhantomLinkAppUi::CommsText(TInt aRow, TDes &aText) const
     case ECommsFollow:
         AppendOnOff(aText, _L("Follow BT name: "), iComms.iFollowBtName);
         break;
-    case ECommsForgetBridge:
-        aText.Append(iComms.iHasBridge || iComms.iChannel > 0 ? _L("Forget saved bridge") : _L("No bridge saved yet"));
+    case ECommsBridge:
+        if (iComms.iHasBridge) {
+            aText.Append(_L("Forget bridge "));
+            for (TInt i = 0; i < 6; i++) {
+                aText.AppendNumFixedWidth(iComms.iBridge[i], EHex, 2);
+            }
+        } else {
+            aText.Append(_L("Select bridge"));
+        }
         break;
     default:
         break;
@@ -239,8 +248,13 @@ void CPhantomLinkAppUi::EditCommsL()
     case ECommsFollow:
         err = iComms.SetValue(KSecConfig, _L8("FollowBtName"), iComms.iFollowBtName ? _L8("0") : _L8("1"));
         break;
-    case ECommsForgetBridge:
-        ForgetBridgeL();
+    case ECommsBridge:
+        if (iComms.iHasBridge) {
+            ForgetBridgeL();
+        } else {
+            /* games like Rifts cannot show the selection themselves */
+            iPicker->StartL();
+        }
         return;
     default:
         return;
@@ -271,9 +285,9 @@ void CPhantomLinkAppUi::ForgetBridgeL()
         return;
     }
     if (iMode == EComms) {
-        ShowCommsL(ECommsForgetBridge);
+        ShowCommsL(ECommsBridge);
     }
-    InfoL(_L("Bridge forgotten. Choose the new one when a game connects."));
+    InfoL(_L("Bridge forgotten. Select a new one here, or when a game connects."));
 }
 
 void CPhantomLinkAppUi::ResetCommsL()
@@ -406,6 +420,9 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
         break;
     }
 
+    if (iPicker->IsBusy()) {
+        return; /* the device selection is open */
+    }
     if (iClient->IsBusy() || iBoardClient->IsBusy()) {
         InfoL(_L("Please wait, talking to the bridge"));
         return;
@@ -660,6 +677,21 @@ void CPhantomLinkAppUi::BridgeFinished(TInt aError)
         break;
     default:
         break;
+    }
+}
+
+void CPhantomLinkAppUi::BridgePicked(TInt aError)
+{
+    if (iMode == EComms) {
+        PL_IGNORE(ShowCommsL(ECommsBridge));
+    }
+    if (aError == KErrNone) {
+        PL_IGNORE(InfoL(_L("Bridge saved. Games connect to it without asking.")));
+    } else if (aError != KErrCancel) {
+        TBuf<100> text;
+        text.Copy(_L("Could not save the bridge, error "));
+        text.AppendNum(aError);
+        PL_IGNORE(ErrorL(text));
     }
 }
 

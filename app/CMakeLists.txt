@@ -18,6 +18,7 @@ set(pl_sources
     ${PL_SRC_DIR}/PhantomLinkAppUi.cpp
     ${PL_SRC_DIR}/PhantomLinkView.cpp
     ${PL_SRC_DIR}/BridgeClient.cpp
+    ${PL_SRC_DIR}/BridgePicker.cpp
     ${PL_SRC_DIR}/BoardClient.cpp
     ${GC_ROOT}/protocol/src/gc_codec.c
     ${GC_ROOT}/protocol/src/gc_link.c

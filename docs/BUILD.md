@@ -125,8 +125,10 @@ FollowBtName=1
 The first time, the phone shows the Bluetooth device selection. Pick the
 bridge (default name `GameCommsBridge`, PIN `1234`). Its address is then
 saved to `C:\System\Data\GameComms.ini`. To switch to another bridge
-later, select "Forget saved bridge" in PhantomLink's GameComms settings
-(or "Forget bridge" in the Options menu); the next game asks again.
+later, select "Forget bridge" in PhantomLink's GameComms settings; the
+next game asks again. Some games cannot show the selection themselves
+(Rifts): select the bridge in PhantomLink first ("Select bridge" in the
+GameComms settings), then the game connects to it without asking.
 
 ### Checking a game
 
