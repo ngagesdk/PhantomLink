@@ -158,8 +158,11 @@ instead of the built-in list (Ashen does).
   the game. The replacement answers KErrNone for entries from the
   discoverer and KErrNotFound for anything else.
 - Device list: an inert stand-in. It keeps its items (AppendL, InsertL,
-  At, Count, Delete and Reset work) but shows nothing on screen. If a game
-  turns out to display this list, it has to be implemented as well.
+  At, Count, Delete and Reset work) but shows nothing on screen. Like the
+  original it is a window-owning CCoeControl that is created invisible
+  and lets all keys through, so games can put it on their control stack.
+  If a game turns out to display this list, it has to be implemented as
+  well.
 
 ### Differences to the original on the network
 
@@ -249,6 +252,14 @@ nor has any). Every call that needs the network again reconnects.
   the discoverer then reported nothing. Engines are now kept in a list.
 - The discoverer gave up after 10 seconds even while the bridge
   selection dialog was open. Time spent in that dialog no longer counts.
+- Xanadu Next crashed at start-up. Its AppUi::ConstructL creates
+  GameComms with a discoverer and two CGameBTDeviceList objects only to
+  read the Bluetooth power state, AddToStackL()s both lists, then
+  removes and deletes everything again. The list was a plain CBase
+  object, and CONE treating it as a CCoeControl ran off the end of it.
+  It is now a real (invisible) CCoeControl, as in the original. Xanadu
+  uses only GameComms for Bluetooth (no BT libraries of its own) and
+  finds hosts with the discoverer, which the replacement supports.
 
 ### Not resolved
 
