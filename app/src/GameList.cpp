@@ -19,13 +19,12 @@ static const TGameEntry KGames[] = {
     /*{"Crash Nitro Kart", 8},*/
     { "FIFA Football 2004", 3 },
     /*{"FIFA Football 2005", 6},*/
-    { "Glimmerati", 10 },
+    /*{"Glimmerati", 10},*/
     { "Marcel Desailly Pro Soccer", 1 },
     { "Mile High Pinball", 5 },
     { "NCAA Football 2004", 3 },
     /*{"ONE", 10},*/
     { "Operation Shadow", 8 },
-    { "Pandemonium!", 2 },
     { "Puyo Pop", 2 },
     /*{"Puzzle Bobble VS", 2,},*/
     { "Rayman 3", 3 },
@@ -39,7 +38,7 @@ static const TGameEntry KGames[] = {
     /*{"Tom Clancy's Splinter Cell: Chaos Theory", 5},*/
     { "Tony Hawk's Pro Skater", 2 },
     { "Warhammer 40,000: Glory in Death", 11 },
-    { "WWE Aftershock", 6 }
+    { "WWE Aftershock", 6 },
     /*{"Xanadu Next", 6}*/
 };
 
