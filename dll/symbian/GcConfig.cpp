@@ -10,8 +10,9 @@
 #include "GcConfig.h"
 #include <f32file.h>
 
+/* The only settings file.  Never on E:: retail game cards are read only,
+ * and two files would make the settings depend on which one exists. */
 _LIT(KIniPhone, "C:\\System\\Data\\GameComms.ini");
-_LIT(KIniCard, "E:\\GameComms.ini");
 const TInt KMaxIniSize = 2048;
 
 TGcConfig::TGcConfig()
@@ -83,16 +84,11 @@ void TGcConfig::Load()
     if (fs.Connect() != KErrNone) {
         return;
     }
-    /* C: first: retail game cards in E: are read only, so settings that
-     * PhantomLink or the DLL writes always live on C: */
     iPath = KIniPhone;
     if (file.Open(fs, iPath, EFileRead | EFileShareReadersOnly) != KErrNone) {
-        iPath = KIniCard;
-        if (file.Open(fs, iPath, EFileRead | EFileShareReadersOnly) != KErrNone) {
-            iPath.Zero();
-            fs.Close();
-            return;
-        }
+        iPath.Zero();
+        fs.Close();
+        return;
     }
     HBufC8 *heap = HBufC8::New(KMaxIniSize); /* keep the game's stack small */
     if (!heap) {
@@ -190,10 +186,8 @@ static TBool KeyIs(const TPtrC8 &aLine, const TDesC8 &aKey)
 
 TInt TGcConfig::SetValue(const TDesC8 &aSection, const TDesC8 &aKey, const TDesC8 &aValue)
 {
-    /* Rewrites the file on C: (retail game cards in E: are read only),
-     * keeping every other line, comments included.  The content is taken
-     * from the file in use, so settings from E:\GameComms.ini move to C:
-     * with the first change.  An empty value removes the key. */
+    /* Rewrites the file, keeping every other line, comments included.
+     * An empty value removes the key. */
     RFs fs;
     RFile file;
     TInt err = fs.Connect();
@@ -210,8 +204,7 @@ TInt TGcConfig::SetValue(const TDesC8 &aSection, const TDesC8 &aKey, const TDesC
     }
     TPtr8 in = inBuf->Des();
     TPtr8 out = outBuf->Des();
-    TFileName source = iPath.Length() ? iPath : TFileName(KIniPhone);
-    if (file.Open(fs, source, EFileRead | EFileShareReadersOnly) == KErrNone) {
+    if (file.Open(fs, KIniPhone, EFileRead | EFileShareReadersOnly) == KErrNone) {
         file.Read(in);
         file.Close();
     }
@@ -269,8 +262,8 @@ TInt TGcConfig::SetValue(const TDesC8 &aSection, const TDesC8 &aKey, const TDesC
 
 TInt TGcConfig::RemoveSection(const TDesC8 &aSection)
 {
-    /* Same rules as SetValue: the result is written to C:.  Used to
-     * forget the bridge, so that the next game asks for one again. */
+    /* Used to forget the bridge, so that the next game asks for one
+     * again (the address is saved automatically after the selection). */
     RFs fs;
     RFile file;
     TInt err = fs.Connect();
@@ -288,7 +281,7 @@ TInt TGcConfig::RemoveSection(const TDesC8 &aSection)
     TPtr8 in = inBuf->Des();
     TPtr8 out = outBuf->Des();
     TBool found = EFalse;
-    if (iPath.Length() && file.Open(fs, iPath, EFileRead | EFileShareReadersOnly) == KErrNone) {
+    if (file.Open(fs, KIniPhone, EFileRead | EFileShareReadersOnly) == KErrNone) {
         file.Read(in);
         file.Close();
     }

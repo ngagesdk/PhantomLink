@@ -139,7 +139,7 @@ void CPhantomLinkAppUi::ShowBoardL()
 }
 
 /* ------------------------------------------------------------------ */
-/* GameComms settings (GameComms.ini, always written to C:)            */
+/* GameComms settings (C:\System\Data\GameComms.ini)                  */
 /* ------------------------------------------------------------------ */
 
 static void AppendOnOff(TDes &aText, const TDesC &aLabel, TBool aOn)
@@ -170,14 +170,7 @@ void CPhantomLinkAppUi::CommsText(TInt aRow, TDes &aText) const
     switch (aRow) {
     case ECommsFile:
         aText.Append(_L("File: "));
-        if (iComms.iPath.Length() == 0) {
-            aText.Append(_L("none, defaults"));
-        } else if (iComms.iPath.CompareF(TGcConfig::WritePath()) == 0) {
-            aText.Append(_L("C:\\System\\Data"));
-        } else {
-            aText.Append(iComms.iPath.Left(40));
-            aText.Append(_L(" (read only)"));
-        }
+        aText.Append(iComms.iPath.Length() ? _L("C:\\System\\Data") : _L("none yet, defaults"));
         break;
     case ECommsName:
         aText.Append(_L("Player name: "));
@@ -201,23 +194,8 @@ void CPhantomLinkAppUi::CommsText(TInt aRow, TDes &aText) const
     case ECommsFollow:
         AppendOnOff(aText, _L("Follow BT name: "), iComms.iFollowBtName);
         break;
-    case ECommsAddress:
-        aText.Append(_L("Bridge: "));
-        if (iComms.iHasBridge) {
-            for (TInt i = 0; i < 6; i++) {
-                aText.AppendNumFixedWidth(iComms.iBridge[i], EHex, 2);
-            }
-        } else {
-            aText.Append(_L("ask on first use"));
-        }
-        break;
-    case ECommsChannel:
-        aText.Append(_L("Bridge channel: "));
-        if (iComms.iChannel > 0) {
-            aText.AppendNum(iComms.iChannel);
-        } else {
-            aText.Append(_L("auto"));
-        }
+    case ECommsForgetBridge:
+        aText.Append(iComms.iHasBridge || iComms.iChannel > 0 ? _L("Forget saved bridge") : _L("No bridge saved yet"));
         break;
     default:
         break;
@@ -230,11 +208,7 @@ void CPhantomLinkAppUi::EditCommsL()
     TInt err = KErrNone;
     switch (row) {
     case ECommsFile:
-        if (iComms.iPath.Length() && iComms.iPath.CompareF(TGcConfig::WritePath()) != 0) {
-            InfoL(_L("Settings come from E:. The first change copies them to C:\\System\\Data, which is used from then on."));
-        } else {
-            InfoL(_L("Settings are stored in C:\\System\\Data\\GameComms.ini. Game cards are read only."));
-        }
+        InfoL(_L("Settings are stored in C:\\System\\Data\\GameComms.ini."));
         return;
     case ECommsName:
     {
@@ -265,61 +239,9 @@ void CPhantomLinkAppUi::EditCommsL()
     case ECommsFollow:
         err = iComms.SetValue(KSecConfig, _L8("FollowBtName"), iComms.iFollowBtName ? _L8("0") : _L8("1"));
         break;
-    case ECommsAddress:
-    {
-        TBuf<12> text;
-        if (iComms.iHasBridge) {
-            for (TInt i = 0; i < 6; i++) {
-                text.AppendNumFixedWidth(iComms.iBridge[i], EHex, 2);
-            }
-        }
-        CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(text);
-        dialog->SetMaxLength(12);
-        if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Address (- = ask)"))) {
-            return;
-        }
-        TBuf8<12> addr;
-        if (text.Compare(_L("-")) != 0) {
-            TBool ok = text.Length() == 12;
-            for (TInt i = 0; ok && i < text.Length(); i++) {
-                TChar c(text[i]);
-                ok = c.IsHexDigit();
-            }
-            if (!ok) {
-                ErrorL(_L("Enter 12 hex digits, for example 0002ee112233"));
-                return;
-            }
-            addr.Copy(text);
-        }
-        err = iComms.SetValue(KSecBridge, _L8("Address"), addr); /* empty: forget */
-        break;
-    }
-    case ECommsChannel:
-    {
-        TBuf<2> text;
-        if (iComms.iChannel > 0) {
-            text.AppendNum(iComms.iChannel);
-        } else {
-            text.Append('0');
-        }
-        CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(text);
-        dialog->SetMaxLength(2);
-        if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Channel (0 = auto)"))) {
-            return;
-        }
-        TLex lex(text);
-        TInt channel = 0;
-        if (lex.Val(channel) != KErrNone || !lex.Eos() || channel < 0 || channel > 30) {
-            ErrorL(_L("Channel must be 0 to 30"));
-            return;
-        }
-        TBuf8<2> value;
-        if (channel > 0) {
-            value.AppendNum(channel);
-        }
-        err = iComms.SetValue(KSecBridge, _L8("Channel"), value); /* empty: auto */
-        break;
-    }
+    case ECommsForgetBridge:
+        ForgetBridgeL();
+        return;
     default:
         return;
     }
@@ -340,9 +262,6 @@ void CPhantomLinkAppUi::ForgetBridgeL()
         InfoL(_L("No bridge saved. The next game asks for one."));
         return;
     }
-    if (!ConfirmL(_L("Forget the saved bridge? The next game asks for one."))) {
-        return;
-    }
     TInt err = iComms.RemoveSection(KSecBridge);
     if (err != KErrNone) {
         TBuf<100> text;
@@ -352,14 +271,14 @@ void CPhantomLinkAppUi::ForgetBridgeL()
         return;
     }
     if (iMode == EComms) {
-        ShowCommsL(ECommsAddress);
+        ShowCommsL(ECommsForgetBridge);
     }
     InfoL(_L("Bridge forgotten. Choose the new one when a game connects."));
 }
 
 void CPhantomLinkAppUi::ResetCommsL()
 {
-    if (!ConfirmL(_L("Delete GameComms.ini on C:? The saved bridge is forgotten too."))) {
+    if (!ConfirmL(_L("Delete GameComms.ini? The saved bridge is forgotten too."))) {
         return;
     }
     RFs fs;
@@ -368,11 +287,7 @@ void CPhantomLinkAppUi::ResetCommsL()
     fs.Close();
     if (err == KErrNone || err == KErrNotFound || err == KErrPathNotFound) {
         ShowCommsL(0);
-        if (iComms.iPath.Length()) {
-            InfoL(_L("Deleted. The read only file on E: is used now."));
-        } else {
-            InfoL(_L("Deleted. GameComms uses its defaults."));
-        }
+        InfoL(_L("Deleted. GameComms uses its defaults."));
     } else {
         TBuf<100> text;
         DescribeError(err, text);
@@ -838,5 +753,5 @@ void CPhantomLinkAppUi::ErrorL(const TDesC &aText)
 
 void CPhantomLinkAppUi::ShowAboutL()
 {
-    InfoL(_L("PhantomLink: pick your game to install its gamecomms.dll, set up the ESP32 bridge over Bluetooth, or change the GameComms settings (stored on C:)."));
+    InfoL(_L("PhantomLink: pick your game to install its gamecomms.dll, set up the ESP32 bridge over Bluetooth, or change the GameComms settings."));
 }
