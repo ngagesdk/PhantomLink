@@ -134,9 +134,11 @@ fields, followed by one byte "resumed" (0 or 1).
   frame is missing, they are dropped and the sender resends.
 - Every frame carries the acknowledgement. A separate ACK is sent after
   data was received.
-- The sender keeps at most 16 unacknowledged messages (8 on the ESP32).
-  Beyond that, sending returns FULL. This is the flow control towards the
-  application.
+- The sender keeps at most 16 unacknowledged messages, on every hop
+  including the ESP32. Beyond that, sending returns FULL. This is the flow
+  control towards the application. The ESP32 stores the queued messages in
+  fewer bytes (see BUILD.md), so a burst of large messages can also return
+  FULL earlier there.
 - Lost frames are resent after a timeout (400 ms on Bluetooth, 1 s on
   TCP), doubling up to 3 s or 5 s.
 - A receiver that cannot take more data does not acknowledge it, and the

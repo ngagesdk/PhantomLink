@@ -141,12 +141,20 @@ connection so the device can reconnect. The serial `status` command reports RX
 buffering, dropped bytes, frame errors, TX queue usage and congestion, link
 backpressure and queue occupancy, and the maximum SPP write and main-loop
 intervals since boot. Write latency includes waiting until the loop processes
-the completion; loop intervals include console and setup operations. Input is
-processed at frame boundaries to drain forwarding queues between frames. TCP
-reads pause when the device FIFO fills, except while server acknowledgments are
-outstanding; periodic reads also allow control frames to progress. Sustained
-congestion can still cause link-layer retries. If the TCP output buffer fills,
-the bridge logs the problem and reconnects.
+the completion; loop intervals include console and setup operations. If the
+TCP output buffer fills, the bridge logs the problem and reconnects.
+
+From the game's point of view the ESP32 bridge behaves like `gcbridge`: both
+run the same bridge core with the same message windows (16 unacknowledged
+messages per link, 8 per forwarding FIFO, as the DLL and the server use), and
+received Bluetooth and TCP data is handed to the core as read, without
+splitting or pausing; the link layer's acknowledgements provide the
+backpressure. To fit into the ESP32's RAM, each queue stores its messages in
+4376 bytes (`GC_LINK_QBUF`, `BRIDGE_FIFO_BYTES` in `platformio.ini`) instead of
+reserving the largest message size per slot, so only bursts of large messages
+are limited earlier. Smaller windows (the former 4 messages) throttle game
+traffic: games such as Tony Hawk's Pro Skater then get send errors and report
+a lost connection although Bluetooth is fine. `bridge_parity` guards this.
 
 This reduces scheduling stalls but does not eliminate Wi-Fi/Bluetooth radio
 coexistence or signal-quality limitations. Check actual reliability on the
@@ -487,6 +495,8 @@ ctest --test-dir build/tests --output-on-failure
 | `e2e_network` | Real server and `gcsim` over TCP, 2 to 4 players, wrong access key |
 | `pcbridge_bluez` | PC bridge on Linux against a simulated BlueZ on a private D-Bus bus: adapter setup, Serial Port profile and pairing agent registration, PIN answer, connections handed over by BlueZ, reconnect, clean unregistration (skipped without `dbus-daemon` and Python dbus) |
 | `pcbridge_network` | Real server, PC bridge and `gcsim` over TCP (instead of Bluetooth): 1.x and 2.x, explicit server and LAN discovery, an N-Gage dropping out and coming back, COM mode through a pseudo terminal including an N-Gage restarting on the same port |
+| `bridge_parity` | ESP32 bridge (sizing from `platformio.ini`, firmware transport glue) and PC bridge against the same DLL logic and server, on links with latency, limited bandwidth and Wi-Fi modem sleep, with 2.x game traffic: what the game observes (send results, callbacks, data) must be identical and free of errors |
+| `queue_storage_default`, `queue_storage_esp32` | Message storage of link queues and bridge FIFOs: message windows, largest message, wrap-around with mixed sizes, stalled and released device |
 | `dll_variants` | Export tables of all variants compared with the original DLLs |
 
 CI runs these tests on Linux and Windows and also builds the Docker image,
