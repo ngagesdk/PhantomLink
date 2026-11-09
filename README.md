@@ -61,6 +61,8 @@ You need one of the following devices to connect your N-Gage to PhantomLink:
 
 - An ESP32 development board with Bluetooth support.
 
+- An Android phone (Android 8 or newer).
+
 - A Linux PC with Bluetooth support.
 
 - A Raspberry Pi with Bluetooth support.
@@ -86,6 +88,7 @@ games with other players regardless of physical distance.
 - `dll/` - replacement GAMECOMMS.DLL for all 11 original variants
 - `firmware/` - ESP32 bridge firmware
 - `pcbridge/` - PC bridge for Linux and Windows (`gcbridge`), same job as the ESP32
+- `android/` - Android bridge app, same job as the ESP32, same bridge engine
 - `server/` - endpoint server (`gamecommsd`)
 - `protocol/` - protocol library shared by all three parts
 - `tests/` - automated tests
@@ -110,6 +113,9 @@ games with other players regardless of physical distance.
      start `gcbridge`. One computer can serve several N-Gages.
    - Windows PC: `gcbridge.exe` works the same way, but depends on the
      Bluetooth adapter and may not work (see docs/BUILD.md).
+   - Android phone: install the app from `android/` (see
+     [android/README.md](android/README.md)), tap start. One phone can
+     serve several N-Gages.
    - ESP32: flash it with `pio run -d firmware -t upload`, connect to its
      `GameCommsBridge-Setup` Wi-Fi and enter your Wi-Fi settings. One
      ESP32 per N-Gage.
@@ -175,6 +181,8 @@ implementation.
   a simulated BlueZ). Linux still has to be tested with a real N-Gage. On
   Windows the first real test failed inside the Windows Bluetooth stack
   (see docs/BUILD.md, "Windows: known problem").
+- Android bridge: implemented; its engine is tested on a PC against the real
+  server and simulated N-Gages. Still has to be tested with a real N-Gage.
 - Symbian DLLs: implemented. They need the Windows N-Gage toolchain to
   build and still have to be tested on real hardware.
 

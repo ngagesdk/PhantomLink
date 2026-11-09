@@ -392,6 +392,13 @@ program. Every setting can also be given on the command line, for example
 
 The N-Gage sees the computer under its Bluetooth name.
 
+## Android bridge
+
+The Android app in `android/` does the same as the ESP32 and PC bridges,
+with the phone's Bluetooth and Internet connection, using the same bridge
+engine through JNI. Build, settings, release and Google Play: see
+[android/README.md](../android/README.md).
+
 ## Server
 
 ### Linux and macOS
@@ -507,6 +514,7 @@ ctest --test-dir build/tests --output-on-failure
 | `e2e_network` | Real server and `gcsim` over TCP, 2 to 4 players, wrong access key |
 | `pcbridge_bluez` | PC bridge on Linux against a simulated BlueZ on a private D-Bus bus: adapter setup, Serial Port profile and pairing agent registration, PIN answer, connections handed over by BlueZ, reconnect, clean unregistration (skipped without `dbus-daemon` and Python dbus) |
 | `pcbridge_network` | Real server, PC bridge and `gcsim` over TCP (instead of Bluetooth): 1.x and 2.x, explicit server and LAN discovery, an N-Gage dropping out and coming back, COM mode through a pseudo terminal including an N-Gage restarting on the same port |
+| `android_bridge_network` | Android bridge engine (`BridgeEngine.java` + JNI library) on the host with real server and `gcsim` over TCP: 1.x and 2.x, explicit server and LAN discovery, an N-Gage dropping out and coming back (needs a JDK) |
 | `bridge_parity` | ESP32 bridge (sizing from `platformio.ini`, firmware transport glue) and PC bridge against the same DLL logic and server, on links with latency, limited bandwidth and Wi-Fi modem sleep, with 2.x game traffic: what the game observes (send results, callbacks, data) must be identical and free of errors |
 | `queue_storage_default`, `queue_storage_esp32` | Message storage of link queues and bridge FIFOs: message windows, largest message, wrap-around with mixed sizes, stalled and released device |
 | `dll_variants` | Export tables of all variants compared with the original DLLs |

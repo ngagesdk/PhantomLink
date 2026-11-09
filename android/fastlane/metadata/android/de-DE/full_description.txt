@@ -1,0 +1,29 @@
+PhantomLink bringt die Mehrspielermodi klassischer N-Gage-Spiele ins Internet. Die Spiele wurden für Bluetooth im selben Raum gemacht; mit PhantomLink verbindet sich dein N-Gage per Bluetooth mit deinem Handy, und das Handy leitet das Spiel über das Internet an einen PhantomLink-Server weiter, auf dem du andere Spieler triffst.
+
+Diese App macht dein Android-Handy zur Brücke. Sie erledigt dieselbe Aufgabe wie das PhantomLink-ESP32-Board oder die PC-Brücke und verwendet genau dieselbe Brücken-Engine.
+
+SO FUNKTIONIERT ES
+1. Installiere PhantomLink auf deinem N-Gage (die Ersatz-Bibliothek für GameComms).
+2. Tippe in dieser App auf Start.
+3. Starte auf dem N-Gage ein Mehrspielerspiel und wähle dein Handy in der Bluetooth-Liste. Wenn nach einer PIN gefragt wird, gib 1234 ein.
+Fertig. Das Spiel glaubt, es spricht mit einem anderen N-Gage in der Nähe.
+
+FUNKTIONEN
+• Findet einen PhantomLink-Server im lokalen Netzwerk automatisch oder verbindet sich mit einer beliebigen Serveradresse
+• Bis zu 7 N-Gages gleichzeitig über ein Handy
+• Beantwortet die Kopplungs-PIN des N-Gage automatisch
+• Übersteht kurze WLAN- oder Mobilfunkaussetzer, ohne dass das Spiel endet
+• Läuft im Hintergrund weiter, auch bei ausgeschaltetem Bildschirm
+• Live-Status jedes verbundenen N-Gage und ein ausführliches Protokoll zum Teilen
+• Helles und dunkles Design
+• Kein Konto, keine Werbung, kein Tracking
+
+VORAUSSETZUNGEN
+• Ein N-Gage (Classic oder QD) mit installierter PhantomLink-GameComms-Bibliothek
+• Ein PhantomLink-Server: selbst betreiben (kostenlos, Open Source) oder einen Server deiner Community nutzen
+• Ein Spiel, das die normale Bluetooth-Mehrspieler-Bibliothek des N-Gage verwendet. Siehe die Kompatibilitätsliste auf der Projektseite.
+
+OPEN SOURCE
+PhantomLink ist freie Software unter der MIT-Lizenz: https://github.com/ngagesdk/PhantomLink
+
+PhantomLink ist ein Community-Projekt und steht in keiner Verbindung zu Nokia oder HMD Global. N-Gage ist eine Marke des jeweiligen Inhabers.

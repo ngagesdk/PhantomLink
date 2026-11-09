@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">PhantomLink</string>
+    <string name="notification_channel">Bridge</string>
+    <string name="notification_channel_desc">Shown while the bridge is running</string>
+    <string name="notification_title">PhantomLink bridge</string>
+    <string name="waiting_short">Waiting for an N-Gage</string>
+    <string name="online">online</string>
+    <string name="stop">Stop</string>
+    <plurals name="ngages_connected">
+        <item quantity="one">%d N-Gage connected</item>
+        <item quantity="other">%d N-Gages connected</item>
+    </plurals>
+</resources>

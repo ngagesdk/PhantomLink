@@ -150,4 +150,34 @@ if(Python3_FOUND)
         set_tests_properties(pcbridge_bluez PROPERTIES SKIP_RETURN_CODE 77)
     endif()
     add_test(NAME dll_variants COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/compat/check_variants.py)
+
+    # Android bridge: the app's engine (BridgeEngine.java) and JNI library on
+    # the host, TCP test devices instead of Bluetooth (needs a JDK)
+    find_package(Java 11 COMPONENTS Development QUIET)
+    find_package(JNI QUIET)
+    if(Java_FOUND AND JNI_FOUND)
+        set(GC_ANDROID ${ROOT}/android)
+        add_library(gcbridge_jni SHARED ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c
+                    ${ROOT}/protocol/src/gc_msg.c ${ROOT}/firmware/src/bridge_core.c
+                    ${GC_ANDROID}/app/src/main/cpp/jni_bridge.c)
+        target_include_directories(gcbridge_jni PRIVATE ${ROOT}/protocol/include ${ROOT}/firmware/src ${JNI_INCLUDE_DIRS})
+        # loaded into the JVM: no sanitizer runtime
+        set_target_properties(gcbridge_jni PROPERTIES OUTPUT_NAME gcbridge
+                              COMPILE_OPTIONS "" LINK_OPTIONS ""
+                              LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/android_lib
+                              RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/android_lib)
+        if(WIN32)
+            set_target_properties(gcbridge_jni PROPERTIES PREFIX "") # System.loadLibrary wants gcbridge.dll
+        endif()
+        file(GLOB GC_ANDROID_JAVA ${GC_ANDROID}/app/src/main/java/org/ngagesdk/phantomlink/bridge/*.java)
+        set(GC_ANDROID_CLASSES ${CMAKE_CURRENT_BINARY_DIR}/android_classes)
+        add_custom_target(android_host_classes ALL
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${GC_ANDROID_CLASSES}
+            COMMAND ${Java_JAVAC_EXECUTABLE} -encoding UTF-8 -d ${GC_ANDROID_CLASSES} ${GC_ANDROID_JAVA}
+                    ${GC_ANDROID}/tests/HostBridge.java
+            DEPENDS ${GC_ANDROID_JAVA} ${GC_ANDROID}/tests/HostBridge.java)
+        add_test(NAME android_bridge_network COMMAND ${Python3_EXECUTABLE} ${GC_ANDROID}/tests/run_host_test.py
+                 $<TARGET_FILE:gamecommsd> $<TARGET_FILE:gcsim> $<TARGET_FILE_DIR:gcbridge_jni>
+                 ${GC_ANDROID_CLASSES} ${Java_JAVA_EXECUTABLE})
+    endif()
 endif()
