@@ -231,7 +231,7 @@ jobs:
           if-no-files-found: error
 
   package:
-    needs: [host-tests, server, firmware, dlls]
+    needs: [host-tests, server, firmware, dlls, android]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -247,6 +247,10 @@ jobs:
         with:
           name: firmware
           path: dist/PhantomLink/firmware/esp32dev
+      - uses: actions/download-artifact@v8
+        with:
+          name: phantomlink-android
+          path: android-build
       - name: Assemble
         run: |
           root=dist/PhantomLink
@@ -254,6 +258,16 @@ jobs:
           mkdir -p "$root/docs" && cp docs/*.md "$root/docs/"
           # artifacts do not keep file permissions
           chmod +x "$root/server/linux-x86_64/gamecommsd"
+          # Android bridge: the signed release APK when CI has the signing
+          # secrets, otherwise the debug APK (an unsigned release APK does
+          # not install); the Play bundle (.aab) is not shipped
+          mkdir -p "$root/android"
+          if [ -f android-build/app-release.apk ]; then
+            cp android-build/app-release.apk "$root/android/PhantomLinkBridge.apk"
+          else
+            cp android-build/app-debug.apk "$root/android/PhantomLinkBridge-debug.apk"
+          fi
+          cp android/README.md "$root/android/README.md"
           cat > "$root/BUILD-INFO.txt" <<EOF
           PhantomLink continuous integration build
           commit:          ${GITHUB_SHA}
@@ -271,6 +285,9 @@ jobs:
           required="$required ngage/PhantomLink.sis"
           for v in $(seq 1 11); do required="$required ngage/v$v/gamecomms.dll"; done
           missing=0
+          if ! ls "$root"/android/PhantomLinkBridge*.apk >/dev/null 2>&1; then
+            echo "::error::missing android/PhantomLinkBridge*.apk"; missing=1
+          fi
           for f in $required; do
             if [ ! -s "$root/$f" ]; then echo "::error::missing $f"; missing=1; fi
           done
