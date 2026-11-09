@@ -53,6 +53,8 @@ public final class HostBridge
         });
         engine.start();
         ServerSocket ls = new ServerSocket(dport, 16, InetAddress.getByName("127.0.0.1"));
+        System.out.println("[android-bridge] listening on 127.0.0.1:" + ls.getLocalPort()); /* run_host_test.py waits for this */
+        System.out.flush();
         for (;;) {
             final Socket s = ls.accept();
             s.setTcpNoDelay(true);
