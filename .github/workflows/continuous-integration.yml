@@ -165,7 +165,7 @@ jobs:
             "$STORE_PASSWORD" "$KEY_ALIAS" "$KEY_PASSWORD" > keystore.properties
       - name: Build
         working-directory: android
-        run: ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
+        run: bash ./gradlew --no-daemon assembleDebug assembleRelease bundleRelease
       - name: Collect
         run: |
           mkdir -p dist
