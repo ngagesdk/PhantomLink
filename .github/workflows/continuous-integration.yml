@@ -152,6 +152,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
       - name: Signing key
         if: env.ANDROID_KEYSTORE_BASE64 != ''
         working-directory: android
