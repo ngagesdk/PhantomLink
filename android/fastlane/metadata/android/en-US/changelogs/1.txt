@@ -1,0 +1,1 @@
+First release of the Android bridge: the same bridge engine as the ESP32 and PC bridges, automatic server discovery, up to 7 N-Gages, automatic PIN answer, light and dark theme.

@@ -1,0 +1,1 @@
+Erste Version der Android-Brücke: dieselbe Brücken-Engine wie ESP32- und PC-Brücke, automatische Serversuche, bis zu 7 N-Gages, automatische PIN-Antwort, helles und dunkles Design.
