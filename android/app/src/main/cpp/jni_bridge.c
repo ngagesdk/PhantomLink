@@ -121,7 +121,7 @@ static void cb_log(void *ctx, const char *line)
     (*env)->DeleteLocalRef(env, s);
 }
 
-#define JB(h) ((jb *)(intptr_t)(h))
+#define JB(h)    ((jb *)(intptr_t)(h))
 #define FN(name) Java_org_ngagesdk_phantomlink_bridge_NativeBridge_##name
 
 JNIEXPORT jlong JNICALL FN(nativeCreate)(JNIEnv *env, jclass cls, jobject callbacks, jint linkId, jstring key)

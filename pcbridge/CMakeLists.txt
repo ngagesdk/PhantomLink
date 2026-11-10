@@ -21,6 +21,9 @@ set(sources
     ${GC_ROOT}/protocol/src/gc_codec.c
     ${GC_ROOT}/protocol/src/gc_link.c
     ${GC_ROOT}/protocol/src/gc_msg.c
+    ${GC_ROOT}/protocol/src/gc_ppp.c
+    ${GC_ROOT}/protocol/src/gc_ip.c
+    ${GC_ROOT}/protocol/src/gc_net.c
     ${GC_ROOT}/firmware/src/bridge_core.c
     src/pcb_main.c)
 if(WIN32)

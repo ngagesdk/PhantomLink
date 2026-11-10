@@ -2,6 +2,7 @@
  * Uses in-memory connections and simulated clients speaking the real
  * link + message protocol.  SPDX-License-Identifier: MIT */
 #include "../../protocol/tests/gc_test.h"
+#include "gc_arena.h"
 #include "gcs_core.h"
 #include <time.h>
 
@@ -23,7 +24,9 @@ typedef struct client
     int n_msgs;
     char name[16];
     gc_u8 devid[6];
-    int deaf; /* drop everything the server sends (stalled receiver) */
+    int deaf;    /* drop everything the server sends (stalled receiver) */
+    int n_arena; /* GCA messages received */
+    gca_msg arena_last;
 } client;
 
 static gcs_core *core;
@@ -101,6 +104,13 @@ static void cl_msg(void *ctx, const gc_u8 *d, size_t n)
 {
     client *c = (client *)ctx;
     gc_msg m;
+    if (n && GCA_IS_ARENA(d[0])) {
+        if (gca_decode(d, n, &c->arena_last)) {
+            c->arena_last.payload = NULL;
+            c->n_arena++;
+        }
+        return;
+    }
     if (c->n_msgs >= 64) {
         return;
     }
@@ -1459,6 +1469,41 @@ static const char *only;
         }                                      \
     } while (0)
 
+static void test_arena_peers(void)
+{
+    gca_msg a;
+    gc_u8 b[GC_LINK_MAX_MSG];
+    size_t n;
+
+    reset_world();
+    new_client(0, "PK1");
+    memset(&a, 0, sizeof(a));
+    a.type = GCA_MT_LOGIN;
+    a.req = 1;
+    a.id = 0x101fd3dd;
+    strcpy(a.name, "PK1");
+    n = gca_encode(&a, b, sizeof(b));
+    /* before registration: refused with a GCM error */
+    CHECK_EQ(gc_link_send(&C[0].link, b, n, now), GC_LINK_OK);
+    pump(3);
+    CHECK(find(&C[0], GC_MT_ERROR) != NULL);
+    CHECK_EQ(C[0].n_arena, 0);
+    /* a GameComms peer may not use Arena messages either */
+    do_register(0, GC_API_V2);
+    CHECK_EQ(gc_link_send(&C[0].link, b, n, now), GC_LINK_OK);
+    pump(3);
+    CHECK_EQ(C[0].n_arena, 0);
+    do_register(0, GC_API_ARENA);
+    CHECK(find(&C[0], GC_MT_REGISTERED) && find(&C[0], GC_MT_REGISTERED)->u.registered.result == GC_R_OK);
+    CHECK_EQ(gc_link_send(&C[0].link, b, n, now), GC_LINK_OK);
+    pump(3);
+    CHECK_EQ(C[0].n_arena, 1);
+    CHECK_EQ(C[0].arena_last.type, GCA_MT_LOGIN_RESULT);
+    CHECK_EQ(C[0].arena_last.result, 0);
+    disconnect_client(&C[0]);
+    pump(3);
+}
+
 int main(int argc, char **argv)
 {
     only = argc > 1 ? argv[1] : NULL;
@@ -1495,6 +1540,7 @@ int main(int argc, char **argv)
     RUNF(test_sec_resume_same_address_while_attached);
     RUNF(test_sec_resume_detached_from_new_address);
     RUNF(test_sec_session_state_validated);
+    RUNF(test_arena_peers);
     gcs_core_destroy(core);
     core = NULL;
     TEST_MAIN_END();

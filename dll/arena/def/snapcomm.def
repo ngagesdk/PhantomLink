@@ -1,0 +1,6 @@
+EXPORTS
+	PlSnapNewLC @ 1 NONAME
+	PlSnapNewL @ 2 NONAME
+	PlSnapNop3 @ 3 NONAME
+	PlSnapNop4 @ 4 NONAME
+	PlSnapNop5 @ 5 NONAME

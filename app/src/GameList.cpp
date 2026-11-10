@@ -14,7 +14,7 @@ static const TGameEntry KGames[] = {
     { "Asphalt Urban GT", 3 },
     { "Asphalt: Urban GT 2", 11 },
     { "Bomberman", 8 },
-    { "Call of Duty", 6},
+    { "Call of Duty", 6 },
     /*{"Catan", 5},*/
     /*{"Crash Nitro Kart", 8},*/
     { "FIFA Football 2004", 3 },

@@ -366,3 +366,29 @@ only forwards these messages.
 | different game | server | HostConnected(KErrIncompatibleGame) or Connected(0, KErrIncompatibleGame) |
 | duplicate data | sequence numbers | dropped |
 | malformed message | decoder | ERROR to the sender, the connection stays up |
+
+## N-Gage Arena messages (GCA)
+
+Message types 0x80..0x9F are used by the PhantomLink Arena plug-ins
+(API family 3 in REGISTER) and handled by the server's Arena module.
+The bridge forwards them like any other message. Layouts are in
+`protocol/include/gc_arena.h`; see ARENA.md.
+
+## Network tunnel messages (GCN)
+
+Message types 0xA0..0xAF carry the TCP connections and UDP datagrams of
+retail Arena games in PPP mode (see ARENA.md). A bridge whose device starts
+with a PPP frame (first byte 0x7E) terminates PPP and TCP/IP itself
+(`gc_ppp.c`, `gc_ip.c`), sends a REGISTER for the device (API family 3, the
+device's Bluetooth address as device id, name "N-Gage (PPP)") and then
+tunnels the traffic in these messages; the server's `gcs_native.c` answers.
+
+| Type | Direction | Layout after the type byte |
+|---|---|---|
+| 0xA0 TCP_OPEN | bridge → server | u16 id, 4 bytes address, u16 port, u16 device port |
+| 0xA1 TCP_DATA | both | u16 id, bytes (server → bridge: at most 512) |
+| 0xA2 TCP_CLOSE | both | u16 id, u8 how (0 FIN, 1 reset) |
+| 0xA3 UDP | both | 4 bytes server side address, u16 server side port, u16 device port, bytes |
+
+The id is the bridge's connection slot in the low byte and a generation in
+the high byte. Layouts are in `protocol/include/gc_net.h`.

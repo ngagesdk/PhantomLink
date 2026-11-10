@@ -1,0 +1,4 @@
+EXPORTS
+	PlChatNewLC @ 1 NONAME
+	PlChatZero @ 2 NONAME
+	PlChatNewL @ 3 NONAME

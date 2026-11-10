@@ -16,6 +16,7 @@ set(PL_INC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/inc")
 set(pl_sources
     ${PL_SRC_DIR}/PhantomLinkApp.cpp
     ${PL_SRC_DIR}/PhantomLinkAppUi.cpp
+    ${PL_SRC_DIR}/ArenaSetup.cpp
     ${PL_SRC_DIR}/PhantomLinkView.cpp
     ${PL_SRC_DIR}/BridgeClient.cpp
     ${PL_SRC_DIR}/BridgePicker.cpp
@@ -57,6 +58,8 @@ set(pl_libs
     ${EPOC_LIB}/efsrv.lib
     ${EPOC_LIB}/bafl.lib
     ${EPOC_LIB}/esock.lib
+    ${EPOC_LIB}/commdb.lib
+    ${EPOC_LIB}/btregistry.lib
     ${EPOC_LIB}/bluetooth.lib
     ${EPOC_LIB}/btextnotifiers.lib
     ${EPOC_LIB}/sdpagent.lib
