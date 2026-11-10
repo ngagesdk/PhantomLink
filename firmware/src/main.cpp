@@ -697,6 +697,15 @@ static void printStatus(Print &out)
     out.printf("GameComms bridge %s\n", BRIDGE_VERSION);
     out.printf("  bt name   : %s (pin %s)\n", cfg.btname.c_str(), cfg.pin.c_str());
     out.printf("  device    : %s, link state %d\n", btConnected ? "connected" : "-", br.dev.state);
+#if BRIDGE_PPP
+    if (br.mode == BRIDGE_MODE_PPP) {
+        /* retail Arena game: PPP instead of the GameComms link */
+        out.printf("  ppp       : %s, frames rx %lu (bad fcs %lu) tx %lu, tcp %lu udp %lu\n",
+                   gc_ppp_is_up(&br.ppp) ? "up" : "negotiating", (unsigned long)br.ppp.st_rx_frames,
+                   (unsigned long)br.ppp.st_rx_bad_fcs, (unsigned long)br.ppp.st_tx_frames,
+                   (unsigned long)br.st_ppp_tcp, (unsigned long)br.st_ppp_udp);
+    }
+#endif
     out.printf("  bt rx     : %u buffered, %lu bytes dropped, frame errors crc %lu cobs %lu oversize %lu short %lu\n",
                (unsigned)btRxAvailable(), (unsigned long)drops, (unsigned long)br.dev.rx.err_crc,
                (unsigned long)br.dev.rx.err_cobs, (unsigned long)br.dev.rx.err_oversize,

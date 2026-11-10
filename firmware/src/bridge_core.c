@@ -203,6 +203,314 @@ static void srv_queue(bridge *b, const gc_u8 *d, size_t n)
     }
 }
 
+/* ---- PPP mode (retail Arena games) ---- */
+
+#if BRIDGE_PPP
+
+GC_STATIC_ASSERT(tcp_txbuf_takes_a_server_chunk, GC_TCP_TXBUF >= GCN_SRV_CHUNK);
+
+/* room for one more message of n bytes towards the server */
+static int srv_room(bridge *b, size_t n)
+{
+    return srv_usable(b) && fifo_room(&b->to_srv, n);
+}
+
+static int srv_send_net(bridge *b, const gcn_msg *m)
+{
+    gc_u8 buf[GC_LINK_MAX_MSG];
+    size_t n = gcn_encode(m, buf, sizeof(buf));
+    if (!n || !srv_room(b, n)) {
+        return 0;
+    }
+    srv_queue(b, buf, n);
+    return 1;
+}
+
+static gc_u16 conn_id(bridge *b, int c)
+{
+    return (gc_u16)((b->conn[c].gen << 8) | (gc_u8)c);
+}
+
+/* sends a pending TCP_CLOSE; 1 if nothing is pending any more */
+static int conn_flush_close(bridge *b, int c)
+{
+    gcn_msg m;
+    if (!b->conn[c].pend) {
+        return 1;
+    }
+    memset(&m, 0, sizeof(m));
+    m.type = GCN_MT_TCP_CLOSE;
+    m.id = (gc_u16)((b->conn[c].pend_gen << 8) | (gc_u8)c);
+    m.how = (gc_u8)(b->conn[c].pend == 2 ? GCN_CLOSE_RESET : GCN_CLOSE_FIN);
+    if (!srv_send_net(b, &m)) {
+        return 0;
+    }
+    b->conn[c].pend = 0;
+    return 1;
+}
+
+static void conn_close_later(bridge *b, int c, int how)
+{
+    if (!b->conn[c].open) {
+        return;
+    }
+    if (how == 2) {
+        b->conn[c].open = 0;
+    }
+    if (b->conn[c].pend < how) {
+        b->conn[c].pend = (gc_u8)how;
+    }
+    b->conn[c].pend_gen = b->conn[c].gen;
+    conn_flush_close(b, c);
+}
+
+static void p_write(void *ctx, const gc_u8 *d, size_t n)
+{
+    bridge *b = (bridge *)ctx;
+    if (b->dev_connected && b->io.dev_write) {
+        b->io.dev_write(b->ctx, d, n);
+    }
+}
+
+static void p_on_ip(void *ctx, const gc_u8 *pkt, size_t len)
+{
+    bridge *b = (bridge *)ctx;
+    gc_ip_input(&b->ip, pkt, len, b->now);
+}
+
+static void ppp_register(bridge *b)
+{
+    gc_msg m;
+    size_t n;
+    memset(&m, 0, sizeof(m));
+    m.type = GC_MT_REGISTER;
+    m.u.reg.api = GC_API_ARENA;
+    memcpy(m.u.reg.device_id, b->dev_addr, GC_DEVICE_ID_LEN);
+    strcpy(m.u.reg.name, "N-Gage (PPP)");
+    strcpy(m.u.reg.key, b->cfg.access_key);
+    n = gc_msg_encode(&m, b->reg_msg, sizeof(b->reg_msg));
+    b->reg_len = (gc_u16)n;
+    b->registered = 0;
+    if (n && b->srv.state == GC_LS_UP) {
+        srv_queue(b, b->reg_msg, n);
+    }
+}
+
+/* every connection is gone on the server: reset them towards the N-Gage */
+static void ppp_abort_all(bridge *b)
+{
+    int c;
+    for (c = 0; c < GC_TCP_CONNS; c++) {
+        b->conn[c].open = 0;
+        b->conn[c].pend = 0;
+        gc_ip_tcp_abort(&b->ip, c);
+    }
+}
+
+static void p_on_state(void *ctx, int ev)
+{
+    bridge *b = (bridge *)ctx;
+    if (ev == GC_PPP_EV_UP) {
+        blog(b, "ppp: up, N-Gage %u.%u.%u.%u", b->cfg.ppp_remote[0], b->cfg.ppp_remote[1], b->cfg.ppp_remote[2],
+             b->cfg.ppp_remote[3]);
+    } else {
+        blog(b, ev == GC_PPP_EV_DEAD ? "ppp: link terminated" : "ppp: IP down");
+        gc_ip_reset(&b->ip);
+    }
+}
+
+static void p_log(void *ctx, const char *line)
+{
+    blog((bridge *)ctx, "%s", line);
+}
+
+static void i_send(void *ctx, const gc_u8 *pkt, size_t len)
+{
+    gc_ppp_send_ip(&((bridge *)ctx)->ppp, pkt, len);
+}
+
+static int i_lookup(void *ctx, const char *name, gc_u8 addr[4])
+{
+    bridge *b = (bridge *)ctx;
+    if (!gcn_arena_name(name)) {
+        return 0;
+    }
+    memcpy(addr, b->cfg.ppp_local, 4);
+    return 1;
+}
+
+static void i_udp(void *ctx, const gc_u8 dst[4], gc_u16 dport, gc_u16 sport, const gc_u8 *data, size_t len)
+{
+    bridge *b = (bridge *)ctx;
+    gcn_msg m;
+    memset(&m, 0, sizeof(m));
+    m.type = GCN_MT_UDP;
+    memcpy(m.addr, dst, 4);
+    m.port = dport;
+    m.peer_port = sport;
+    m.data = data;
+    m.len = len;
+    b->st_ppp_udp++;
+    if (!srv_send_net(b, &m)) {
+        blog(b, "ppp: udp to port %u dropped (server queue)", dport);
+    }
+}
+
+static int i_accept(void *ctx, int c, const gc_u8 dst[4], gc_u16 dport, gc_u16 sport)
+{
+    bridge *b = (bridge *)ctx;
+    gcn_msg m;
+    if (!b->reg_len || !conn_flush_close(b, c)) {
+        return 0;
+    }
+    memset(&m, 0, sizeof(m));
+    m.type = GCN_MT_TCP_OPEN;
+    b->conn[c].gen++;
+    m.id = conn_id(b, c);
+    memcpy(m.addr, dst, 4);
+    m.port = dport;
+    m.peer_port = sport;
+    if (!srv_send_net(b, &m)) {
+        blog(b, "ppp: tcp to port %u refused (server unreachable)", dport);
+        return 0;
+    }
+    b->conn[c].open = 1;
+    b->conn[c].pend = 0;
+    b->st_ppp_tcp++;
+    blog(b, "ppp: tcp %u.%u.%u.%u:%u from port %u (id %04x)", dst[0], dst[1], dst[2], dst[3], dport, sport, m.id);
+    return 1;
+}
+
+static int i_data(void *ctx, int c, const gc_u8 *data, size_t len)
+{
+    bridge *b = (bridge *)ctx;
+    const size_t chunk = GC_LINK_MAX_MSG - GCN_HDR_DATA;
+    size_t chunks = (len + chunk - 1) / chunk, off;
+    gcn_msg m;
+    if (!b->conn[c].open) {
+        return 1; /* server side is gone: swallow, a reset follows */
+    }
+    if (!srv_usable(b) || BRIDGE_FIFO_LEN - b->to_srv.count < (int)chunks || !fifo_room(&b->to_srv, len < chunk ? len + GCN_HDR_DATA : GC_LINK_MAX_MSG)) {
+        return 0; /* not acknowledged: the N-Gage sends it again */
+    }
+    memset(&m, 0, sizeof(m));
+    m.type = GCN_MT_TCP_DATA;
+    m.id = conn_id(b, c);
+    for (off = 0; off < len; off += chunk) {
+        m.data = data + off;
+        m.len = len - off > chunk ? chunk : len - off;
+        if (!srv_send_net(b, &m)) {
+            blog(b, "ppp: server queue full, data lost (id %04x)", m.id);
+            conn_close_later(b, c, 2);
+            gc_ip_tcp_abort(&b->ip, c);
+            return 1;
+        }
+    }
+    return 1;
+}
+
+static void i_eof(void *ctx, int c)
+{
+    conn_close_later((bridge *)ctx, c, 1);
+}
+
+static void i_gone(void *ctx, int c, int reset)
+{
+    bridge *b = (bridge *)ctx;
+    if (b->conn[c].open) {
+        conn_close_later(b, c, reset ? 2 : 1);
+        b->conn[c].open = 0;
+    }
+}
+
+static void ppp_start(bridge *b)
+{
+    gc_ppp_cfg pc;
+    gc_ppp_ops po;
+    gc_ip_ops io;
+    gc_ppp_default_cfg(&pc);
+    memcpy(pc.local, b->cfg.ppp_local, 4);
+    memcpy(pc.dns, b->cfg.ppp_local, 4);
+    memcpy(pc.remote, b->cfg.ppp_remote, 4);
+    pc.magic = b->cfg.server_link_id ^ b->now ^ 0x50504C4Bu;
+    memset(&po, 0, sizeof(po));
+    po.write = p_write;
+    po.on_ip = p_on_ip;
+    po.on_state = p_on_state;
+    po.log = p_log;
+    gc_ppp_init(&b->ppp, &pc, &po, b);
+    memset(&io, 0, sizeof(io));
+    io.send = i_send;
+    io.lookup = i_lookup;
+    io.udp = i_udp;
+    io.tcp_accept = i_accept;
+    io.tcp_data = i_data;
+    io.tcp_eof = i_eof;
+    io.tcp_gone = i_gone;
+    io.log = p_log;
+    gc_ip_init(&b->ip, &io, b, b->cfg.server_link_id + b->now);
+    gc_ip_set_mss(&b->ip, (gc_u16)(GC_LINK_MAX_MSG - GCN_HDR_DATA));
+    memset(b->conn, 0, sizeof(b->conn));
+    b->mode = BRIDGE_MODE_PPP;
+    blog(b, "device speaks PPP: retail Arena mode");
+    ppp_register(b);
+}
+
+/* a GCN message from the server */
+static void ppp_srv_msg(bridge *b, const gc_u8 *d, size_t n)
+{
+    gcn_msg m;
+    int c;
+    if (!gcn_decode(d, n, &m)) {
+        return;
+    }
+    if (m.type == GCN_MT_UDP) {
+        gc_ip_udp_send(&b->ip, m.addr, m.port, m.peer_port, m.data, m.len);
+        return;
+    }
+    c = m.id & 0xFF;
+    if (c >= GC_TCP_CONNS || (m.id >> 8) != b->conn[c].gen || !b->conn[c].open) {
+        return; /* an old connection */
+    }
+    if (m.type == GCN_MT_TCP_DATA) {
+        if (gc_ip_tcp_send(&b->ip, c, m.data, m.len, b->now) != (int)m.len) {
+            blog(b, "ppp: tcp send failed (id %04x)", m.id);
+        }
+    } else if (m.type == GCN_MT_TCP_CLOSE) {
+        if (m.how == GCN_CLOSE_RESET) {
+            b->conn[c].open = 0;
+            gc_ip_tcp_abort(&b->ip, c);
+        } else {
+            gc_ip_tcp_close(&b->ip, c, b->now);
+        }
+    }
+}
+
+static int ppp_can_accept(bridge *b, const gc_u8 *d, size_t n)
+{
+    int c;
+    if (n < GCN_HDR_DATA || d[0] != GCN_MT_TCP_DATA) {
+        return 1;
+    }
+    c = d[2];
+    if (c >= GC_TCP_CONNS || d[1] != b->conn[c].gen || !b->conn[c].open) {
+        return 1; /* dropped anyway */
+    }
+    return gc_ip_tcp_space(&b->ip, c) >= n - GCN_HDR_DATA;
+}
+
+static void ppp_poll(bridge *b)
+{
+    int c;
+    gc_ppp_poll(&b->ppp, b->now);
+    gc_ip_poll(&b->ip, b->now);
+    for (c = 0; c < GC_TCP_CONNS; c++) {
+        conn_flush_close(b, c);
+    }
+}
+
+#endif /* BRIDGE_PPP */
+
 /* ---- device link callbacks ---- */
 
 static void dev_write_cb(void *ctx, const gc_u8 *d, size_t n)
@@ -313,6 +621,11 @@ static void srv_write_cb(void *ctx, const gc_u8 *d, size_t n)
 static int srv_can_accept(void *ctx, const gc_u8 *msg, size_t len)
 {
     bridge *b = (bridge *)ctx;
+#if BRIDGE_PPP
+    if (b->mode == BRIDGE_MODE_PPP) {
+        return ppp_can_accept(b, msg, len);
+    }
+#endif
     (void)msg;
     return fifo_room(&b->to_dev, len);
 }
@@ -328,6 +641,21 @@ static void srv_msg_cb(void *ctx, const gc_u8 *d, size_t n)
     if (d[0] == GC_MT_REGISTERED && n >= 2) {
         b->registered = ((gc_i8)d[1] == GC_R_OK);
     }
+#if BRIDGE_PPP
+    if (b->mode == BRIDGE_MODE_PPP) {
+        if (GCN_IS_NET(d[0])) {
+            ppp_srv_msg(b, d, n);
+        } else if (d[0] == GC_MT_REGISTERED) {
+            blog(b, "ppp: server %s the registration", b->registered ? "accepted" : "refused");
+        } else if (d[0] == GC_MT_ERROR) {
+            gc_msg m;
+            if (gc_msg_decode(d, n, &m)) {
+                blog(b, "ppp: server error %d: %s", m.u.error.code, m.u.error.text);
+            }
+        }
+        return;
+    }
+#endif
     if (b->dev.state == GC_LS_UP && b->to_dev.count == 0 && gc_link_send(&b->dev, d, n, b->now) == GC_LINK_OK) {
         return;
     }
@@ -349,6 +677,16 @@ static void srv_state_cb(void *ctx, int ev, int reason)
          * registration; the DLL sees the unsolicited REGISTERED and
          * knows that any session state was lost */
         fifo_clear(&b->to_srv);
+#if BRIDGE_PPP
+        if (b->mode == BRIDGE_MODE_PPP) {
+            ppp_abort_all(b); /* the server lost the tunnelled connections */
+            if (b->reg_len && b->dev_connected) {
+                gc_link_send(&b->srv, b->reg_msg, b->reg_len, b->now);
+            }
+            b->srv_ever_up = 1;
+            break;
+        }
+#endif
         if (b->reg_len && b->dev.state == GC_LS_UP) {
             gc_link_send(&b->srv, b->reg_msg, b->reg_len, b->now);
         }
@@ -391,6 +729,11 @@ void bridge_default_cfg(bridge_cfg *cfg)
     cfg->device_grace_ms = 15000;
     cfg->reconnect_min_ms = 1000;
     cfg->reconnect_max_ms = 15000;
+    cfg->ppp = 1;
+    cfg->ppp_local[0] = cfg->ppp_remote[0] = 10;
+    cfg->ppp_local[1] = cfg->ppp_remote[1] = 64;
+    cfg->ppp_local[3] = 1;
+    cfg->ppp_remote[3] = 2;
 }
 
 void bridge_init(bridge *b, const bridge_cfg *cfg, const bridge_io *io, void *ctx)
@@ -431,6 +774,7 @@ void bridge_dev_connected(bridge *b, const gc_u8 *bt_addr, gc_u32 now)
 {
     b->now = now;
     b->dev_connected = 1;
+    b->mode = BRIDGE_MODE_NONE;
     if (bt_addr) {
         memcpy(b->dev_addr, bt_addr, GC_DEVICE_ID_LEN);
     }
@@ -442,6 +786,26 @@ void bridge_dev_connected(bridge *b, const gc_u8 *bt_addr, gc_u32 now)
 void bridge_dev_input(bridge *b, const gc_u8 *data, size_t len, gc_u32 now)
 {
     b->now = now;
+    if (!len) {
+        return;
+    }
+    if (b->mode == BRIDGE_MODE_NONE) {
+#if BRIDGE_PPP
+        if (b->cfg.ppp && gc_ppp_detect(data, len)) {
+            ppp_start(b);
+        } else
+#endif
+        {
+            b->mode = BRIDGE_MODE_LINK;
+        }
+    }
+#if BRIDGE_PPP
+    if (b->mode == BRIDGE_MODE_PPP) {
+        gc_ppp_input(&b->ppp, data, len, now);
+        fifo_drain(b, &b->to_srv, &b->srv);
+        return;
+    }
+#endif
     gc_link_input(&b->dev, data, len, now);
     fifo_drain(b, &b->to_srv, &b->srv);
 }
@@ -451,6 +815,11 @@ void bridge_dev_disconnected(bridge *b, gc_u32 now)
     b->now = now;
     b->dev_connected = 0;
     blog(b, "device disconnected");
+#if BRIDGE_PPP
+    if (b->mode == BRIDGE_MODE_PPP) {
+        gc_ip_reset(&b->ip); /* tells the server about every open connection */
+    }
+#endif
     gc_link_transport_lost(&b->dev, now);
     if (!b->dev_lost_pending) {
         b->dev_lost_pending = 1;
@@ -510,6 +879,11 @@ void bridge_poll(bridge *b, gc_u32 now)
     b->now = now;
     gc_link_poll(&b->dev, now);
     gc_link_poll(&b->srv, now);
+#if BRIDGE_PPP
+    if (b->mode == BRIDGE_MODE_PPP) {
+        ppp_poll(b);
+    }
+#endif
 
     /* (re)connect to the server */
     if (b->wifi_up && b->srv.state != GC_LS_UP && b->srv.state != GC_LS_HELLO_SENT &&
@@ -556,5 +930,10 @@ gc_u32 bridge_next_timeout(bridge *b, gc_u32 now)
 {
     gc_u32 a = gc_link_next_timeout(&b->dev, now);
     gc_u32 c = gc_link_next_timeout(&b->srv, now);
+#if BRIDGE_PPP
+    if (b->mode == BRIDGE_MODE_PPP && a > 200) {
+        a = 200; /* PPP restart and TCP retransmission timers */
+    }
+#endif
     return a < c ? a : c;
 }

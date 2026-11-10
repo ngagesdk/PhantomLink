@@ -45,6 +45,7 @@ typedef struct
     char server_name[GC_MAX_NAME + 1];
     char access_key[GC_MAX_NAME + 1]; /* empty: no key required */
     char board_file[256];
+    char arena_accounts[256]; /* profile data of retail Arena games (PPP mode); empty: memory only */
     int max_peers;
     int max_sessions;
     gc_u32 link_grace_ms;    /* keep a silent peer's link for resumption */
@@ -102,6 +103,8 @@ typedef struct
 } gcs_stats;
 
 void gcs_core_stats(const gcs_core *core, gcs_stats *st);
+/** The module serving tunnelled retail Arena games (gcs_native.h). */
+struct gcs_native *gcs_core_native(gcs_core *core);
 /** Writes a human readable status dump via the log callback. */
 void gcs_core_dump(gcs_core *core);
 

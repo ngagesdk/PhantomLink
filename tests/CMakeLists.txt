@@ -24,12 +24,22 @@ if(NOT WIN32)
     add_compile_definitions(_POSIX_C_SOURCE=200809L)
 endif()
 
-add_library(gc_protocol STATIC ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c)
+add_library(gc_protocol STATIC ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c
+    ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c ${ROOT}/protocol/src/gc_net.c)
 target_include_directories(gc_protocol PUBLIC ${ROOT}/protocol/include)
 
-add_library(gc_server_core STATIC ${ROOT}/server/src/gcs_core.c)
+add_library(gc_server_core STATIC ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
+    ${ROOT}/server/src/gcs_native.c)
 target_include_directories(gc_server_core PUBLIC ${ROOT}/server/src)
 target_link_libraries(gc_server_core PUBLIC gc_protocol)
+
+# PhantomLink Arena plug-ins: portable core against the server core
+add_library(gc_arena_core STATIC ${ROOT}/dll/arena/core/pla_core.c)
+target_include_directories(gc_arena_core PUBLIC ${ROOT}/dll/arena/core)
+target_link_libraries(gc_arena_core PUBLIC gc_protocol)
+add_executable(test_pla arena/test_pla.c)
+target_link_libraries(test_pla gc_arena_core gc_server_core)
+add_test(NAME arena_core COMMAND test_pla)
 
 add_library(gc_bridge_core STATIC ${ROOT}/firmware/src/bridge_core.c)
 target_include_directories(gc_bridge_core PUBLIC ${ROOT}/firmware/src)
@@ -43,11 +53,12 @@ target_link_libraries(gc_dev_core PUBLIC gc_protocol)
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     set_source_files_properties(
         ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c
-        ${ROOT}/dll/core/gc_dev.c
+        ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c ${ROOT}/protocol/src/gc_net.c
+        ${ROOT}/dll/core/gc_dev.c ${ROOT}/dll/arena/core/pla_core.c
         PROPERTIES COMPILE_OPTIONS "-std=c89;-pedantic;-Wno-long-long")
 endif()
 
-foreach(t codec link msg)
+foreach(t codec link msg ppp ip)
     add_executable(test_${t} ${ROOT}/protocol/tests/test_${t}.c)
     target_link_libraries(test_${t} gc_protocol)
     add_test(NAME protocol_${t} COMMAND test_${t})
@@ -60,6 +71,22 @@ add_test(NAME server_core COMMAND test_server_core)
 add_executable(test_e2e ${ROOT}/tests/sim/sim.c ${ROOT}/tests/sim/test_e2e.c)
 target_link_libraries(test_e2e gc_dev_core gc_bridge_core gc_server_core)
 add_test(NAME e2e_simulated COMMAND test_e2e)
+
+add_executable(test_ppp_e2e ${ROOT}/tests/sim/test_ppp_e2e.c)
+target_include_directories(test_ppp_e2e PRIVATE ${ROOT}/protocol/tests)
+target_link_libraries(test_ppp_e2e gc_bridge_core gc_server_core)
+add_test(NAME e2e_ppp COMMAND test_ppp_e2e)
+# the same with 512 byte TCP send buffers in the bridge, so that every
+# answer exercises the back-pressure from the bridge to the server link
+add_executable(test_ppp_e2e_small ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmware/src/bridge_core.c
+    ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c
+    ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
+    ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
+    ${ROOT}/server/src/gcs_native.c)
+target_include_directories(test_ppp_e2e_small PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
+    ${ROOT}/firmware/src ${ROOT}/server/src)
+target_compile_definitions(test_ppp_e2e_small PRIVATE GC_TCP_TXBUF=512 GC_TCP_CONNS=4)
+add_test(NAME e2e_ppp_small_buffers COMMAND test_ppp_e2e_small)
 
 add_executable(test_tcp_output ${ROOT}/tests/sim/test_tcp_output.c)
 target_include_directories(test_tcp_output PRIVATE ${ROOT}/firmware/src)
@@ -89,6 +116,7 @@ foreach(flag ${GC_PIO_FLAGS})
 endforeach()
 message(STATUS "ESP32 bridge sizing from platformio.ini: ${GC_ESP32_DEFS}")
 add_library(gc_bridge_esp32 STATIC ${ROOT}/tests/parity/esp32_gc_link.c ${ROOT}/tests/parity/esp32_bridge_core.c
+    ${ROOT}/tests/parity/esp32_gc_ip.c
     ${ROOT}/tests/parity/bridge_profile.c)
 target_include_directories(gc_bridge_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/firmware/src ${ROOT}/tests/parity)
 target_compile_definitions(gc_bridge_esp32 PRIVATE BP_ESP32 ${GC_ESP32_DEFS})
@@ -102,7 +130,8 @@ add_test(NAME bridge_parity COMMAND test_parity)
 foreach(sizing default esp32)
     add_executable(test_queue_storage_${sizing} ${ROOT}/tests/parity/test_queue_storage.c
         ${ROOT}/firmware/src/bridge_core.c ${ROOT}/protocol/src/gc_codec.c
-        ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c)
+        ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c ${ROOT}/protocol/src/gc_ppp.c
+        ${ROOT}/protocol/src/gc_ip.c ${ROOT}/protocol/src/gc_net.c)
     target_include_directories(test_queue_storage_${sizing} PRIVATE ${ROOT}/firmware/src ${ROOT}/protocol/include)
     if(sizing STREQUAL "esp32")
         target_compile_definitions(test_queue_storage_${sizing} PRIVATE ${GC_ESP32_DEFS})
@@ -141,6 +170,16 @@ find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
     add_test(NAME e2e_network COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/net/run_net_test.py
              $<TARGET_FILE:gamecommsd> $<TARGET_FILE:gcsim>)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # PPP mode with real processes; pppsim plays the N-Gage through a TUN
+        # interface (needs root, skipped otherwise)
+        add_executable(pppsim ${ROOT}/tests/net/pppsim.c)
+        target_link_libraries(pppsim gc_protocol)
+        add_test(NAME pcbridge_ppp COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/net/run_ppp_test.py
+                 $<TARGET_FILE:gamecommsd> $<TARGET_FILE:pppsim> $<TARGET_FILE:gcbridge> --bluetooth=0
+                 "--device_tcp={dport}" --server=127.0.0.1 "--port={sport}" --log_level=3)
+        set_tests_properties(pcbridge_ppp PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 120)
+    endif()
     add_test(NAME pcbridge_network COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/net/run_pcbridge_test.py
              $<TARGET_FILE:gamecommsd> $<TARGET_FILE:gcbridge> $<TARGET_FILE:gcsim>)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -158,7 +197,8 @@ if(Python3_FOUND)
     if(Java_FOUND AND JNI_FOUND)
         set(GC_ANDROID ${ROOT}/android)
         add_library(gcbridge_jni SHARED ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c
-                    ${ROOT}/protocol/src/gc_msg.c ${ROOT}/firmware/src/bridge_core.c
+                    ${ROOT}/protocol/src/gc_msg.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
+                    ${ROOT}/protocol/src/gc_net.c ${ROOT}/firmware/src/bridge_core.c
                     ${GC_ANDROID}/app/src/main/cpp/jni_bridge.c)
         target_include_directories(gcbridge_jni PRIVATE ${ROOT}/protocol/include ${ROOT}/firmware/src ${JNI_INCLUDE_DIRS})
         # loaded into the JVM: no sanitizer runtime
@@ -179,5 +219,23 @@ if(Python3_FOUND)
         add_test(NAME android_bridge_network COMMAND ${Python3_EXECUTABLE} ${GC_ANDROID}/tests/run_host_test.py
                  $<TARGET_FILE:gamecommsd> $<TARGET_FILE:gcsim> $<TARGET_FILE_DIR:gcbridge_jni>
                  ${GC_ANDROID_CLASSES} ${Java_JAVA_EXECUTABLE})
+        if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+            # PPP mode through the Android engine (needs root for pppsim's TUN)
+            add_test(NAME android_bridge_ppp COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/net/run_ppp_test.py
+                     $<TARGET_FILE:gamecommsd> $<TARGET_FILE:pppsim> ${Java_JAVA_EXECUTABLE}
+                     -Djava.library.path=$<TARGET_FILE_DIR:gcbridge_jni> -cp ${GC_ANDROID_CLASSES} HostBridge
+                     "--device_tcp={dport}" --server=127.0.0.1 "--port={sport}" --log_level=3)
+            set_tests_properties(android_bridge_ppp PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 180)
+        endif()
     endif()
+endif()
+
+# gc_ip against the Linux kernel's TCP/IP stack over a TUN interface
+# (needs root; reported as skipped without /dev/net/tun)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    find_package(Threads)
+    add_executable(test_ip_tun ${ROOT}/tests/net/ip_tun.c)
+    target_link_libraries(test_ip_tun gc_protocol Threads::Threads)
+    add_test(NAME net_ip_tun COMMAND test_ip_tun)
+    set_tests_properties(net_ip_tun PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 90)
 endif()

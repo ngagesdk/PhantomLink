@@ -8,6 +8,8 @@
  **/
 
 #include "gcs_core.h"
+#include "gcs_arena.h"
+#include "gcs_native.h"
 #include <errno.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -93,6 +95,8 @@ struct gcs_core
     gc_u32 next_seq;
     gc_u32 now;
     gcs_stats st;
+    gcs_arena *arena;   /* N-Gage Arena emulation (GC_API_ARENA peers) */
+    gcs_native *native; /* Arena back ends for tunnelled retail games (PPP mode) */
 };
 
 /* ------------------------------------------------------------------ */
@@ -199,6 +203,7 @@ void gcs_default_config(gcs_config *cfg)
     memset(cfg, 0, sizeof(*cfg));
     copy_name(cfg->server_name, "GameComms");
     strcpy(cfg->board_file, "gamecomms-board.dat");
+    strcpy(cfg->arena_accounts, "gamecomms-arena.txt");
     cfg->max_peers = 512;
     cfg->max_sessions = 256;
     cfg->link_grace_ms = 20000;
@@ -270,6 +275,25 @@ static void peer_send_raw(gcs_peer *p, const gc_u8 *data, size_t len)
     }
     p->q_tail = m;
     p->q_count++;
+}
+
+/* ---- Arena module glue ---- */
+
+static void arena_send(void *ctx, void *key, const gc_u8 *data, size_t len)
+{
+    gcs_peer *p = (gcs_peer *)key;
+    (void)ctx;
+    if (!p->dead) {
+        peer_send_raw(p, data, len);
+    }
+}
+
+static void arena_log(void *ctx, int level, const char *line)
+{
+    gcs_core *c = (gcs_core *)ctx;
+    if (level <= c->cfg.log_level && c->io.log) {
+        c->io.log(c->io_ctx, level, line);
+    }
 }
 
 static void peer_send(gcs_peer *p, const gc_msg *msg)
@@ -579,6 +603,12 @@ static void peer_kill(gcs_peer *p, int reason)
     p->dead = 1;
     p->doomed = 0;
     session_leave(core, p, (gc_u8)reason, reason != GC_LEFT_LEAVE);
+    if (p->registered && p->api == GC_API_ARENA && core->arena) {
+        gcs_arena_peer_gone(core->arena, p);
+    }
+    if (p->registered && p->api == GC_API_ARENA && core->native) {
+        gcs_native_peer_gone(core->native, p);
+    }
     {
         int i, k;
         for (i = 0; i < core->n_sessions; i++) {
@@ -797,7 +827,7 @@ static void h_register(gcs_peer *p, const gc_msg *m)
         }
         return;
     }
-    if (m->u.reg.api != GC_API_V1 && m->u.reg.api != GC_API_V2) {
+    if (m->u.reg.api != GC_API_V1 && m->u.reg.api != GC_API_V2 && m->u.reg.api != GC_API_ARENA) {
         r.u.registered.result = GC_R_INCOMPATIBLE;
         peer_send(p, &r);
         return;
@@ -1294,6 +1324,22 @@ static void peer_handle_msg(gcs_peer *p, const gc_u8 *data, size_t len)
     if (p->dead) {
         return;
     }
+    if (len && GCA_IS_ARENA(data[0])) {
+        if (!p->registered || p->api != GC_API_ARENA || !core->arena) {
+            send_error(p, GC_R_NOT_REGISTERED, data[0], "arena: register first");
+            return;
+        }
+        gcs_arena_input(core->arena, p, p->name, data, len);
+        return;
+    }
+    if (len && GCN_IS_NET(data[0])) {
+        if (!p->registered || p->api != GC_API_ARENA || !core->native) {
+            send_error(p, GC_R_NOT_REGISTERED, data[0], "tunnel: register first");
+            return;
+        }
+        gcs_native_input(core->native, p, data, len);
+        return;
+    }
     if (!gc_msg_decode(data, len, &m)) {
         LOG_W("peer %u '%s': malformed message (type %02x, %u bytes)", p->peer_id, pname(p), len ? data[0] : 0,
               (unsigned)len);
@@ -1373,6 +1419,28 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     c->io = *io;
     c->io_ctx = io_ctx;
     c->rng = seed ? seed : 0x9E3779B9u;
+    {
+        gcs_arena_io aio;
+        aio.send = arena_send;
+        aio.log = arena_log;
+        c->arena = gcs_arena_create(&aio, c);
+        if (!c->arena) {
+            free(c);
+            return NULL;
+        }
+    }
+    c->cfg.arena_accounts[sizeof(c->cfg.arena_accounts) - 1] = '\0';
+    {
+        gcs_native_io nio;
+        nio.send = arena_send;
+        nio.log = arena_log;
+        c->native = gcs_native_create(&nio, c, c->cfg.arena_accounts);
+        if (!c->native) {
+            gcs_arena_destroy(c->arena);
+            free(c);
+            return NULL;
+        }
+    }
     /* never trust the caller's buffers to be terminated */
     c->cfg.server_name[GC_MAX_NAME] = '\0';
     c->cfg.access_key[GC_MAX_NAME] = '\0';
@@ -1418,6 +1486,8 @@ void gcs_core_destroy(gcs_core *core)
     }
     free(core->peers);
     free(core->sessions);
+    gcs_arena_destroy(core->arena);
+    gcs_native_destroy(core->native);
     free(core);
 }
 
@@ -1579,6 +1649,11 @@ void gcs_core_poll(gcs_core *core, gc_u32 now)
         }
     }
     collect_garbage(core);
+}
+
+struct gcs_native *gcs_core_native(gcs_core *core)
+{
+    return core ? core->native : NULL;
 }
 
 void gcs_core_stats(const gcs_core *core, gcs_stats *st)

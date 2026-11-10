@@ -1,0 +1,8 @@
+EXPORTS
+	pla_open @ 1 NONAME
+	pla_close @ 2 NONAME
+	pla_listen @ 3 NONAME
+	pla_submit @ 4 NONAME
+	pla_state @ 5 NONAME
+	pla_log @ 6 NONAME
+	pla_log_hex @ 7 NONAME

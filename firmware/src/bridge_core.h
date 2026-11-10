@@ -19,6 +19,20 @@
 #include "gc_link.h"
 #include "gc_msg.h"
 
+/* PPP mode (retail N-Gage Arena games, docs/ARENA.md): an N-Gage that
+ * starts PPP instead of the GameComms link is served by an embedded PPP
+ * peer and IPv4 end point, and its TCP/UDP flows are tunnelled to the
+ * server (gc_net.h). Builds can leave it out with -DBRIDGE_PPP=0. */
+#ifndef BRIDGE_PPP
+#define BRIDGE_PPP 1
+#endif
+#if BRIDGE_PPP
+#include "gc_arena.h"
+#include "gc_ip.h"
+#include "gc_net.h"
+#include "gc_ppp.h"
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -72,7 +86,14 @@ typedef struct
     gc_u32 device_grace_ms; /* keep the device's server state after BT loss */
     gc_u32 reconnect_min_ms;
     gc_u32 reconnect_max_ms;
+    int ppp;             /* accept PPP connections (default on)        */
+    gc_u8 ppp_local[4];  /* bridge end, DNS server, Arena host names   */
+    gc_u8 ppp_remote[4]; /* address given to the N-Gage                */
 } bridge_cfg;
+
+#define BRIDGE_MODE_NONE 0 /* device connected, first bytes not seen yet */
+#define BRIDGE_MODE_LINK 1 /* GameComms link (gc_link)                   */
+#define BRIDGE_MODE_PPP  2 /* PPP (retail Arena games)                   */
 
 typedef struct
 {
@@ -105,6 +126,21 @@ typedef struct
     gc_u32 now;
     gc_u32 st_dev_msgs;
     gc_u32 st_srv_msgs;
+
+    int mode; /* BRIDGE_MODE_* of the current device connection */
+#if BRIDGE_PPP
+    gc_ppp ppp;
+    gc_ip ip;
+    struct
+    {
+        gc_u8 gen;  /* generation, high byte of the GCN id       */
+        gc_u8 open; /* the server knows this connection          */
+        gc_u8 pend; /* TCP_CLOSE still to send: 1 FIN, 2 reset   */
+        gc_u8 pend_gen;
+    } conn[GC_TCP_CONNS];
+    gc_u32 st_ppp_tcp;
+    gc_u32 st_ppp_udp;
+#endif
 } bridge;
 
 void bridge_default_cfg(bridge_cfg *cfg);

@@ -75,6 +75,12 @@ foreach(v ${GC_VARIANTS})
     add_subdirectory(variant v${v})
 endforeach()
 
+# N-Gage Arena plug-ins (Pocket Kingdom and other Arena titles).
+option(GC_BUILD_ARENA "Build the PhantomLink Arena plug-ins (untested)" OFF)
+if(GC_BUILD_ARENA)
+    add_subdirectory(arena)
+endif()
+
 # Symbian application (game selection, bridge setup) and the SIS installer.
 option(GC_BUILD_APP "Build the PhantomLink Symbian application" ON)
 if(GC_BUILD_APP)

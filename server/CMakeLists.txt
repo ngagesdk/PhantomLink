@@ -13,10 +13,12 @@ set(GC_PROTOCOL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../protocol)
 add_library(gc_protocol STATIC
     ${GC_PROTOCOL_DIR}/src/gc_codec.c
     ${GC_PROTOCOL_DIR}/src/gc_link.c
-    ${GC_PROTOCOL_DIR}/src/gc_msg.c)
+    ${GC_PROTOCOL_DIR}/src/gc_msg.c
+    ${GC_PROTOCOL_DIR}/src/gc_arena.c
+    ${GC_PROTOCOL_DIR}/src/gc_net.c)
 target_include_directories(gc_protocol PUBLIC ${GC_PROTOCOL_DIR}/include)
 
-add_library(gcs_core STATIC src/gcs_core.c)
+add_library(gcs_core STATIC src/gcs_core.c src/gcs_arena.c src/gcs_native.c)
 target_link_libraries(gcs_core PUBLIC gc_protocol)
 target_include_directories(gcs_core PUBLIC src)
 
@@ -82,4 +84,7 @@ if(GCS_BUILD_TESTS)
     add_executable(test_gcs_core tests/test_core.c)
     target_link_libraries(test_gcs_core PRIVATE gcs_core)
     add_test(NAME server_core COMMAND test_gcs_core)
+    add_executable(test_gcs_arena tests/test_arena.c)
+    target_link_libraries(test_gcs_arena PRIVATE gcs_core)
+    add_test(NAME server_arena COMMAND test_gcs_arena)
 endif()

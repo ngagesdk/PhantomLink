@@ -6,6 +6,7 @@
  **/
 
 #include "PhantomLinkAppUi.h"
+#include "ArenaSetup.h"
 #include "GameInstaller.h"
 #include "GameList.h"
 #include "PhantomLink.hrh"
@@ -565,6 +566,37 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
     case EPlCmdCommsReset:
         ResetCommsL();
         break;
+    case EPlCmdArenaOn:
+    case EPlCmdArenaOff:
+    {
+        /* docs/ARENA.md: retail Arena games over PPP on Bluetooth */
+        HBufC *log = HBufC::NewLC(512);
+        TPtr l = log->Des();
+        TInt err;
+        if (aCommand == EPlCmdArenaOn) {
+            /* read GameComms.ini now: iComms is only loaded by the
+             * Settings view, and Choose bridge saves the address through
+             * its own TGcConfig (BridgePicker.cpp) */
+            iComms = TGcConfig();
+            iComms.Load();
+            TRAP(err, ArenaSetup::EnableL(iComms.iHasBridge ? iComms.iBridge : TBTDevAddr(), l));
+            if (err == KErrNone) {
+                TRAP(err, ArenaSetup::WriteHostsL(_L8("10.64.0.1"), l));
+            }
+        } else {
+            TRAP(err, ArenaSetup::DisableL(l));
+        }
+        if (err == KErrNotFound && aCommand == EPlCmdArenaOn) {
+            ErrorL(_L("Create an access point named PhantomLink (GSM data) first"));
+        } else if (err != KErrNone) {
+            l.AppendFormat(_L("Error %d"), err);
+            ErrorL(l);
+        } else {
+            InfoL(l);
+        }
+        CleanupStack::PopAndDestroy(log);
+        break;
+    }
     case EPlCmdLog:
         iBoardClient->Close();
         ShowLogL();

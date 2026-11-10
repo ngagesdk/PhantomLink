@@ -108,6 +108,7 @@ int LLVMFuzzerTestOneInput(const unsigned char *d, size_t size)
     memset(F, 0, sizeof(F));
     now = 1000;
     gcs_default_config(&cfg);
+    cfg.arena_accounts[0] = 0; /* no files from fuzz input */
     cfg.max_peers = 6;
     cfg.max_sessions = 4;
     cfg.max_outq = 6;

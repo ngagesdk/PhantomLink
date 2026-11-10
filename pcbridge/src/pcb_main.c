@@ -73,8 +73,11 @@ typedef struct
     int log_level;
     int bluetooth;
     int device_tcp;
-    char com[256];    /* serial ports, e.g. "COM5" or "COM5,COM6" */
-    char adapter[32]; /* Linux: Bluetooth adapter, e.g. hci0 */
+    char com[256];       /* serial ports, e.g. "COM5" or "COM5,COM6" */
+    char adapter[32];    /* Linux: Bluetooth adapter, e.g. hci0 */
+    int ppp;             /* PPP mode for retail Arena games (docs/ARENA.md) */
+    char ppp_local[16];  /* bridge end of the PPP link, Arena host names */
+    char ppp_remote[16]; /* address given to the N-Gage                  */
 } pcb_config;
 
 static pcb_config g_cfg;
@@ -89,6 +92,9 @@ static void config_defaults(pcb_config *c)
     c->max_devices = 4;
     c->log_level = 2;
     c->bluetooth = 1;
+    c->ppp = 1;
+    strcpy(c->ppp_local, "10.64.0.1");
+    strcpy(c->ppp_remote, "10.64.0.2");
 }
 
 /* copies at most n-1 characters and always terminates */
@@ -100,6 +106,19 @@ static void copy_str(char *dst, size_t n, const char *src)
     }
     memmove(dst, src, k);
     dst[k] = '\0';
+}
+
+/* dotted IPv4 address into out; leaves out alone if malformed */
+static void parse_ip4(const char *s, gc_u8 out[4])
+{
+    unsigned a, b, c, d;
+    char extra;
+    if (sscanf(s, "%u.%u.%u.%u%c", &a, &b, &c, &d, &extra) == 4 && a < 256 && b < 256 && c < 256 && d < 256) {
+        out[0] = (gc_u8)a;
+        out[1] = (gc_u8)b;
+        out[2] = (gc_u8)c;
+        out[3] = (gc_u8)d;
+    }
 }
 
 static int config_set(pcb_config *c, const char *k, const char *v)
@@ -128,6 +147,14 @@ static int config_set(pcb_config *c, const char *k, const char *v)
         copy_str(c->com, sizeof(c->com), v);
     } else if (!strcmp(k, "adapter")) {
         copy_str(c->adapter, sizeof(c->adapter), v);
+    } else if (!strcmp(k, "ppp")) {
+        c->ppp = atoi(v);
+    } else if (!strcmp(k, "ppp_local")) {
+        copy_str(c->ppp_local, sizeof(c->ppp_local), v);
+    } else if (!strcmp(k, "ppp_remote")) {
+        copy_str(c->ppp_remote, sizeof(c->ppp_remote), v);
+    } else if (!strcmp(k, "pppd") || !strcmp(k, "ppp_dns") || !strcmp(k, "ppp_options")) {
+        /* pppd is no longer used (embedded PPP since 2026-11); ignored */
     } else {
         return -1;
     }
@@ -473,6 +500,9 @@ static pcb_dev *dev_new(const gc_u8 addr[6], gc_u32 now)
         }
     } while (bc.server_link_id == 0);
     copy_str(bc.access_key, sizeof(bc.access_key), g_cfg.key);
+    bc.ppp = g_cfg.ppp;
+    parse_ip4(g_cfg.ppp_local, bc.ppp_local);
+    parse_ip4(g_cfg.ppp_remote, bc.ppp_remote);
     io.dev_write = d_dev_write;
     io.srv_write = d_srv_write;
     io.srv_connect = d_srv_connect;

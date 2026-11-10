@@ -1,8 +1,8 @@
 /** @file esp32_symbols.h
  *
- *  Renames the link layer and bridge core entry points for the ESP32
- *  copy built into the parity test (see bridge_profile.h). Only these two
- *  modules depend on the queue sizing; the codec and message modules are
+ *  Renames the link layer, IP end point and bridge core entry points for the ESP32
+ *  copy built into the parity test (see bridge_profile.h). Only these
+ *  modules depend on the queue and connection sizing; the codec and message modules are
  *  shared. A function added to gc_link.h or bridge_core.h without a line
  *  here shows up as a duplicate symbol when linking test_parity.
  *
@@ -27,6 +27,19 @@
 #define gc_link_forget         esp32_gc_link_forget
 #define gc_link_is_up          esp32_gc_link_is_up
 #define gc_link_parse_hello    esp32_gc_link_parse_hello
+
+#define gc_ip_init      esp32_gc_ip_init
+#define gc_ip_set_mss   esp32_gc_ip_set_mss
+#define gc_ip_input     esp32_gc_ip_input
+#define gc_ip_poll      esp32_gc_ip_poll
+#define gc_ip_reset     esp32_gc_ip_reset
+#define gc_ip_udp_send  esp32_gc_ip_udp_send
+#define gc_ip_tcp_send  esp32_gc_ip_tcp_send
+#define gc_ip_tcp_space esp32_gc_ip_tcp_space
+#define gc_ip_tcp_close esp32_gc_ip_tcp_close
+#define gc_ip_tcp_abort esp32_gc_ip_tcp_abort
+#define gc_ip_sum       esp32_gc_ip_sum
+#define gc_ip_fold      esp32_gc_ip_fold
 
 #define bridge_default_cfg      esp32_bridge_default_cfg
 #define bridge_init             esp32_bridge_init

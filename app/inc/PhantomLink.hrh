@@ -30,7 +30,9 @@ enum TPhantomLinkCommands
     EPlCmdComms,
     EPlCmdCommsReset,
     EPlCmdLog,
-    EPlCmdLogClear
+    EPlCmdLogClear,
+    EPlCmdArenaOn,
+    EPlCmdArenaOff
 };
 
 #endif /* PHANTOMLINK_HRH */
