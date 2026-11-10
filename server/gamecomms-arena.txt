@@ -1,2 +1,0 @@
-# PhantomLink Arena accounts: user<TAB>field<TAB>value
-mupfdev	password	macmac
