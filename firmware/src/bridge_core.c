@@ -796,6 +796,20 @@ void bridge_dev_input(bridge *b, const gc_u8 *data, size_t len, gc_u32 now)
         } else
 #endif
         {
+            /* name what the device started with: a GameComms frame, or an
+             * N-Gage dialling a modem ("AT...") when its access point is
+             * not set to direct PPP (Arena) */
+            char hx[3 * 8 + 1];
+            size_t i, k = 0;
+            for (i = 0; i < len && i < 8; i++) {
+                k += (size_t)snprintf(hx + k, sizeof(hx) - k, "%02x ", data[i]);
+            }
+            hx[k ? k - 1 : 0] = 0;
+            if (len >= 2 && (data[0] == 'A' || data[0] == 'a') && (data[1] == 'T' || data[1] == 't')) {
+                blog(b, "device sends modem commands (%s): set its Arena access point to PPP again", hx);
+            } else {
+                blog(b, "device speaks GameComms (first bytes %s)", hx);
+            }
             b->mode = BRIDGE_MODE_LINK;
         }
     }
