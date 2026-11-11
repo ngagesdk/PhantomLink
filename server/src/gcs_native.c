@@ -11,36 +11,36 @@
 
 #include "gcs_native.h"
 #include "gc_link.h"
+#include "gcs_accounts.h"
+#include "gcs_rifts.h"
+#include "gcs_snap.h"
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #define MAX_NAME  64
-#define MAX_VALUE 128
 #define MAX_PEERS 64
 
 #define K_OTHER 0
 #define K_HTTP  1
 #define K_XMPP  2
 
-/* profile fields, the order of the <item>s in the view answers */
+/* profile fields, the order of the <item>s in the view answers; kept as
+ * account fields under these names (gcs_accounts) */
 static const char *const FIELDS[] = {
     "firstName", "lastName", "emailAddress",                                                  /* 0..2   */
     "displayFirstName", "displayLastName", "displayCity", "displayState", "displayCountry",   /* 3..7   */
     "gameReleaseNews", "tournamentNews", "ladderNews", "downloadNews", "activityNews",        /* 8..12  */
     "ngageNews", "sendEmail", "favGame", "favMusic", "favFood", "hobbies", "zodiac", "quote", /* 13..20 */
-    "password", "question", "answer"                                                          /* 21..23 */
+    "question", "answer"                                                                      /* 21..22 */
 };
-#define N_FIELDS   ((int)(sizeof(FIELDS) / sizeof(FIELDS[0])))
-#define F_PASSWORD 21
+#define F_QUESTION 21
+#define F_ANSWER   22
 
-typedef struct
-{
-    char name[MAX_NAME];
-    char v[N_FIELDS][MAX_VALUE];
-} account;
+#define MAX_SESSIONS 256
 
 /* view operation -> edit operation, fields, kind */
 #define V_STR   0
@@ -85,15 +85,26 @@ typedef struct
     char user[MAX_NAME];
 } peer_user;
 
+/* Community service sessions: JSESSIONID -> user */
+typedef struct
+{
+    char id[40];
+    char user[MAX_NAME];
+} session;
+
 struct gcs_native
 {
     gcs_native_io io;
     void *ctx;
-    char file[256];
     conn conns[GCSN_MAX_CONNS];
     peer_user peers[MAX_PEERS];
-    account *acc;
-    int n_acc;
+    session sessions[MAX_SESSIONS];
+    int next_session;
+    gc_u32 token_ctr;
+    gcs_accounts *acc;
+    gcs_snap *snap;   /* SNAP game server (UDP) */
+    gcs_rifts *rifts; /* Rifts: Promise of Power game server */
+    gc_u32 now;
     gcs_native_stats st;
 };
 
@@ -308,139 +319,17 @@ static int ieq_prefix(const char *s, const char *prefix)
     return 1;
 }
 
-/* ---- accounts ---- */
+/* ---- accounts (gcs_accounts) ---- */
 
-static void esc_out(FILE *f, const char *s)
+static void acc_log(void *ctx, int level, const char *line)
 {
-    for (; *s; s++) {
-        if (*s == '\\') {
-            fputs("\\\\", f);
-        } else if (*s == '\t') {
-            fputs("\\t", f);
-        } else if (*s == '\n') {
-            fputs("\\n", f);
-        } else if (*s == '\r') {
-            fputs("\\r", f);
-        } else {
-            fputc(*s, f);
-        }
-    }
+    gcs_native *n = (gcs_native *)ctx;
+    nlog(n, level, "%s", line);
 }
 
-static void esc_in(char *s)
+static const char *pf(gcs_native *n, const char *user, int f)
 {
-    char *w = s;
-    while (*s) {
-        if (*s == '\\' && s[1]) {
-            s++;
-            *w++ = *s == 't' ? '\t' : *s == 'n' ? '\n'
-                                  : *s == 'r'   ? '\r'
-                                                : *s;
-            s++;
-        } else {
-            *w++ = *s++;
-        }
-    }
-    *w = 0;
-}
-
-static account *acc_find(gcs_native *n, const char *user, int create)
-{
-    int i;
-    account *a;
-    for (i = 0; i < n->n_acc; i++) {
-        if (!strcmp(n->acc[i].name, user)) {
-            return &n->acc[i];
-        }
-    }
-    if (!create || n->n_acc >= GCSN_MAX_USERS) {
-        return NULL;
-    }
-    a = (account *)realloc(n->acc, sizeof(account) * (size_t)(n->n_acc + 1));
-    if (!a) {
-        return NULL;
-    }
-    n->acc = a;
-    a = &n->acc[n->n_acc++];
-    memset(a, 0, sizeof(*a));
-    copy_str(a->name, user, sizeof(a->name));
-    return a;
-}
-
-static void acc_save(gcs_native *n)
-{
-    char tmp[300];
-    FILE *f;
-    int i, k;
-    if (!n->file[0]) {
-        return;
-    }
-    snprintf(tmp, sizeof(tmp), "%s.tmp", n->file);
-    f = fopen(tmp, "w");
-    if (!f) {
-        LOG_W("cannot write %s", tmp);
-        return;
-    }
-    fputs("# PhantomLink Arena accounts: user<TAB>field<TAB>value\n", f);
-    for (i = 0; i < n->n_acc; i++) {
-        for (k = 0; k < N_FIELDS; k++) {
-            if (n->acc[i].v[k][0]) {
-                esc_out(f, n->acc[i].name);
-                fprintf(f, "\t%s\t", FIELDS[k]);
-                esc_out(f, n->acc[i].v[k]);
-                fputc('\n', f);
-            }
-        }
-    }
-    if (fclose(f) != 0) {
-        LOG_W("cannot write %s", tmp);
-        return;
-    }
-    remove(n->file); /* rename does not replace on Windows */
-    if (rename(tmp, n->file) != 0) {
-        LOG_W("cannot replace %s", n->file);
-    }
-}
-
-static void acc_load(gcs_native *n)
-{
-    char line[600];
-    FILE *f = fopen(n->file, "r");
-    if (!f) {
-        return;
-    }
-    while (fgets(line, sizeof(line), f)) {
-        char *t1, *t2, *e;
-        int k;
-        account *a;
-        if (line[0] == '#') {
-            continue;
-        }
-        e = line + strlen(line);
-        while (e > line && (e[-1] == '\n' || e[-1] == '\r')) {
-            *--e = 0;
-        }
-        t1 = strchr(line, '\t');
-        t2 = t1 ? strchr(t1 + 1, '\t') : NULL;
-        if (!t2) {
-            continue;
-        }
-        *t1 = 0;
-        *t2 = 0;
-        esc_in(line);
-        esc_in(t2 + 1);
-        for (k = 0; k < N_FIELDS; k++) {
-            if (!strcmp(t1 + 1, FIELDS[k])) {
-                a = acc_find(n, line, 1);
-                if (a) {
-                    copy_str(a->v[k], t2 + 1, MAX_VALUE);
-                }
-                break;
-            }
-        }
-    }
-    fclose(f);
-    LOG_I("%d accounts loaded from %s", n->n_acc, n->file);
+    return gcs_accounts_get(n->acc, user, FIELDS[f]);
 }
 
 static const char *boolstr(const char *v)
@@ -458,7 +347,7 @@ static const char *peer_user_get(gcs_native *n, void *key)
             return n->peers[i].user;
         }
     }
-    return "player";
+    return ""; /* not logged in: matches no account */
 }
 
 static void peer_user_set(gcs_native *n, void *key, const char *user)
@@ -479,39 +368,33 @@ static void peer_user_set(gcs_native *n, void *key, const char *user)
     copy_str(n->peers[i].user, user, MAX_NAME);
 }
 
-/* session id = "PL" + hex of the user name, so it decodes without state */
-static void session_id(const char *user, char *out, size_t cap)
+/* A new random session id for user ("PL" + 32 hex digits). */
+static void session_new(gcs_native *n, const char *user, char *out, size_t cap)
 {
-    size_t k = 2, i;
-    static const char hx[] = "0123456789ABCDEF";
-    out[0] = 'P';
-    out[1] = 'L';
-    for (i = 0; user[i] && k + 3 < cap && i < 40; i++) {
-        out[k++] = hx[(unsigned char)user[i] >> 4];
-        out[k++] = hx[(unsigned char)user[i] & 15];
-    }
-    out[k] = 0;
+    char seed[160], h[41];
+    session *se = &n->sessions[n->next_session];
+    n->next_session = (n->next_session + 1) % MAX_SESSIONS;
+    snprintf(seed, sizeof(seed), "%s|%lu|%lu|%p|%lu", user, (unsigned long)time(NULL), (unsigned long)clock(),
+             (void *)se, (unsigned long)++n->token_ctr);
+    gcs_sha1_hex(seed, strlen(seed), h);
+    snprintf(se->id, sizeof(se->id), "PL%.32s", h);
+    copy_str(se->user, user, sizeof(se->user));
+    copy_str(out, se->id, cap);
 }
 
-static int session_user(const char *sid, char *out, size_t cap)
+static int session_user(gcs_native *n, const char *sid, char *out, size_t cap)
 {
-    size_t k = 0;
-    if (sid[0] != 'P' || sid[1] != 'L') {
+    int i;
+    if (!sid[0]) {
         return 0;
     }
-    sid += 2;
-    while (sid[0] && sid[1] && k + 1 < cap) {
-        int hi, lo;
-        hi = (sid[0] >= 'A') ? sid[0] - 'A' + 10 : sid[0] - '0';
-        lo = (sid[1] >= 'A') ? sid[1] - 'A' + 10 : sid[1] - '0';
-        if (hi < 0 || hi > 15 || lo < 0 || lo > 15) {
-            break;
+    for (i = 0; i < MAX_SESSIONS; i++) {
+        if (n->sessions[i].id[0] && !strcmp(n->sessions[i].id, sid)) {
+            copy_str(out, n->sessions[i].user, cap);
+            return 1;
         }
-        out[k++] = (char)(hi * 16 + lo);
-        sid += 2;
     }
-    out[k] = 0;
-    return k > 0;
+    return 0;
 }
 
 /* ---- tunnel output ---- */
@@ -570,14 +453,14 @@ static void tcp_close(gcs_native *n, conn *c, int how)
     "<soapenv:Body><ns1:%sResponse soapenv:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\" "      \
     "xmlns:ns1=\"urn:CommunityApp\">"
 
-static void items(sbuf *b, account *a, const view_op *v)
+static void items(gcs_native *n, sbuf *b, const char *user, const view_op *v)
 {
     int i;
     for (i = 0; i < v->count; i++) {
         int f = v->first + i;
-        const char *val = a ? a->v[f] : "";
+        const char *val = pf(n, user, f);
         if (v->kind == V_MIXED && i == 1) {
-            val = a ? a->v[2] : ""; /* emailAddress */
+            val = pf(n, user, 2); /* emailAddress */
         }
         if (v->kind == V_BOOL || (v->kind == V_MIXED && i == 0)) {
             sb_fmt(b, "<item>%s</item>", boolstr(val));
@@ -596,27 +479,44 @@ static void items(sbuf *b, account *a, const view_op *v)
     }
 }
 
-static void soap_body(gcs_native *n, sbuf *b, const char *op, const char *user, const char *body, size_t blen)
+static int is_login_op(const char *op)
 {
-    account *a = acc_find(n, user, 0);
-    char val[MAX_VALUE];
-    int i, k;
+    return !strcmp(op, "authenticateUser2") || !strcmp(op, "authenticateUser") || !strcmp(op, "createUser");
+}
 
-    if (!strcmp(op, "authenticateUser2") || !strcmp(op, "createUser")) {
-        /* cafmlogin: "xsd:boolean" + "true", then the first "xsd:string"
-         * after it is the Arena user name (Jabber login, URLs) */
-        sb_fmt(b, "<%sReturn xsi:type=\"xsd:boolean\">true</%sReturn><username xsi:type=\"xsd:string\">", op, op);
+/* Login operations: check or create the shared account (gcs_accounts).
+ * Returns the gcs_accounts result; user gets the account's spelling. */
+static int soap_login(gcs_native *n, sbuf *b, const char *op, char *user, size_t ucap, const char *body, size_t blen)
+{
+    char pw[GCSA_MAX_VALUE + 1], imei[64], canon[GCSA_MAX_NAME + 1];
+    int r;
+    pw[0] = imei[0] = 0;
+    xml_field(body, blen, "password", pw, sizeof(pw));
+    if (!xml_field(body, blen, "imei", imei, sizeof(imei))) {
+        imei[0] = 0;
+    }
+    r = gcs_accounts_login(n->acc, user, pw, imei);
+    if (r >= 0 && gcs_accounts_exists(n->acc, user, canon)) {
+        copy_str(user, canon, ucap);
+    }
+    LOG_I("soap: %s '%s': %s", op, user, gcs_accounts_result_str(r));
+    /* cafmlogin: "xsd:boolean" + "true", then the first "xsd:string"
+     * after it is the Arena user name (Jabber login, URLs) */
+    sb_fmt(b, "<%sReturn xsi:type=\"xsd:boolean\">%s</%sReturn>", op, r >= 0 ? "true" : "false", op);
+    if (r >= 0) {
+        sb_str(b, "<username xsi:type=\"xsd:string\">");
         sb_xml(b, user);
         sb_str(b, "</username>");
-        if (xml_field(body, blen, "password", val, sizeof(val))) {
-            a = acc_find(n, user, 1);
-            if (a && strcmp(a->v[F_PASSWORD], val)) {
-                copy_str(a->v[F_PASSWORD], val, MAX_VALUE);
-                acc_save(n);
-            }
-        }
-        return;
     }
+    return r;
+}
+
+static void soap_body(gcs_native *n, sbuf *b, const char *op, const char *user, const char *body, size_t blen)
+{
+    char val[GCSA_MAX_VALUE + 1];
+    int i, k, err = 0;
+    int known = gcs_accounts_exists(n->acc, user, NULL);
+
     if (!strcmp(op, "checkImei")) {
         sb_fmt(b, "<%sReturn xsi:type=\"xsd:boolean\">true</%sReturn>", op, op);
         return;
@@ -630,62 +530,68 @@ static void soap_body(gcs_native *n, sbuf *b, const char *op, const char *user, 
         if (!strcmp(op, v->view)) {
             if (v->kind == V_QUOTE) {
                 sb_str(b, "<viewQuoteReturn xsi:type=\"xsd:string\">");
-                sb_xml(b, a ? a->v[v->first] : "");
+                sb_xml(b, pf(n, user, v->first));
                 sb_str(b, "</viewQuoteReturn>");
                 return;
             }
             sb_fmt(b, "<%sReturn>", op);
-            if (i == 0 && !a) {
+            if (i == 0 && !pf(n, user, 0)[0] && !pf(n, user, 1)[0] && !pf(n, user, 2)[0]) {
                 sb_str(b, "<item>");
                 sb_xml(b, user);
                 sb_str(b, "</item><item></item><item></item>");
             } else {
-                items(b, a, v);
+                items(n, b, user, v);
             }
             sb_fmt(b, "</%sReturn>", op);
             return;
         }
         if (!strcmp(op, v->edit)) {
-            a = acc_find(n, user, 1);
-            for (k = 0; a && k < v->count; k++) {
+            for (k = 0; k < v->count; k++) {
                 int f = v->first + k;
                 if (v->kind == V_MIXED && k == 1) {
                     f = 2;
                 }
-                if (xml_field(body, blen, FIELDS[f], val, sizeof(val))) {
-                    copy_str(a->v[f], val, MAX_VALUE);
+                if (xml_field(body, blen, FIELDS[f], val, sizeof(val)) && gcs_accounts_set(n->acc, user, FIELDS[f], val)) {
+                    err = 1;
                 }
             }
-            acc_save(n);
-            LOG_I("%s saved for '%s'", op, user);
+            if (!known) {
+                err = 1;
+            }
+            LOG_I("%s for '%s': %s", op, user, err ? "not saved (not logged in)" : "saved");
             break;
         }
     }
-    if (!strcmp(op, "changePassword") && xml_field(body, blen, "newPassword", val, sizeof(val))) {
-        a = acc_find(n, user, 1);
-        if (a) {
-            copy_str(a->v[F_PASSWORD], val, MAX_VALUE);
-            acc_save(n);
+    if (!strcmp(op, "changePassword")) {
+        char old[GCSA_MAX_VALUE + 1];
+        if (!known || !xml_field(body, blen, "newPassword", val, sizeof(val)) || !val[0]) {
+            err = 1;
+        } else if ((xml_field(body, blen, "oldPassword", old, sizeof(old)) ||
+                    xml_field(body, blen, "password", old, sizeof(old))) &&
+                   gcs_accounts_check(n->acc, user, old) != GCSA_OK) {
+            LOG_W("changePassword for '%s': the old password is wrong", user);
+            err = 1;
+        } else {
+            err = gcs_accounts_set_password(n->acc, user, val) != 0;
         }
     } else if (!strcmp(op, "getSecurityQuestion")) {
         sb_fmt(b, "<%sReturn xsi:type=\"xsd:string\">", op);
-        sb_xml(b, a ? a->v[22] : "");
+        sb_xml(b, pf(n, user, F_QUESTION));
         sb_fmt(b, "</%sReturn>", op);
         return;
     } else if (!strcmp(op, "updateSecurityQA")) {
-        a = acc_find(n, user, 1);
-        if (a) {
-            if (xml_field(body, blen, "question", val, sizeof(val))) {
-                copy_str(a->v[22], val, MAX_VALUE);
-            }
-            if (xml_field(body, blen, "answer", val, sizeof(val))) {
-                copy_str(a->v[23], val, MAX_VALUE);
-            }
-            acc_save(n);
+        if (xml_field(body, blen, "question", val, sizeof(val)) && gcs_accounts_set(n->acc, user, FIELDS[F_QUESTION], val)) {
+            err = 1;
+        }
+        if (xml_field(body, blen, "answer", val, sizeof(val)) && gcs_accounts_set(n->acc, user, FIELDS[F_ANSWER], val)) {
+            err = 1;
+        }
+        if (!known) {
+            err = 1;
         }
     }
     /* the edit, change, delete, unlink and update operations: errorCode 0 is success */
-    sb_fmt(b, "<%sReturn><errorCode xsi:type=\"xsd:int\">0</errorCode></%sReturn>", op, op);
+    sb_fmt(b, "<%sReturn><errorCode xsi:type=\"xsd:int\">%d</errorCode></%sReturn>", op, err, op);
 }
 
 #define LIST_XML                                                                                          \
@@ -792,19 +698,26 @@ static int http_input(gcs_native *n, conn *c)
         if (!op[0]) {
             copy_str(op, "unknown", sizeof(op));
         }
-        if ((!strcmp(op, "authenticateUser2") || !strcmp(op, "createUser")) &&
-            xml_field(body, blen, "username", user, sizeof(user)) && user[0]) {
-            peer_user_set(n, c->key, user);
-        } else if (!cookie[0] || !session_user(cookie, user, sizeof(user))) {
-            copy_str(user, peer_user_get(n, c->key), sizeof(user));
-        }
-        session_id(user, sid, sizeof(sid));
-        LOG_I("soap: %s ('%s')", op, user);
         memset(&b, 0, sizeof(b));
         sb_fmt(&b, SOAP_HEAD, op);
-        soap_body(n, &b, op, user, body, blen);
+        sid[0] = 0;
+        if (is_login_op(op)) {
+            if (!xml_field(body, blen, "username", user, sizeof(user))) {
+                user[0] = 0;
+            }
+            if (soap_login(n, &b, op, user, sizeof(user), body, blen) >= 0) {
+                peer_user_set(n, c->key, user);
+                session_new(n, user, sid, sizeof(sid));
+            }
+        } else {
+            if (!session_user(n, cookie, user, sizeof(user))) {
+                copy_str(user, peer_user_get(n, c->key), sizeof(user));
+            }
+            LOG_I("soap: %s ('%s')", op, user);
+            soap_body(n, &b, op, user, body, blen);
+        }
         sb_fmt(&b, "</ns1:%sResponse></soapenv:Body></soapenv:Envelope>", op);
-        http_answer(n, c, b.oom ? NULL : b.d, "text/xml; charset=utf-8", sid);
+        http_answer(n, c, b.oom ? NULL : b.d, "text/xml; charset=utf-8", sid[0] ? sid : NULL);
         free(b.d);
         return 1;
     }
@@ -869,12 +782,33 @@ static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_
                  idattr);
         xmpp_send(n, c, out);
     } else if (find_n(s, len, "jabber:iq:auth") && !strcmp(type, "set")) {
-        if (xml_field(s, len, "username", user, sizeof(user))) {
-            copy_str(c->xmpp_user, user, sizeof(c->xmpp_user));
+        char pw[GCSA_MAX_VALUE + 1];
+        int r;
+        user[0] = pw[0] = 0;
+        xml_field(s, len, "username", user, sizeof(user));
+        if (!xml_field(s, len, "password", pw, sizeof(pw))) {
+            pw[0] = 0;
         }
-        n->st.xmpp_logins++;
-        LOG_I("xmpp: login '%s'", c->xmpp_user);
-        snprintf(out, sizeof(out), "<iq type='result'%s/>", idattr);
+        /* SegaChat sends the SHA-1 of the Arena password (hex); accept the
+         * plain password too.  Never creates an account: the Community
+         * login comes first. */
+        if (!gcs_accounts_exists(n->acc, user, NULL)) {
+            r = GCSA_UNKNOWN_USER;
+        } else if (strlen(pw) == 40 && gcs_accounts_login_sha1(n->acc, user, pw, NULL) >= 0) {
+            r = GCSA_OK;
+        } else {
+            r = gcs_accounts_check(n->acc, user, pw);
+        }
+        if (r == GCSA_OK) {
+            gcs_accounts_exists(n->acc, user, user);
+            copy_str(c->xmpp_user, user, sizeof(c->xmpp_user));
+            n->st.xmpp_logins++;
+            LOG_I("xmpp: login '%s'", c->xmpp_user);
+            snprintf(out, sizeof(out), "<iq type='result'%s/>", idattr);
+        } else {
+            LOG_W("xmpp: login '%s' refused: %s", user, gcs_accounts_result_str(r));
+            snprintf(out, sizeof(out), "<iq type='error'%s><error code='401'>Unauthorized</error></iq>", idattr);
+        }
         xmpp_send(n, c, out);
     } else if (find_n(s, len, "jabber:iq:roster") && !strcmp(type, "get")) {
         snprintf(out, sizeof(out), "<iq type='result'%s><query xmlns='jabber:iq:roster'/></iq>", idattr);
@@ -1039,17 +973,66 @@ static void tcp_data(gcs_native *n, conn *c, const gcn_msg *m)
     }
 }
 
-static void udp_in(gcs_native *n, const gcn_msg *m)
+static void udp_in(gcs_native *n, void *key, const gcn_msg *m)
 {
     char hex[3 * 48 + 1];
     size_t i, k = 0;
     n->st.udp_datagrams++;
+    if (m->len >= 20 && m->data[m->len - 4] == 0xBA && m->data[m->len - 3] == 0x47 && m->data[m->len - 2] == 0x66) {
+        gcs_snap_input(n->snap, key, m->addr, m->port, m->peer_port, m->data, m->len, n->now);
+        return;
+    }
     for (i = 0; i < m->len && i < 48; i++) {
         k += (size_t)snprintf(hex + k, sizeof(hex) - k, "%02x ", m->data[i]);
     }
     hex[k] = 0;
     LOG_I("udp to %u.%u.%u.%u:%u from port %u, %u bytes: %s%s", m->addr[0], m->addr[1], m->addr[2], m->addr[3],
           m->port, m->peer_port, (unsigned)m->len, hex, m->len > 48 ? "..." : "");
+}
+
+/* ---- SNAP glue ---- */
+
+static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc_u16 peer_port, const gc_u8 *d,
+                      size_t len)
+{
+    gcs_native *n = (gcs_native *)ctx;
+    gcn_msg m;
+    memset(&m, 0, sizeof(m));
+    m.type = GCN_MT_UDP;
+    memcpy(m.addr, addr, 4);
+    m.port = port;
+    m.peer_port = peer_port;
+    m.data = d;
+    m.len = len;
+    send_net(n, key, &m);
+}
+
+static void snap_log(void *ctx, int level, const char *line)
+{
+    gcs_native *n = (gcs_native *)ctx;
+    nlog(n, level, "%s", line);
+}
+
+/* SNAP login: the account must exist and this N-Gage must have logged in
+ * to the Community service with it (the SNAP login carries no password
+ * the server could check) */
+static int snap_auth(void *ctx, void *key, const char *user, char canon[GCSS_MAX_NAME + 1])
+{
+    gcs_native *n = (gcs_native *)ctx;
+    char acc[GCSA_MAX_NAME + 1];
+    const char *seen = peer_user_get(n, key);
+    if (!gcs_accounts_exists(n->acc, user, acc) || !seen[0] || !gcs_accounts_exists(n->acc, seen, NULL)) {
+        return 0;
+    }
+    {
+        char seen_canon[GCSA_MAX_NAME + 1];
+        gcs_accounts_exists(n->acc, seen, seen_canon);
+        if (strcmp(seen_canon, acc)) {
+            return 0;
+        }
+    }
+    copy_str(canon, acc, GCSS_MAX_NAME + 1);
+    return 1;
 }
 
 void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len)
@@ -1085,16 +1068,23 @@ void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len)
         }
         break;
     case GCN_MT_UDP:
-        udp_in(n, &m);
+        udp_in(n, key, &m);
         break;
     default:
         break;
     }
 }
 
+void gcs_native_poll(gcs_native *n, gc_u32 now)
+{
+    n->now = now;
+    gcs_snap_poll(n->snap, now);
+}
+
 void gcs_native_peer_gone(gcs_native *n, void *key)
 {
     int i;
+    gcs_snap_peer_gone(n->snap, key);
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         if (n->conns[i].used && n->conns[i].key == key) {
             conn_free(&n->conns[i]);
@@ -1107,20 +1097,30 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
     }
 }
 
-gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file)
+gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file)
 {
     gcs_native *n = (gcs_native *)calloc(1, sizeof(*n));
+    gcs_snap_io sio;
     if (!n) {
         return NULL;
     }
     n->io = *io;
     n->ctx = ctx;
-    if (accounts_file) {
-        copy_str(n->file, accounts_file, sizeof(n->file));
+    n->acc = gcs_accounts_create(accounts_file, acc_log, n);
+    memset(&sio, 0, sizeof(sio));
+    sio.send = snap_send;
+    sio.log = snap_log;
+    sio.auth = snap_auth;
+    n->snap = gcs_snap_create(&sio, n);
+    n->rifts = gcs_rifts_create(rifts_file, snap_log, n);
+    if (!n->acc || !n->snap || !n->rifts) {
+        gcs_accounts_destroy(n->acc);
+        gcs_snap_destroy(n->snap);
+        gcs_rifts_destroy(n->rifts);
+        free(n);
+        return NULL;
     }
-    if (n->file[0]) {
-        acc_load(n);
-    }
+    gcs_snap_add_game(n->snap, gcs_rifts_game(n->rifts));
     return n;
 }
 
@@ -1133,8 +1133,25 @@ void gcs_native_destroy(gcs_native *n)
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         free(n->conns[i].buf);
     }
-    free(n->acc);
+    gcs_snap_destroy(n->snap);
+    gcs_rifts_destroy(n->rifts);
+    gcs_accounts_destroy(n->acc);
     free(n);
+}
+
+struct gcs_snap *gcs_native_snap(gcs_native *n)
+{
+    return n ? n->snap : NULL;
+}
+
+struct gcs_rifts *gcs_native_rifts(gcs_native *n)
+{
+    return n ? n->rifts : NULL;
+}
+
+gcs_accounts *gcs_native_accounts(gcs_native *n)
+{
+    return n ? n->acc : NULL;
 }
 
 void gcs_native_get_stats(const gcs_native *n, gcs_native_stats *st)
@@ -1145,5 +1162,5 @@ void gcs_native_get_stats(const gcs_native *n, gcs_native_stats *st)
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         st->conns += n->conns[i].used;
     }
-    st->users = n->n_acc;
+    st->users = gcs_accounts_count(n->acc);
 }

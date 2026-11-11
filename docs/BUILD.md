@@ -427,6 +427,12 @@ The board retains up to 10,000 messages, then rejects new posts. Back up the
 file with the rest of the server's state. The supplied systemd service uses
 `/var/lib/gamecommsd` as its persistent working directory.
 
+The N-Gage Arena back ends (docs/ARENA.md) keep their data next to it:
+`gamecomms-arena.txt` (`arena_accounts`: the Arena accounts, shared by all
+Arena games, passwords as SHA-1) and `gamecomms-rifts.dat` (`rifts_data`:
+the battles, characters and turns of Rifts: Promise of Power). Back them up
+too.
+
 ### Docker
 
 The bundled config binds to container loopback. For remote bridge connections,
@@ -510,6 +516,10 @@ ctest --test-dir build/tests --output-on-failure
 | `protocol_link` | Handshake, retransmission, packet loss, resuming after a lost connection, keep-alive, flow control |
 | `protocol_msg` | Encoding and decoding of every message, truncated and random input |
 | `server_core` | Registration, matchmaking, slots, isolation by game, routing, timeouts, rejoin, kick |
+| `server_accounts` | Shared Arena accounts: SHA-1, creation on the first login, password and IMEI binding, one account per N-Gage, restart, conversion of old account files |
+| `server_rifts_codec` | Rifts stream codec: Blowfish test vectors, CBC, CRC-32, Adler-32, inflate of real zlib data, stored blocks, packing round trips, damaged data and wrong keys |
+| `server_rifts` | SNAP game server and Rifts game server against simulated games: login (refused and repeated), lobby, room search, room creation and entry, retransmission, logout; a whole battle of two players (server config, name check, create, find, accept, status, turns, characters, upkeep, end, friends), flow control, persistence across a restart, given up save slots, and random input |
+| `e2e_ppp`, `e2e_ppp_small_buffers` | Bridge core and server in one process with a simulated N-Gage in PPP mode: DNS, Community SOAP with account creation and refused logins, profile data, device pages, SegaChat login with the SHA-1 password, a SNAP login over UDP 9090, connections closed and reset |
 | `e2e_simulated` | DLL logic, bridge and server together with simulated Bluetooth and TCP: all 1.x and 2.x game flows, interruptions, reconnects, bridge reboot |
 | `e2e_network` | Real server and `gcsim` over TCP, 2 to 4 players, wrong access key |
 | `pcbridge_bluez` | PC bridge on Linux against a simulated BlueZ on a private D-Bus bus: adapter setup, Serial Port profile and pairing agent registration, PIN answer, connections handed over by BlueZ, reconnect, clean unregistration (skipped without `dbus-daemon` and Python dbus) |

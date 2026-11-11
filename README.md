@@ -21,6 +21,9 @@ The server handles matchmaking between players running the same game and forward
 communication data between their devices, effectively extending the original
 Bluetooth multiplayer functionality across the Internet.
 
+PhantomLink also brings back **N-Gage Arena**, Nokia's online service for the
+N-Gage, for games that used it (see [N-Gage Arena](#n-gage-arena) below).
+
 ## Project History
 
 PhantomLink was originally started in **2023**. However, development was put on hold
@@ -54,6 +57,9 @@ following:
 
 - PhantomLink works with any game supported by the project, including original
   retail N-Gage cartridges.
+
+- N-Gage Arena games keep all their original files; they go online through
+  the PhantomLink app's Arena setting (see [N-Gage Arena](#n-gage-arena)).
 
 ### 2. A Bluetooth bridge device
 
@@ -89,7 +95,8 @@ games with other players regardless of physical distance.
 - `firmware/` - ESP32 bridge firmware
 - `pcbridge/` - PC bridge for Linux and Windows (`gcbridge`), same job as the ESP32
 - `android/` - Android bridge app, same job as the ESP32, same bridge engine
-- `server/` - endpoint server (`gamecommsd`)
+- `server/` - endpoint server (`gamecommsd`), including the N-Gage Arena
+  back ends
 - `protocol/` - protocol library shared by all three parts
 - `tests/` - automated tests
 - `tools/` - variant identification and reverse engineering scripts;
@@ -101,6 +108,7 @@ games with other players regardless of physical distance.
 - [docs/DESIGN.md](docs/DESIGN.md) - architecture
 - [docs/PROTOCOL.md](docs/PROTOCOL.md) - wire protocol
 - [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) - variants, games, exports
+- [docs/ARENA.md](docs/ARENA.md) - N-Gage Arena: setup, accounts, protocols, game servers
 - [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md) - analysis of the original DLLs
 - [docs/SECURITY_AUDIT.md](docs/SECURITY_AUDIT.md) - Security audit: gamecommsd
 
@@ -172,6 +180,47 @@ cannot be mixed. Other combinations are not tested. Games not listed are
 unsupported because they use their own custom Bluetooth stack or
 implementation.
 
+## N-Gage Arena
+
+N-Gage Arena was Nokia's online service for the N-Gage: a community web
+service with user accounts and profiles, chat and friends lists (SegaChat),
+and the SNAP lobby and game room service on which games ran their online
+modes. Arena games bring their own network stack on the cartridge instead of
+GameComms, and the service was shut down in 2010.
+
+PhantomLink connects Arena games to the PhantomLink server without changing
+the game card:
+
+1. In the PhantomLink app, **Arena over BT** turns an access point named
+   `PhantomLink` into a direct PPP connection over Bluetooth to the chosen
+   bridge and writes the hosts file. **Restore modem** undoes it.
+2. Every bridge (ESP32, PC, Android) carries its own PPP and TCP/IP stack.
+   It answers the Arena host names with its own address and passes the
+   game's connections and datagrams to the server.
+3. The server answers in the Arena's own protocols: the Community web service
+   (SOAP), SegaChat (Jabber), SNAP (lobbies, game rooms) and the game servers
+   of the individual games.
+
+One Arena account works for all games. The first login with a new user name
+creates the account and binds the user name, the password and the N-Gage
+(its IMEI) together; later logins need the same password on the same N-Gage,
+and one N-Gage can have one account. The server keeps the accounts in
+`gamecomms-arena.txt` (passwords only as SHA-1). See
+[docs/ARENA.md](docs/ARENA.md) for setup and details.
+
+### Supported Arena games
+
+| Game                          | Arena features                                                                     | Server side                                                        |                                Status                                |
+| ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ | :------------------------------------------------------------------: |
+| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login; game server open | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
+| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+
+Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage. The Rifts
+game server is written from the game's network code and tested against
+simulated games, but has not run with a real N-Gage yet. Rifts' Bluetooth
+multiplayer works with the GameComms replacement (see the table above),
+independently of Arena.
+
 ## Status
 
 - Protocol, server, bridge and DLL logic: implemented and covered by
@@ -185,6 +234,9 @@ implementation.
   server and simulated N-Gages. Still has to be tested with a real N-Gage.
 - Symbian DLLs: implemented. They need the Windows N-Gage toolchain to
   build and still have to be tested on real hardware.
+- N-Gage Arena: PPP route, Community service, SegaChat login and shared
+  accounts work with Pocket Kingdom on a real N-Gage. SNAP and the Rifts game
+  server are tested against simulated games only.
 
 ## License
 

@@ -1,7 +1,8 @@
 # N-Gage Arena support (work in progress)
 
-Some N-Gage games, such as Pocket Kingdom: Own the World (UID 0x101fd3dd), do
-not use GameComms at all. They ship the N-Gage Arena client stack (Nokia's
+Some N-Gage games, such as Pocket Kingdom: Own the World (UID 0x101fd3dd) and
+Rifts: Promise of Power (game class 8053), do not use GameComms for their
+online modes. They ship the N-Gage Arena client stack (Nokia's
 version of SEGA's SNAP middleware) in their own `E:\System\Libs` and went
 online over GPRS. PhantomLink replaces the three network clients of that
 stack with plug-ins that use the PhantomLink Bluetooth bridge. The server
@@ -34,7 +35,8 @@ bridge (PC, ESP32 or Android): first byte 0x7E → PPP mode          (bridge_cor
   │ gc_ppp: LCP/IPCP, N-Gage 10.64.0.2, bridge 10.64.0.1
   │ gc_ip:  DNS answered here (Arena names → 10.64.0.1), TCP/UDP terminated
   │ GCN tunnel messages (gc_net.h) over the normal link
-gamecommsd + gcs_native.c: Community SOAP and pages (TCP 80), SegaChat (TCP 5222), SNAP (UDP, logged)
+gamecommsd + gcs_native.c: Community SOAP and pages (TCP 80), SegaChat (TCP 5222),
+                           SNAP (UDP 9090, gcs_snap.c) + game servers (Rifts: gcs_rifts.c)
 ```
 
 No pppd, no root and no Python script are needed any more: every bridge
@@ -71,8 +73,10 @@ Steps:
    so the old values are saved; **Arena: restore modem** puts them back.
 3. Bridge: nothing to set up; PPP mode is on by default (`ppp=1` in
    gcbridge.ini, `ppp_local` / `ppp_remote` change the addresses).
-4. Server: `gamecommsd`; profile data goes to `arena_accounts`
-   (default `gamecomms-arena.txt` in its working directory).
+4. Server: `gamecommsd`; the accounts and their profile data go to
+   `arena_accounts` (default `gamecomms-arena.txt`), the Rifts battles to
+   `rifts_data` (default `gamecomms-rifts.dat`), both in its working
+   directory.
 5. Start the game, choose N-Gage Arena and pick the PhantomLink access
    point when asked.
 
@@ -81,15 +85,43 @@ see the reverse engineering notes below):
 
 - Community SOAP: `checkImei`, `authenticateUser2` / `createUser` (true plus
   the user name as the first `xsd:string`, which the client uses for Jabber
-  and in URLs; a session cookie `PL` + hex of the name), the `view*` and
-  `edit*` account, display, alert, favourites and quote operations with the
-  data kept per user, `changePassword`, the security question, and
-  `errorCode 0` for every other operation.
+  and in URLs, and a random session cookie; false for a refused login, see
+  "Accounts" below), the `view*` and `edit*` account, display, alert,
+  favourites and quote operations with the data kept per user,
+  `changePassword` (checks `oldPassword` when the client sends it), the
+  security question, and `errorCode 0` for every other operation (1 when
+  the request does not belong to a logged in user).
 - Device pages: `*_x.jsp` lists are empty lists, other `.jsp` pages and
   `/servlets/*` a stub page.
-- SegaChat: stream, `jabber:iq:auth` get/set, empty roster, an empty result
-  for every other iq; presence and messages are not routed yet.
-- SNAP (UDP): logged as hex; the protocol is still unknown.
+- SegaChat: stream, `jabber:iq:auth` get/set (the password is checked, see
+  below), empty roster, an empty result for every other iq; presence and
+  messages are not routed yet.
+- SNAP (UDP 9090): login, lobbies, game rooms, data between room members
+  and the game servers behind the rooms, see "SNAP" below. Datagrams
+  without the SNAP trailer are logged as hex.
+
+### Accounts (shared by all games)
+
+All Arena games and back ends use one account store
+(`server/src/gcs_accounts.c`, file `arena_accounts`):
+
+- The first `authenticateUser2` (or `createUser`) with an unknown user
+  name creates the account and binds user name, password and the IMEI the
+  N-Gage sends.
+- Later logins need the same password and the same N-Gage. One N-Gage can
+  own only one account. A refused login answers `false`.
+- SegaChat logins send the SHA-1 of the password (40 hex digits, seen on
+  hardware); they are checked against the same account and never create
+  one. A wrong password gets `<error code='401'>`.
+- A SNAP login is accepted when the account exists and the same N-Gage
+  (bridge peer) has logged in to the Community service with that name;
+  the SNAP login itself carries no password the server could check.
+- Passwords are stored as SHA-1 (`pwsha1`), not in plain text. Files of
+  the first version (plain `password` lines) are converted when loaded.
+- To move an account to another N-Gage, stop the server and remove the
+  account's `imei` line; the next login binds the new IMEI.
+- The session cookie is random and kept by the server; without a valid
+  cookie a request counts for the user last logged in on that N-Gage.
 
 `tools/arena/arena_native.py` does the same on a PC next to pppd. It is
 kept for experiments but no longer needed.
@@ -107,8 +139,9 @@ Symbian OS 6.1 to 9.0 read `C:\System\Data\hosts` (9.1 and later:
 line. Symbian's FAQ-1282 (written for 6.1 to 8.1) says to restart the
 phone after changing it. The file is on C:, so it works with retail
 cards. The PhantomLink app maps `arena.n-gage.com`,
-`im.prod.pk.nokia.sf.yav4.com`, `snap.prod.pk.nokia.sf.yav4.com` and
-`ngage-auth` to 10.64.0.1 and keeps all other lines (its own lines carry the
+`im.prod.pk.nokia.sf.yav4.com`, `snap.prod.pk.nokia.sf.yav4.com` (Pocket
+Kingdom), `im01.rifts.bb.sf.yav4.com`, `bs01.rifts.bb.sf.yav4.com` (Rifts)
+and `ngage-auth` to 10.64.0.1 and keeps all other lines (its own lines carry the
 tag `# PhantomLink Arena`). Because it is unverified whether the N-Gage
 resolver uses the file for these names, the bridge also offers its own
 DNS server through IPCP and answers it. Either path is enough on its own.
@@ -126,7 +159,10 @@ DNS server through IPCP and answers it. Either path is enough on its own.
 | HttpDllRequest.dll | `dll/arena/symbian/PlHttpRequest.cpp` | logs all slots |
 | Retail: access point + hosts | `app/src/ArenaSetup.cpp` | done, works on an N-Gage |
 | Retail: PPP + IPv4 in every bridge | `protocol/src/gc_ppp.c`, `gc_ip.c`, `gc_net.c`, `firmware/src/bridge_core.c` | done, tested (PC bridge with Linux as the N-Gage) |
-| Retail: native back ends | `server/src/gcs_native.c` | SOAP/pages/Jabber login answered, SNAP logged |
+| Retail: native back ends | `server/src/gcs_native.c` | SOAP/pages/Jabber login answered |
+| Retail: shared accounts | `server/src/gcs_accounts.c` | done, tested |
+| Retail: SNAP lobby/room service | `server/src/gcs_snap.c` | written from the client DLLs, tested against simulated games, **not yet on hardware** |
+| Retail: Rifts game server | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c` | written, tested against simulated games, **not yet on hardware** |
 
 The DLLs build only with `-DGC_BUILD_ARENA=ON` (off by default until the
 build has been verified with the N-Gage toolchain). Copy `plarena.dll`,
@@ -150,6 +186,168 @@ address. That log is the next step for identifying the remaining slots.
   titles may ship other versions of the stack with different vtables,
   as with the GameComms variants. Check a game's DLLs (md5, export count,
   vtable size) before assuming the layouts below.
+
+## SNAP (lobby and game room service)
+
+Findings from snapcomm.dll ("kkClient Ver 2.1 Build: Aug 4 2005", ARM
+code) and ArenaFramework.dll 2.01.082 of Rifts: Promise of Power. The
+server side is `server/src/gcs_snap.c`.
+
+### Transport
+
+One UDP socket. The login goes to port **9090** of the server named
+`GameServerFQDN` in `arena.amr`; the login answer can move the client to
+another port (the server keeps 9090). The client only accepts datagrams
+from the address and port it sends to. A datagram is one or more
+messages followed by the trailer `BA 47 66 xx` (the client sends `11`
+and checks only the first three bytes); it holds at most 896 bytes.
+
+Message header, 16 bytes, big endian:
+
+| Offset | Size | Content |
+|---|---|---|
+| 0 | 2 | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 always set by the client, 0x1000 target is the lobby (else the game room), 0x0800 more messages follow, 0x0400 game settings data; bits 0..9 the length including the header |
+| 2 | 1 | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it) |
+| 3 | 1 | opcode |
+| 4 | 4 | user id (from the login answer) |
+| 8 | 4 | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last |
+| 12 | 4 | acknowledged reliable sequence number |
+
+Every reliable message is acknowledged on its own (the client sends a
+16 byte message with flags 0x6010, opcode 0 and the sequence number in
+the ack field) and resent until then (`MAX_RETRIES` 17, then the
+connection counts as lost). Reliable messages are delivered in order.
+
+### Opcodes
+
+Requests (client → server):
+
+| Op | Flags | Payload | Meaning |
+|---|---|---|---|
+| 44 | 0x3000 | user name [40], [60] text, game class (BE) at 100, ..., TLV `LC`/`MR` (latency, retries) | login |
+| 2 | 0xb000 | - | logout |
+| 3 | 0xb000 | name [16] | lobby by name |
+| 14 | 0xb000 | - | lobby list |
+| 4 | 0xb000 | name [16], max users, password [16], two words | create game room |
+| 5 | 0xb000/0xa000 | id | (not identified) |
+| 6 | 0xb000 | lobby id (or name [16] + id) | enter lobby |
+| 6 | 0xa000 | room id, password [16], word | enter game room |
+| 7 | 0xb000/0xa000 | - | leave lobby / room |
+| 8 | 0xa000 | attribute list | change room attributes |
+| 9, 10, 12, 13, 67 | | | attributes, user lists (not identified in detail) |
+| 11 | 0xb000 | lobby id | search game rooms |
+| 15 | 0xa400 / 0x2000 | data | game data to the room, reliable / unreliable |
+| 16 | 0xa400 / 0x2000 | count, user ids, data | game data to some users |
+| 17 | 0xa000 | data | game data to the room's **game server** (`SendGameDataToServer`, CArenaFramework vtable slot 0x3c) |
+| 18, 19, 20, 50, 37, 70..75 | | | not used by the Rifts flow |
+
+Answers and notifications (server → client):
+
+| Op | Payload | Meaning |
+|---|---|---|
+| 41 | port (0: keep), -, user id | login accepted |
+| 39 | request op, reason | request failed (op 39 with request op 1 = login refused) |
+| 40 | request op, value, ... | request succeeded; the 0x1000 flag tells lobby from room answers (op 6: "Entered lobby" / "Entered room", value = id) |
+| 3 | name [16], lobby id | a lobby (ArenaFramework builds its lobby list from these) |
+| 4 | room entry | the created room |
+| 11 | header {parent, total, count} + count × room entry (name [16], id, users, max, status, lobby) | room search result |
+| 14 | header + count × {name [16], id, members, max} | lobby list |
+| 10 | header + count × {name [16], user id, property size} | user list |
+| 6 | {name [16], user id, property size} | a user entered the room |
+| 7 | user id | a user left the room |
+| 15 | data | game data (also what the game server sends; arrives as `GameDataReceived`) |
+
+### Flow of Rifts (game.rsc)
+
+Rifts sets `GameClassId` 8053, `BypassCommunity`, `LobbyToJoin` "S79",
+`RoomToJoin` "BYPASS", `CreateRoomToJoin` 1 and `ReturnContextOnRoomEntry`
+1. Expected order: Community login (SOAP) → SNAP login → lobby "S79" (op 3)
+→ enter lobby (op 6) → room search (op 11) → create room "BYPASS" (op 4) →
+enter room (op 6) → room attributes (op 8) → `EGameStart` → game data to
+the game server (op 17), answers as op 15. The server creates lobbies on
+demand, gives every created room a game server when one is registered for
+the login's game class, and closes empty rooms.
+
+Unverified on hardware: whether ArenaFramework needs more after the room
+entry (for example a room status notification) before `EGameStart`, and
+whether the login answer is enough without the encrypted challenge
+(op 64 → op 65, done with sustandard.dll) the client also understands.
+The server log at level 3 shows every message in both directions.
+
+## Rifts: Promise of Power
+
+Rifts' Arena mode is played "by e-mail": a player creates a challenge,
+others find and accept it, and then each uploads a turn when it suits
+them; the server keeps everything. The game talks to its game server
+through the SNAP room (op 17 in, op 15 out). The server side is
+`server/src/gcs_rifts.c`, an independent implementation written from the
+behaviour described here.
+
+### Game messages
+
+Little endian, ARM layout (`MessageBase` is id u8, relay u8, source s8,
+padding):
+
+| Id | Message | Layout |
+|---|---|---|
+| 4 | MSG_SERVER | object id i32 @4, action type u8 @8, flags u8 @9, offset i32 @12, length i32 @16, total i32 @20, data [≤ 384] @24 |
+| 5 | MSG_SERVER_CANCEL | object id @4, reason @8 |
+| 25 | MSG_FLOW_EXTEND_CREDIT | credit @4 |
+| 26 | MSG_PING | answered with MSG_PING |
+
+An action is identified by its object id (the client's pointer) and
+user. Its request stream comes in MSG_SERVER chunks at offsets that are
+multiples of 384; the answer goes back the same way with the same object
+id (one message with total 0 when the action has no answer data). A
+failed action is answered with MSG_SERVER_CANCEL. Flow control: both
+sides start with 8192 bytes of credit; the server sends
+MSG_FLOW_EXTEND_CREDIT (+4096) when the client has used half of its
+credit, and sends answer chunks only while the client's credit lasts.
+
+### Streams
+
+`u32 size | u32 CRC-32 | zlib | pad` encrypted with Blowfish in CBC mode
+(zero IV, 32 bit words little endian) and the 8 byte key
+`2c de cb 4a a5 6a 35 07`. The padding fills the zlib data to a multiple
+of 8; its last byte is the pad length (8 is written as 8 and read as 0).
+The CRC covers the zlib data with the padding. Inside, integers are
+written as raw little endian values (`int` 4, `int64` 8, `bool`/`byte` 1,
+`time_t` 4) and strings as i32 length plus bytes.
+The server writes zlib streams with stored blocks (any inflater reads
+them) and has its own inflater (`server/src/gcs_rcodec.c`).
+
+Rows: battle (164 bytes: id i64, 15 ints from kind to friends-only, start
+time, round, state, team initiative, seed, next turn device, turn end,
+turn end from start, host [32], name [32]); battle player (68 bytes:
+battle, chess clock i64, team, power, device, finished, dropped,
+user [32]); character (battle i64, id i64, resource, team, device,
+user [32], name [32], 265 stats, then an attribute list: count +
+{battle i64, id i64, kind, value}).
+
+### Actions
+
+| Type | Action | Request | Answer |
+|---|---|---|---|
+| 0 | download turns | battle, turn | count, {length, message} after that turn |
+| 1 | turn count | battle, turn | count (+ device of the last end-turn message) |
+| 2 | upload turns | battle, turn, my device, count, {length, message} | bool |
+| 3 | upload characters | battle, team, count, characters, save slot, power | character ids |
+| 4 | create challenge | battle row + upload | battle id, character ids |
+| 5 | server config | power rank version, save version, protocol | {2, 0, version}, power rank version, versions (echoed), class and item power tables when the version differs |
+| 6 | name validation | string | int (0 = offensive) |
+| 7 | find challenge | paging data, min/max power, kind (-1 any), players, friends only, ranked only, name [16], max rows, user | count, battles, their players, 4, player count |
+| 8 | accept challenge | upload | result (0 waiting, 1 last player: the battle starts, 2 full, 3 error, 4 gone, 5 team taken), device, seed, character ids |
+| 9 | challenge status | user, count, {battle, turn, save slot} | count, {state, turns available, next device} |
+| 11 | download characters | battle, user | count, the other players' characters |
+| 12 | end game | battle, user, wins, losses, points | - |
+| 13 | game upkeep | update flag; battle row, or battle, next device, my device + battle, turn | (no update) battle, server time, game over, dropped devices [8] + names, then the download turns answer |
+| 14 | update friends | user, count, names | - |
+
+Battle states: 0 waiting for players, 1 challenge deleted, 2 in progress,
+3 out of time, 4 ended. Save slots: when a user reports its games
+(challenge status), games in slots it no longer reports are given up
+(host: challenge deleted, other players: withdrawn, running game: marked
+as dropped).
 
 ## Reverse engineering notes (Pocket Kingdom retail, SnapComm "Client Ver 2.1 Build: Oct 20 2004")
 
@@ -243,6 +441,17 @@ From the manual:
 - Ranking: the All-Time Owner Board.
 
 ## Next steps
+
+Rifts (retail card, PPP route):
+
+1. Run Rifts' Arena mode with the server at log level 3. The log shows the
+   SOAP login, the SegaChat login and every SNAP message.
+2. If ArenaFramework stops after the room entry, compare the last
+   messages with "Flow of Rifts" above (candidates: a room status
+   notification, an answer for op 8, the encrypted login challenge).
+3. Then the actions: server config, create/find/accept challenge, turns.
+
+Pocket Kingdom:
 
 1. Build the four DLLs with the N-Gage toolchain and fix what the
    compiler finds.

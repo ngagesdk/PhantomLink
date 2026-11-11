@@ -22,11 +22,14 @@ _LIT(KSaveFile, "C:\\System\\Data\\PlModem.txt"); /* old modem settings */
 _LIT(KHostsFile, "C:\\System\\Data\\hosts");
 _LIT8(KHostsTag, " # PhantomLink Arena");
 
-/* the Arena back ends named in arena.amr (read only on the cartridge) */
+/* the Arena back ends named in the games' arena.amr (read only on the
+ * cartridge): Pocket Kingdom, then Rifts: Promise of Power */
 static const char *const KArenaHosts[] = {
     "arena.n-gage.com",
     "im.prod.pk.nokia.sf.yav4.com",
     "snap.prod.pk.nokia.sf.yav4.com",
+    "im01.rifts.bb.sf.yav4.com",
+    "bs01.rifts.bb.sf.yav4.com",
     "ngage-auth",
 };
 const TInt KArenaHostCount = sizeof(KArenaHosts) / sizeof(KArenaHosts[0]);

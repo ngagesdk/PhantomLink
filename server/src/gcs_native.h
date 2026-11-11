@@ -7,13 +7,17 @@
  *  tunnel each TCP connection and UDP datagram to the server in GCN
  *  messages (gc_net.h).  This module is the other end of those tunnels:
  *
- *   - TCP 80: the Community web service (SOAP over HTTP 1.1): login, the
- *     account and alert operations with per user profile data kept in a
- *     file, the device pages (*_x.jsp lists empty, other pages a stub),
- *   - TCP 5222: SegaChat, just enough Jabber (jabber:iq:auth, roster,
- *     presence) for the client to log in,
- *   - UDP: the SNAP game server; datagrams are logged (protocol still
- *     unknown).
+ *   - TCP 80: the Community web service (SOAP over HTTP 1.1): login with
+ *     the shared accounts (gcs_accounts.h: created on the first login,
+ *     bound to the N-Gage's IMEI, the same for every game), the account
+ *     and alert operations with per user profile data, the device pages
+ *     (*_x.jsp lists empty, other pages a stub),
+ *   - TCP 5222: SegaChat, just enough Jabber (jabber:iq:auth checked
+ *     against the same accounts, roster, presence) for the client to log
+ *     in,
+ *   - UDP 9090: the SNAP lobby and game room service (gcs_snap.h) with
+ *     the game servers behind it (Rifts: Promise of Power, gcs_rifts.h);
+ *     other datagrams are logged.
  *
  *  It replaces tools/arena/arena_native.py.  Transport independent like
  *  gcs_core and gcs_arena: the core passes GCN messages in and sends the
@@ -45,16 +49,19 @@ typedef struct
 
 #define GCSN_MAX_CONNS   256   /* tunnelled TCP connections, all peers */
 #define GCSN_MAX_REQUEST 16384 /* one HTTP request / pending XMPP input */
-#define GCSN_MAX_USERS   1024  /* accounts kept in the accounts file   */
 
-/** accounts_file: where profile data is kept (NULL or "": memory only). */
-gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file);
+/** accounts_file: where the shared Arena accounts and their profile data
+ *  are kept (gcs_accounts.h); rifts_file: the Rifts game server's data
+ *  (gcs_rifts.h).  NULL or "": memory only. */
+gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file);
 void gcs_native_destroy(gcs_native *n);
 
 /** A GCN message from a registered peer (key: the core's peer). */
 void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len);
 /** The peer is gone: drop its connections. */
 void gcs_native_peer_gone(gcs_native *n, void *key);
+/** Timers (SNAP retransmissions); now in milliseconds. */
+void gcs_native_poll(gcs_native *n, gc_u32 now);
 
 typedef struct
 {
@@ -65,6 +72,12 @@ typedef struct
     gc_u32 udp_datagrams;
 } gcs_native_stats;
 void gcs_native_get_stats(const gcs_native *n, gcs_native_stats *st);
+
+/** The shared account store (gcs_accounts.h). */
+struct gcs_accounts *gcs_native_accounts(gcs_native *n);
+/** The SNAP game server (gcs_snap.h) and the Rifts game server (gcs_rifts.h). */
+struct gcs_snap *gcs_native_snap(gcs_native *n);
+struct gcs_rifts *gcs_native_rifts(gcs_native *n);
 
 #ifdef __cplusplus
 }

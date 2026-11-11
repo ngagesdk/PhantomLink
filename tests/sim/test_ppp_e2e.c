@@ -12,6 +12,7 @@
 #include "gc_ip.h"
 #include "gc_ppp.h"
 #include "gc_test.h"
+#include "gcs_accounts.h"
 #include "gcs_core.h"
 #include "gcs_native.h"
 
@@ -441,15 +442,51 @@ static void test_ppp_mode(void)
     dns_query("www.example.org");
     CHECK_EQ(g_dns_rcode, 3);
 
-    /* login: the user name comes back as xsd:string after the boolean */
-    r = soap("authenticateUser2",
-             "<username xsi:type=\"xsd:string\">tester</username>\n<password xsi:type=\"xsd:string\">pw</password>\n",
-             NULL);
+    /* login: the user name comes back as xsd:string after the boolean; the
+     * first login creates the account and binds it to the IMEI */
+#define LOGIN(u, p, i)                                                                                       \
+    soap("authenticateUser2", "<username xsi:type=\"xsd:string\">" u "</username>\n<password xsi:type=\""    \
+                              "xsd:string\">" p "</password>\n<imei xsi:type=\"xsd:string\">" i "</imei>\n", \
+         NULL)
+    r = LOGIN("tester", "pw", "350000000000001");
     CHECK(r && strstr(r, "HTTP/1.1 200 OK"));
     CHECK(r && strstr(r, "<authenticateUser2Return xsi:type=\"xsd:boolean\">true</authenticateUser2Return>"
                          "<username xsi:type=\"xsd:string\">tester</username>"));
-    CHECK(r && strstr(r, "Set-Cookie: JSESSIONID=PL746573746572; Path=/n-gage"));
-    strcpy(cookie, "PL746573746572");
+    cookie[0] = 0;
+    if (r && strstr(r, "Set-Cookie: JSESSIONID=PL")) {
+        const char *ck = strstr(r, "JSESSIONID=") + 11;
+        size_t k = strcspn(ck, ";\r\n");
+        if (k < sizeof(cookie)) {
+            memcpy(cookie, ck, k);
+            cookie[k] = 0;
+        }
+    }
+    CHECK_EQ(strlen(cookie), 34);
+    /* the same account later: same password and N-Gage, any case of the name */
+    r = LOGIN("Tester", "pw", "350000000000001");
+    CHECK(r && strstr(r, "xsd:boolean\">true<") && strstr(r, "<username xsi:type=\"xsd:string\">tester</username>"));
+    /* refused: wrong password, empty password, another N-Gage, a second account on this N-Gage */
+    r = LOGIN("tester", "nope", "350000000000001");
+    CHECK(r && strstr(r, "xsd:boolean\">false<") && !strstr(r, "Set-Cookie"));
+    r = LOGIN("tester", "", "350000000000001");
+    CHECK(r && strstr(r, "xsd:boolean\">false<"));
+    r = LOGIN("tester", "pw", "350000000000002");
+    CHECK(r && strstr(r, "xsd:boolean\">false<"));
+    r = LOGIN("other", "pw2", "350000000000001");
+    CHECK(r && strstr(r, "xsd:boolean\">false<"));
+    /* another N-Gage can create its own account */
+    r = LOGIN("other", "pw2", "350000000000002");
+    CHECK(r && strstr(r, "xsd:boolean\">true<"));
+    CHECK(gcs_accounts_count(gcs_native_accounts(gcs_core_native(core))) == 2);
+    /* a forged or stale cookie is not a login: the request counts for the
+     * user logged in on this N-Gage ("other"), not for "tester" */
+    r = soap("editAccount", "<firstName xsi:type=\"xsd:string\">Evil</firstName>\n", "PL746573746572");
+    CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    CHECK(!strcmp(gcs_accounts_get(gcs_native_accounts(gcs_core_native(core)), "other", "firstName"), "Evil"));
+    CHECK(!gcs_accounts_get(gcs_native_accounts(gcs_core_native(core)), "tester", "firstName")[0]);
+    /* back to tester on this bridge connection */
+    r = LOGIN("tester", "pw", "350000000000001");
+#undef LOGIN
 
     /* profile edits are kept */
     r = soap("editAccount",
@@ -478,6 +515,9 @@ static void test_ppp_mode(void)
         buf[n] = 0;
         CHECK(strstr(buf, "tester\tlastName\tB & C\n") != NULL);
         CHECK(strstr(buf, "tester\tgameReleaseNews\ttrue\n") != NULL);
+        CHECK(strstr(buf, "tester\tpwsha1\t1a91d62f7ca67399625a4368a6ab5d4a3baa6073\n") != NULL);
+        CHECK(strstr(buf, "tester\timei\t350000000000001\n") != NULL);
+        CHECK(strstr(buf, "\tpassword\t") == NULL && strstr(buf, "tester\tfirstName\tEvil") == NULL);
     }
 
     /* device pages */
@@ -502,8 +542,18 @@ static void test_ppp_mode(void)
     CHECK(r && strstr(r, "<iq type='result' id='segachat_query_username'><query xmlns='jabber:iq:auth'>"));
     cl.rx_len = 0;
     {
+        static const char *bad = "<iq type='set' id='bad'><query xmlns='jabber:iq:auth'><username>tester</username>"
+                                 "<password>0000000000000000000000000000000000000000</password><resource>segachat"
+                                 "</resource></query></iq>";
+        tcp_seg(0x18, bad, strlen(bad));
+    }
+    run(300);
+    CHECK(strstr(cl.rx, "<iq type='error' id='bad'><error code='401'>") != NULL);
+    {
+        /* SegaChat sends the SHA-1 of the password */
         static const char *st = "<iq type='set' id='segachat_auth'><query xmlns='jabber:iq:auth'><username>tester"
-                                "</username><password>x</password><resource>segachat</resource></query></iq><iq "
+                                "</username><password>1a91d62f7ca67399625a4368a6ab5d4a3baa6073</password><resource>"
+                                "segachat</resource></query></iq><iq "
                                 "type='get' id='r'><query xmlns='jabber:iq:roster'/></iq><presence><status>"
                                 "available</status></presence>";
         tcp_seg(0x18, st, strlen(st));
@@ -524,6 +574,34 @@ static void test_ppp_mode(void)
         ng_send_ip(17, BR_IP, u, sizeof(u));
         run(100);
     }
+    /* SNAP login (UDP 9090) of the user logged in above: the answer comes
+     * back from the server's address and port */
+    {
+        gc_u8 u[8 + 16 + 120 + 4];
+        size_t ul = sizeof(u);
+        memset(u, 0, sizeof(u));
+        u[0] = 0x0F;
+        u[1] = 0xA0; /* source port 4000 */
+        u[2] = 0x23;
+        u[3] = 0x82; /* 9090 */
+        u[4] = (gc_u8)(ul >> 8);
+        u[5] = (gc_u8)ul;
+        u[8] = 0x30; /* flags 0x3000, length 136 */
+        u[9] = 136;
+        u[11] = 44; /* login */
+        memcpy(u + 8 + 16, "tester", 6);
+        u[ul - 4] = 0xBA;
+        u[ul - 3] = 0x47;
+        u[ul - 2] = 0x66;
+        u[ul - 1] = 0x11;
+        g_udp_len = 0;
+        ng_send_ip(17, BR_IP, u, ul);
+        run(200);
+        CHECK_EQ(g_udp_len, 16 + 12 + 4);
+        CHECK_EQ(g_udp_rx[3], 41); /* login accepted */
+        CHECK(g_udp_rx[g_udp_len - 4] == 0xBA && g_udp_rx[g_udp_len - 3] == 0x47);
+    }
+
     /* a port nobody serves: reset */
     r = tcp_request(1234, NULL, 0);
     CHECK(r == NULL || cl.state == 4);
@@ -531,7 +609,7 @@ static void test_ppp_mode(void)
     CHECK_EQ(cl.state, 4);
 
     gcs_native_get_stats(gcs_core_native(core), &ns);
-    CHECK_EQ(ns.udp_datagrams, 1);
+    CHECK_EQ(ns.udp_datagrams, 2);
     CHECK_EQ(ns.xmpp_logins, 1);
     CHECK(ns.http_requests >= 9);
 

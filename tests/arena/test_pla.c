@@ -10,7 +10,7 @@ typedef struct
 {
     pla_core core;
     gcs_conn conn;
-    gc_u8 up[CAP];   /* phone -> server */
+    gc_u8 up[CAP]; /* phone -> server */
     size_t n_up;
     gc_u8 down[CAP]; /* server -> phone */
     size_t n_down;
@@ -114,7 +114,7 @@ static void pump(int steps)
 static void start_phone(int i, const char *name)
 {
     pla_io io;
-    gc_u8 id[6] = {0, 0x0e, 0x6d, 0, 0, 0};
+    gc_u8 id[6] = { 0, 0x0e, 0x6d, 0, 0, 0 };
     phone *p = &P[i];
     memset(p, 0, sizeof(*p));
     id[5] = (gc_u8)(i + 1);

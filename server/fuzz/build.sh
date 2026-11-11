@@ -7,5 +7,5 @@ mkdir -p "$O"
 F="-g -O1 -fsanitize=fuzzer,address,undefined -fno-sanitize-recover=undefined -I$R/protocol/include -I$R/server/src"
 P="$R/protocol/src/gc_codec.c $R/protocol/src/gc_link.c $R/protocol/src/gc_msg.c $R/protocol/src/gc_arena.c $R/protocol/src/gc_net.c"
 clang $F -o "$O/fuzz_protocol" "$R/server/fuzz/fuzz_protocol.c" $P
-clang $F -o "$O/fuzz_core" "$R/server/fuzz/fuzz_core.c" "$R/server/src/gcs_core.c" "$R/server/src/gcs_arena.c" "$R/server/src/gcs_native.c" $P
+clang $F -o "$O/fuzz_core" "$R/server/fuzz/fuzz_core.c" "$R/server/src/gcs_core.c" "$R/server/src/gcs_arena.c" "$R/server/src/gcs_native.c" "$R/server/src/gcs_accounts.c" "$R/server/src/gcs_snap.c" "$R/server/src/gcs_rifts.c" "$R/server/src/gcs_rcodec.c" $P
 echo "built $O/fuzz_protocol $O/fuzz_core"
