@@ -206,7 +206,7 @@ Message header, 16 bytes, big endian:
 
 | Offset | Size | Content |
 |---|---|---|
-| 0 | 2 | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 single packet (`KK_SINGLE_PACKET_DEF` in the game server's kkGSApi.h; without it byte 2 is the `PacketSeq` of a series, counting down to 0, and ArenaFramework takes a list as complete only at 0; both sides set it on every message), 0x1000 target is the lobby (else the game room), 0x0800 more messages follow, 0x0400 game settings data; bits 0..9 the length including the header |
+| 0 | 2 | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 single packet (`KK_SINGLE_PACKET_DEF` in the game server's kkGSApi.h; without it byte 2 is the `PacketSeq` of a series, counting down to 0, and ArenaFramework takes a list as complete only at 0; both sides set it on every message), 0x1000 target is the lobby (else the game room), 0x0800 another message follows in the same datagram (the client numbers only the first reliable message; reliable messages packed behind it carry sequence number 0, share its acknowledgement and are processed with it), 0x0400 game settings data; bits 0..9 the length including the header |
 | 2 | 1 | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it) |
 | 3 | 1 | opcode |
 | 4 | 4 | user id (from the login answer) |

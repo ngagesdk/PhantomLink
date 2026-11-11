@@ -892,6 +892,21 @@ static void dispatch(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_
     }
 }
 
+/* A reliable unit: one message, or several the client packed with F_MORE
+ * (only the first carries the sequence number, the others have 0). */
+static void dispatch_unit(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
+{
+    size_t pos = 0;
+    while (pos + HDR <= len && c->used) {
+        size_t l = be16(m + pos) & 0x3ff;
+        if (l < HDR || pos + l > len) {
+            break;
+        }
+        dispatch(s, c, m + pos, m + pos + HDR, l - HDR);
+        pos += l;
+    }
+}
+
 /* a reliable message arrived: process in order, buffer what is early */
 static void reliable_in(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
 {
@@ -918,7 +933,7 @@ static void reliable_in(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
         }
         return;
     }
-    dispatch(s, c, m, m + HDR, len - HDR);
+    dispatch_unit(s, c, m, len);
     c->rx_next++;
     for (;;) {
         rxmsg *r = NULL;
@@ -935,7 +950,7 @@ static void reliable_in(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
         if (!r) {
             break;
         }
-        dispatch(s, c, r->d, r->d + HDR, r->len - HDR);
+        dispatch_unit(s, c, r->d, r->len);
         c->rx_next++;
         free(r);
     }
@@ -1006,8 +1021,26 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
             acked(c, be32(m + 12));
         }
         if (fl & F_REL) {
+            /* messages packed behind this one with F_MORE that carry
+             * sequence number 0 belong to it (snapcomm.dll numbers the
+             * datagram's first reliable message only) */
+            size_t ulen = len;
+            gc_u16 ufl = fl;
+            while ((ufl & F_MORE) && pos + ulen + HDR <= end) {
+                const gc_u8 *f = d + pos + ulen;
+                size_t flen = be16(f) & 0x3ff;
+                if (!(be16(f) & F_REL) || be32(f + 8) != 0 || flen < HDR || pos + ulen + flen > end ||
+                    ulen + flen > MAX_MSG) {
+                    break;
+                }
+                LOG_D("<- %08x op %u flags %04x (packed with seq %u) len %u", be32(f + 4), f[3], be16(f) & 0xfc00,
+                      be32(m + 8), (unsigned)(flen - HDR));
+                ufl = be16(f);
+                ulen += flen;
+            }
             send_ack(s, c, be32(m + 8));
-            reliable_in(s, c, m, len);
+            reliable_in(s, c, m, ulen);
+            len = ulen;
         } else if (m[3] != GCSS_OP_ACK || len > HDR) {
             dispatch(s, c, m, m + HDR, len - HDR);
         }

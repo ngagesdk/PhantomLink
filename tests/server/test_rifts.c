@@ -176,6 +176,35 @@ static void send_msg(game *g, gc_u16 flags, gc_u8 seq, gc_u8 op, const gc_u8 *p,
     gcs_snap_input(S, &g->key, SRV, GCSS_PORT, g->port, d, len + 4, g_now);
 }
 
+/* Two reliable messages in one datagram, as snapcomm.dll packs them: the
+ * first with F_MORE (0x0800) and the sequence number, the second with
+ * sequence number 0. */
+static void send_packed(game *g, gc_u8 seq1, gc_u8 op1, const gc_u8 *p1, size_t n1, gc_u16 flags2, gc_u8 seq2,
+                        gc_u8 op2, const gc_u8 *p2, size_t n2)
+{
+    gc_u8 d[1100];
+    size_t l1 = 16 + n1, l2 = 16 + n2;
+    gc_u16 f1 = 0xa800, f2 = (gc_u16)(flags2 | 0x2000);
+    d[0] = (gc_u8)((f1 | l1) >> 8);
+    d[1] = (gc_u8)(f1 | l1);
+    d[2] = seq1;
+    d[3] = op1;
+    put32(d + 4, g->uid);
+    put32(d + 8, g->tx_rel++);
+    put32(d + 12, 0);
+    memcpy(d + 16, p1, n1);
+    d[l1] = (gc_u8)((f2 | l2) >> 8);
+    d[l1 + 1] = (gc_u8)(f2 | l2);
+    d[l1 + 2] = seq2;
+    d[l1 + 3] = op2;
+    put32(d + l1 + 4, g->uid);
+    put32(d + l1 + 8, 0);
+    put32(d + l1 + 12, 0);
+    memcpy(d + l1 + 16, p2, n2);
+    put32(d + l1 + l2, 0xBA476611u);
+    gcs_snap_input(S, &g->key, SRV, GCSS_PORT, g->port, d, l1 + l2 + 4, g_now);
+}
+
 /* first message with opcode op (and its index), or NULL */
 static msg *take(game *g, gc_u8 op)
 {
@@ -244,8 +273,14 @@ static void enter_room(game *g)
     m = take(g, GCSS_OP_OK);
     CHECK(m && be32(m->p) == GCSS_OP_LOBBY_INFO && be32(m->p + 4) == 1 && m->h[2] == 7);
 
-    put32(p, g->lobby);
-    send_msg(g, 0x9000, 8, GCSS_OP_JOIN, p, 4);
+    /* op 13 and the lobby join packed into one datagram (seen on hardware) */
+    {
+        gc_u8 q[4] = { 0xe1, 0xe0, 0x05, 0x01 };
+        put32(p, g->lobby);
+        send_packed(g, 12, 13, q, 4, 0x9000, 8, GCSS_OP_JOIN, p, 4);
+        m = take(g, GCSS_OP_OK);
+        CHECK(m && be32(m->p) == 13 && m->h[2] == 12);
+    }
     m = take(g, GCSS_OP_OK);
     CHECK(m && be32(m->p) == GCSS_OP_JOIN && be32(m->p + 4) == g->lobby && (m->h[0] & 0x10) && m->h[2] == 8);
 
