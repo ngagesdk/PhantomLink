@@ -42,17 +42,17 @@
 #define gc_ip_fold      esp32_gc_ip_fold
 
 /* gc_ppp too: its buffers follow GC_PPP_MRU / GC_PPP_TXBUF */
-#define gc_ppp_default_cfg  esp32_gc_ppp_default_cfg
-#define gc_ppp_init         esp32_gc_ppp_init
-#define gc_ppp_input        esp32_gc_ppp_input
-#define gc_ppp_poll         esp32_gc_ppp_poll
-#define gc_ppp_send_ip      esp32_gc_ppp_send_ip
-#define gc_ppp_open         esp32_gc_ppp_open
-#define gc_ppp_close        esp32_gc_ppp_close
-#define gc_ppp_is_up        esp32_gc_ppp_is_up
-#define gc_ppp_detect       esp32_gc_ppp_detect
-#define gc_ppp_fcs          esp32_gc_ppp_fcs
-#define gc_ppp_frame        esp32_gc_ppp_frame
+#define gc_ppp_default_cfg esp32_gc_ppp_default_cfg
+#define gc_ppp_init        esp32_gc_ppp_init
+#define gc_ppp_input       esp32_gc_ppp_input
+#define gc_ppp_poll        esp32_gc_ppp_poll
+#define gc_ppp_send_ip     esp32_gc_ppp_send_ip
+#define gc_ppp_open        esp32_gc_ppp_open
+#define gc_ppp_close       esp32_gc_ppp_close
+#define gc_ppp_is_up       esp32_gc_ppp_is_up
+#define gc_ppp_detect      esp32_gc_ppp_detect
+#define gc_ppp_fcs         esp32_gc_ppp_fcs
+#define gc_ppp_frame       esp32_gc_ppp_frame
 
 #define bridge_default_cfg      esp32_bridge_default_cfg
 #define bridge_init             esp32_bridge_init

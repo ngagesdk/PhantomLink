@@ -25,10 +25,17 @@
 
 #define F_REL   0x8000
 #define F_ACK   0x4000
-#define F_CLI   0x2000
+#define F_ONE   0x2000 /* single packet (KK_SINGLE_PACKET_DEF), see below */
 #define F_LOBBY 0x1000
 #define F_MORE  0x0800
 #define F_SET   0x0400
+
+/* KK_PACKETINFO (kkGSApi.h of the Rifts game server) as snapcomm.dll fills
+ * it from a message: PacketMode is "single" when F_ONE is set, else a
+ * series whose PacketSeq (byte 2) counts down to 0; CommandSeq is byte 2
+ * as well. ArenaFramework takes a list (users, rooms, lobbies) as
+ * complete at PacketSeq 0. Every message here fits one packet, so all
+ * carry F_ONE and byte 2 echoes the request's command sequence. */
 
 typedef struct
 {
@@ -71,6 +78,7 @@ typedef struct
     gc_u32 id;
     char name[17];
     gc_u32 max;
+    gc_u32 game_class; /* of the game that asked for it first (0: none yet) */
 } lobby;
 
 typedef struct
@@ -275,7 +283,7 @@ static int send_msg(gcs_snap *s, sess *c, gc_u16 flags, gc_u8 cmdseq, gc_u8 op, 
         LOG_W("message op %u too long (%u bytes)", op, (unsigned)len);
         return -1;
     }
-    put16(m, (gc_u16)(((flags | F_CLI) & 0xfc00) | len));
+    put16(m, (gc_u16)(((flags | F_ONE) & 0xfc00) | len));
     m[2] = cmdseq;
     m[3] = op;
     put32(m + 4, c->uid);
@@ -306,7 +314,7 @@ static int send_msg(gcs_snap *s, sess *c, gc_u16 flags, gc_u8 cmdseq, gc_u8 op, 
     } else {
         put32(m + 8, c->tx_unrel++);
     }
-    LOG_D("-> %08x op %u flags %04x seq %u len %u", c->uid, op, flags | F_CLI, be32(m + 8), (unsigned)plen);
+    LOG_D("-> %08x op %u flags %04x seq %u len %u", c->uid, op, flags | F_ONE, be32(m + 8), (unsigned)plen);
     send_raw(s, c, m, len);
     return 0;
 }
@@ -314,7 +322,7 @@ static int send_msg(gcs_snap *s, sess *c, gc_u16 flags, gc_u8 cmdseq, gc_u8 op, 
 static void send_ack(gcs_snap *s, sess *c, gc_u32 seq)
 {
     gc_u8 m[HDR];
-    put16(m, F_ACK | F_CLI | HDR);
+    put16(m, F_ACK | F_ONE | HDR);
     m[2] = 0;
     m[3] = GCSS_OP_ACK;
     put32(m + 4, c->uid);
@@ -543,6 +551,9 @@ static void h_lobby_info(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, s
     get_name(name, sizeof(name), p, n < 16 ? n : 16);
     if (name[0]) {
         lobby *l = lobby_by_name(s, name, 1);
+        if (l && !l->game_class) {
+            l->game_class = c->game_class;
+        }
         if (l) {
             put_name(e, l->name, 16);
             put32(e + 16, l->id);
@@ -567,6 +578,7 @@ static void h_lobbies(gcs_snap *s, sess *c, const gc_u8 *h)
 {
     gc_u8 p[12 + GCSS_MAX_LOBBIES * 28];
     int i, k = 0;
+    (void)h;
     for (i = 0; i < GCSS_MAX_LOBBIES; i++) {
         lobby *l = &s->lobbies[i];
         if (l->used) {
@@ -583,6 +595,43 @@ static void h_lobbies(gcs_snap *s, sess *c, const gc_u8 *h)
     send_msg(s, c, F_REL | F_LOBBY, h[2], GCSS_OP_LOBBIES, p, 12 + 28 * (size_t)k);
 }
 
+/* op 71 (sent when Rifts creates a challenge): the
+ * lobbies of the login's game class. The answer is a list message of
+ * op 71 only, no op 40: ArenaFramework hands a result for op 71 to the
+ * same callback and would start a new, empty list with it. Header
+ * {game class, total, count}, entries of 36 bytes: name [16], users, -,
+ * max users, status, lobby id (ArenaFramework keeps all but the second
+ * word, finds LobbyToJoin by name and enters it by id). */
+static void h_game_lobbies(gcs_snap *s, sess *c, const gc_u8 *h)
+{
+    gc_u8 out[12 + GCSS_MAX_LOBBIES * 36];
+    const gcs_snap_game *g = game_of(s, c->game_class);
+    int i, k = 0;
+    if (g && g->lobby) {
+        lobby *l = lobby_by_name(s, g->lobby, 1);
+        if (l && !l->game_class) {
+            l->game_class = c->game_class;
+        }
+    }
+    for (i = 0; i < GCSS_MAX_LOBBIES; i++) {
+        lobby *l = &s->lobbies[i];
+        if (l->used && l->game_class == c->game_class) {
+            gc_u8 *e = out + 12 + 36 * k++;
+            memset(e, 0, 36);
+            put_name(e, l->name, 16);
+            put32(e + 16, (gc_u32)lobby_members(s, l->id));
+            put32(e + 24, l->max);
+            put32(e + 28, 0);
+            put32(e + 32, l->id);
+        }
+    }
+    put32(out, c->game_class);
+    put32(out + 4, (gc_u32)k);
+    put32(out + 8, (gc_u32)k);
+    LOG_I("user %08x: lobbies of game class %u: %d", c->uid, c->game_class, k);
+    send_msg(s, c, F_REL | (be16(h) & F_LOBBY), h[2], GCSS_OP_GAME_LOBBIES, out, 12 + 36 * (size_t)k);
+}
+
 static void h_join(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t n)
 {
     gc_u16 fl = be16(h);
@@ -593,6 +642,9 @@ static void h_join(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t 
             char name[17];
             get_name(name, sizeof(name), p, 16);
             l = lobby_by_name(s, name, 1);
+            if (l && !l->game_class) {
+                l->game_class = c->game_class;
+            }
             if (!l) {
                 l = lobby_by_id(s, be32(p + 16));
             }
@@ -814,6 +866,9 @@ static void dispatch(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_
     case GCSS_OP_TO_SERVER:
         h_to_server(s, c, p, n);
         break;
+    case GCSS_OP_GAME_LOBBIES:
+        h_game_lobbies(s, c, h);
+        break;
     case GCSS_OP_REMOVED:
     case GCSS_OP_ATTR:
     case GCSS_OP_ATTR2:
@@ -822,7 +877,6 @@ static void dispatch(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_
     case 37:
     case 67:
     case 70:
-    case 71:
     case 72:
     case 73:
     case 74:
