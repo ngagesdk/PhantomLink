@@ -117,6 +117,11 @@ static void saveConfig()
 
 static WiFiClient tcp;
 static bridge br;
+#if BRIDGE_PPP
+/* PPP mode lives in the GameComms device link's memory (see bridge_core.h):
+ * with the sizes in platformio.ini it must not make the bridge larger */
+static_assert(sizeof(br.u.pp) <= sizeof(br.u.gc), "PPP state larger than the GameComms device link");
+#endif
 static uint8_t btPeer[6];
 static bool btConnected = false;
 static bool tcpWanted = false;
@@ -697,36 +702,70 @@ static void printStatus(Print &out)
     portEXIT_CRITICAL(&btEventMux);
     out.printf("GameComms bridge %s\n", BRIDGE_VERSION);
     out.printf("  bt name   : %s (pin %s)\n", cfg.btname.c_str(), cfg.pin.c_str());
-    out.printf("  device    : %s, link state %d\n", btConnected ? "connected" : "-", br.dev.state);
+    /* PPP mode keeps its state where the GameComms device link was: show
+     * that link as empty then */
+    bool ppp = false;
 #if BRIDGE_PPP
-    if (br.mode == BRIDGE_MODE_PPP && br.pp) {
+    ppp = br.mode == BRIDGE_MODE_PPP;
+#endif
+    struct
+    {
+        struct
+        {
+            unsigned long err_crc, err_cobs, err_oversize, err_short;
+        } rx;
+        unsigned long st_retx, st_backpressure, st_ooo;
+        unsigned q_count, q_sent, tx_next, rx_next, retries;
+        uint32_t t_last_rx;
+    } dev = {};
+    int toDev = 0;
+    if (!ppp) {
+        const gc_link &l = br.u.gc.dev;
+        dev.rx.err_crc = l.rx.err_crc;
+        dev.rx.err_cobs = l.rx.err_cobs;
+        dev.rx.err_oversize = l.rx.err_oversize;
+        dev.rx.err_short = l.rx.err_short;
+        dev.st_retx = l.st_retx;
+        dev.st_backpressure = l.st_backpressure;
+        dev.st_ooo = l.st_ooo;
+        dev.q_count = l.q_count;
+        dev.q_sent = l.q_sent;
+        dev.tx_next = l.tx_next;
+        dev.rx_next = l.rx_next;
+        dev.retries = l.retries;
+        dev.t_last_rx = l.t_last_rx;
+        toDev = br.u.gc.to_dev.count;
+    }
+    out.printf("  device    : %s, link state %d\n", btConnected ? "connected" : "-", bridge_dev_state(&br));
+#if BRIDGE_PPP
+    if (ppp) {
         /* retail Arena game: PPP instead of the GameComms link */
         out.printf("  ppp       : %s, frames rx %lu (bad fcs %lu) tx %lu, tcp %lu udp %lu\n",
-                   gc_ppp_is_up(&br.pp->ppp) ? "up" : "negotiating", (unsigned long)br.pp->ppp.st_rx_frames,
-                   (unsigned long)br.pp->ppp.st_rx_bad_fcs, (unsigned long)br.pp->ppp.st_tx_frames,
+                   gc_ppp_is_up(&br.u.pp.ppp) ? "up" : "negotiating", (unsigned long)br.u.pp.ppp.st_rx_frames,
+                   (unsigned long)br.u.pp.ppp.st_rx_bad_fcs, (unsigned long)br.u.pp.ppp.st_tx_frames,
                    (unsigned long)br.st_ppp_tcp, (unsigned long)br.st_ppp_udp);
     }
 #endif
     out.printf("  bt rx     : %u buffered, %lu bytes dropped, frame errors crc %lu cobs %lu oversize %lu short %lu\n",
-               (unsigned)btRxAvailable(), (unsigned long)drops, (unsigned long)br.dev.rx.err_crc,
-               (unsigned long)br.dev.rx.err_cobs, (unsigned long)br.dev.rx.err_oversize,
-               (unsigned long)br.dev.rx.err_short);
+               (unsigned)btRxAvailable(), (unsigned long)drops, (unsigned long)dev.rx.err_crc,
+               (unsigned long)dev.rx.err_cobs, (unsigned long)dev.rx.err_oversize,
+               (unsigned long)dev.rx.err_short);
     out.printf("  bt tx     : %u buffered, %u peak, %u in flight, congested %s\n", (unsigned)btTx.queue.len,
                (unsigned)btTxHighWater, (unsigned)btTx.inflight, congested ? "yes" : "no");
     out.printf("  wifi      : %s %s rssi %d\n", cfg.ssid.c_str(),
                WiFi.status() == WL_CONNECTED ? WiFi.localIP().toString().c_str() : "(down)", WiFi.RSSI());
     out.printf("  server    : %s:%u state %d link %d\n", cfg.host.c_str(), cfg.port, br.srv_state, br.srv.state);
     out.printf("  messages  : dev->srv %lu srv->dev %lu, retx dev %lu srv %lu\n", (unsigned long)br.st_dev_msgs,
-               (unsigned long)br.st_srv_msgs, (unsigned long)br.dev.st_retx, (unsigned long)br.srv.st_retx);
+               (unsigned long)br.st_srv_msgs, (unsigned long)dev.st_retx, (unsigned long)br.srv.st_retx);
     out.printf("  pressure  : dev %lu srv %lu, out-of-order dev %lu srv %lu\n",
-               (unsigned long)br.dev.st_backpressure, (unsigned long)br.srv.st_backpressure,
-               (unsigned long)br.dev.st_ooo, (unsigned long)br.srv.st_ooo);
+               (unsigned long)dev.st_backpressure, (unsigned long)br.srv.st_backpressure,
+               (unsigned long)dev.st_ooo, (unsigned long)br.srv.st_ooo);
     out.printf("  queues    : dev link %u/%u fifo %d/%d, srv link %u/%u fifo %d/%d\n",
-               (unsigned)br.dev.q_count, (unsigned)GC_LINK_QUEUE, br.to_dev.count, BRIDGE_FIFO_LEN,
+               (unsigned)dev.q_count, (unsigned)GC_LINK_QUEUE, toDev, BRIDGE_FIFO_LEN,
                (unsigned)br.srv.q_count, (unsigned)GC_LINK_QUEUE, br.to_srv.count, BRIDGE_FIFO_LEN);
     out.printf("  dev link  : sent %u, tx next %u, rx next %u, retries %u, last rx %lu ms ago\n",
-               (unsigned)br.dev.q_sent, (unsigned)br.dev.tx_next, (unsigned)br.dev.rx_next,
-               (unsigned)br.dev.retries, (unsigned long)(millis() - br.dev.t_last_rx));
+               (unsigned)dev.q_sent, (unsigned)dev.tx_next, (unsigned)dev.rx_next,
+               (unsigned)dev.retries, (unsigned long)(millis() - dev.t_last_rx));
     out.printf("  srv link  : sent %u, tx next %u, rx next %u, retries %u, last rx %lu ms ago\n",
                (unsigned)br.srv.q_sent, (unsigned)br.srv.tx_next, (unsigned)br.srv.rx_next,
                (unsigned)br.srv.retries, (unsigned long)(millis() - br.srv.t_last_rx));

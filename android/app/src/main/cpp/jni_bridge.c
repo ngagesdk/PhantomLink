@@ -282,7 +282,7 @@ JNIEXPORT void JNICALL FN(nativeStatus)(JNIEnv *env, jclass cls, jlong h, jintAr
     (void)cls;
     v[0] = b->srv_state;
     v[1] = b->registered;
-    v[2] = b->dev.state;
+    v[2] = bridge_dev_state(b);
     v[3] = b->srv.state;
     v[4] = (jint)b->st_dev_msgs;
     v[5] = (jint)b->st_srv_msgs;
