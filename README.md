@@ -216,10 +216,9 @@ and one N-Gage can have one account. The server keeps the accounts in
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage. The Rifts
-game server is written from the game's network code and tested against
-simulated games, but has not run with a real N-Gage yet. Rifts' Bluetooth
-multiplayer works with the GameComms replacement (see the table above),
-independently of Arena.
+game server istested against simulated games, but has not run with a real N-Gage
+yet. Rifts' Bluetooth multiplayer works with the GameComms replacement (see the
+table above), independently of Arena.
 
 ## Status
 
