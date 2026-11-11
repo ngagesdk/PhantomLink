@@ -606,7 +606,7 @@ static void com_service(pcb_dev *p, gc_u32 now)
         }
     }
     while ((n = pcb_com_read(p->com, buf, sizeof(buf))) > 0) {
-        int st = p->br.dev.state;
+        int st = bridge_dev_state(&p->br);
         if (st != GC_LS_UP && !p->com_rx_seen) {
             p->com_rx_seen = 1;
             logmsg(2, "%s: receiving data (%d bytes), waiting for the N-Gage's handshake", p->com_name, n);
@@ -627,7 +627,7 @@ static void com_service(pcb_dev *p, gc_u32 now)
         com_fail(p, now);
         return;
     }
-    up = p->br.dev.state == GC_LS_UP;
+    up = bridge_dev_state(&p->br) == GC_LS_UP;
     if (up != p->com_up) {
         p->com_up = up;
         if (up) {

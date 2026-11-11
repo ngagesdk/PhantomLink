@@ -269,9 +269,9 @@ static void p_stats(void *b, bp_stats *out)
 {
     bp_bridge *p = (bp_bridge *)b;
     *out = p->st;
-    out->dev_backpressure = p->br.dev.st_backpressure;
+    out->dev_backpressure = p->br.u.gc.dev.st_backpressure;
     out->srv_backpressure = p->br.srv.st_backpressure;
-    out->dev_retx = p->br.dev.st_retx;
+    out->dev_retx = p->br.u.gc.dev.st_retx;
     out->srv_retx = p->br.srv.st_retx;
 }
 

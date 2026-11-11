@@ -116,10 +116,24 @@ typedef struct
     bridge_io io;
     void *ctx;
 
-    gc_link dev;        /* N-Gage side */
     gc_link srv;        /* server side */
     bridge_fifo to_srv; /* waiting for the server link */
-    bridge_fifo to_dev; /* waiting for the device link */
+
+    /* The N-Gage side. A GameComms device uses the device link and its
+     * queue; an Arena game (PPP) uses neither, so PPP mode keeps its state
+     * in the same memory (the ESP32 has no heap to spare for it). Which
+     * one is valid follows mode: pp in BRIDGE_MODE_PPP, gc otherwise. */
+    union
+    {
+        struct
+        {
+            gc_link dev;        /* GameComms link to the N-Gage */
+            bridge_fifo to_dev; /* waiting for the device link */
+        } gc;
+#if BRIDGE_PPP
+        struct bridge_ppp pp;
+#endif
+    } u;
 
     int dev_connected; /* SPP transport present */
     gc_u8 dev_addr[GC_DEVICE_ID_LEN];
@@ -142,13 +156,8 @@ typedef struct
     gc_u32 st_dev_msgs;
     gc_u32 st_srv_msgs;
 
-    int mode;      /* BRIDGE_MODE_* of the current device connection */
-    int ppp_nomem; /* PPP state could not be allocated (logged once) */
+    int mode; /* BRIDGE_MODE_* of the current device connection */
 #if BRIDGE_PPP
-    /* PPP mode state (about 9 kB on the ESP32), allocated when a device first speaks
-     * PPP so that bridges that never see an Arena game keep the memory
-     * (the ESP32 needs it for Wi-Fi and Bluetooth) */
-    struct bridge_ppp *pp;
     gc_u32 st_ppp_tcp;
     gc_u32 st_ppp_udp;
 #endif
@@ -156,8 +165,11 @@ typedef struct
 
 void bridge_default_cfg(bridge_cfg *cfg);
 void bridge_init(bridge *b, const bridge_cfg *cfg, const bridge_io *io, void *ctx);
-/** Free what the bridge allocated (PPP mode state) before discarding it. */
+/** Call before discarding a bridge (nothing is allocated at present). */
 void bridge_release(bridge *b);
+/** State of the GameComms device link (GC_LS_*). PPP mode has no device
+ *  link: GC_LS_UP while the PPP device is connected, GC_LS_IDLE after. */
+int bridge_dev_state(const bridge *b);
 
 void bridge_dev_connected(bridge *b, const gc_u8 *bt_addr, gc_u32 now);
 void bridge_dev_input(bridge *b, const gc_u8 *data, size_t len, gc_u32 now);

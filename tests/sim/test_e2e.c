@@ -912,7 +912,7 @@ static void test_noisy_bluetooth_link(void)
     for (k = 0; k < 60 && n0 + k < W.n[1].n_ev; k++) {
         CHECK_EQ(W.n[1].ev[n0 + k].data[10], k);
     }
-    CHECK(W.n[1].dev.link.rx.err_crc + W.n[1].br.dev.rx.err_crc + W.n[1].dev.link.rx.err_cobs > 0);
+    CHECK(W.n[1].dev.link.rx.err_crc + W.n[1].br.u.gc.dev.rx.err_crc + W.n[1].dev.link.rx.err_cobs > 0);
     sim_free(&W);
 }
 
@@ -1015,7 +1015,7 @@ static void test_board_through_bridge(void)
     /* A user can spend several minutes composing without losing the link. */
     sim_run(&W, 180000);
     CHECK_EQ(W.n[1].dev.link.state, GC_LS_UP);
-    CHECK_EQ(W.n[1].br.dev.state, GC_LS_UP);
+    CHECK_EQ(W.n[1].br.u.gc.dev.state, GC_LS_UP);
     CHECK_EQ(W.n[1].br.srv.state, GC_LS_UP);
     memset(&board_reply, 0, sizeof(board_reply));
     memset(&m, 0, sizeof(m));

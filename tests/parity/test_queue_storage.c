@@ -356,7 +356,7 @@ static void test_bridge_window_typical_messages(void)
     gc_u8 m[49];
     int i;
     bridge_setup(now);
-    CHECK_EQ(BR.dev.state, GC_LS_UP);
+    CHECK_EQ(BR.u.gc.dev.state, GC_LS_UP);
     CHECK_EQ(BR.srv.state, GC_LS_UP);
     dev_stalled = 1;
     m[0] = GC_MT_DATA;
@@ -365,8 +365,8 @@ static void test_bridge_window_typical_messages(void)
         CHECK_EQ(gc_link_send(&SRV, m, sizeof(m), now), GC_LINK_OK);
         step(now);
     }
-    CHECK_EQ(BR.dev.q_count, GC_LINK_QUEUE);
-    CHECK_EQ(BR.to_dev.count, BRIDGE_FIFO_LEN);
+    CHECK_EQ(BR.u.gc.dev.q_count, GC_LINK_QUEUE);
+    CHECK_EQ(BR.u.gc.to_dev.count, BRIDGE_FIFO_LEN);
     CHECK_EQ(BR.srv.st_backpressure, 0);
     CHECK_EQ(SRV.q_count, 0); /* the bridge acknowledged all of them */
     CHECK_EQ(gc_link_send(&SRV, m, sizeof(m), now), GC_LINK_OK);
@@ -405,10 +405,22 @@ static void test_bridge_fifo_stress(void)
     printf("    forwarded %lu, backpressure %lu\n", (unsigned long)dev_next, (unsigned long)BR.srv.st_backpressure);
 }
 
+/* ESP32 sizing: PPP mode's state fits in the GameComms device link it
+ * replaces, so Arena support costs the bridge no memory */
+static void test_ppp_fits_device_link(void)
+{
+    bridge b;
+    printf("    ppp state %u bytes, device link + queue %u bytes\n", (unsigned)sizeof(b.u.pp), (unsigned)sizeof(b.u.gc));
+    if (!DEFAULT_SIZING) {
+        CHECK(sizeof(b.u.pp) <= sizeof(b.u.gc));
+    }
+}
+
 int main(void)
 {
     printf("    sizing: link %d messages / %d bytes, fifo %d messages / %d bytes%s\n", GC_LINK_QUEUE, GC_LINK_QBUF,
            BRIDGE_FIFO_LEN, BRIDGE_FIFO_BYTES, DEFAULT_SIZING ? " (default)" : "");
+    RUN(test_ppp_fits_device_link);
     RUN(test_link_window_typical_messages);
     RUN(test_link_largest_message);
     RUN(test_link_ring_stress);
