@@ -571,6 +571,9 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "arena_accounts")) {
         return set_str(a->core.arena_accounts, sizeof(a->core.arena_accounts), val) ? 1 : -1;
     }
+    if (!strcmp(key, "rifts_data")) {
+        return set_str(a->core.rifts_data, sizeof(a->core.rifts_data), val) ? 1 : -1;
+    }
     if (!strcmp(key, "log_file")) {
         return set_str(a->logfile, sizeof(a->logfile), val) ? 1 : -1;
     }
@@ -653,7 +656,8 @@ static void usage(const char *argv0)
            "  --name=TEXT          server name shown to devices\n"
            "  --access_key=TEXT    require this key from bridges (default none)\n"
            "  --board_file=PATH    persistent message board file\n"
-           "  --arena_accounts=PATH profile data of retail Arena games (empty: not kept)\n"
+           "  --arena_accounts=PATH Arena accounts, shared by all Arena games (empty: not kept)\n"
+           "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
            "  --reserve_ms=N       keep slots of lost players (default 180000)\n"

@@ -12,6 +12,7 @@ The bridge command may use {dport} (TCP test device port) and {sport}
 (server port), e.g. gcbridge --bluetooth=0 --device_tcp={dport}
 --server=127.0.0.1 --port={sport}; the Android engine (HostBridge) works
 the same way."""
+import hashlib
 import os, re, socket, struct, subprocess, sys, tempfile, time
 
 server, pppsim, bridge_cmd = sys.argv[1], sys.argv[2], sys.argv[3:]
@@ -104,8 +105,11 @@ try:
     check(dns('example.org')[0] == 3, 'DNS: other names NXDOMAIN')
 
     r = soap('authenticateUser2', '<username xsi:type="xsd:string">mupf</username>\n'
-             '<password xsi:type="xsd:string">secret</password>\n')
+             '<password xsi:type="xsd:string">secret</password>\n<imei xsi:type="xsd:string">350000000000001</imei>\n')
     check('<username xsi:type="xsd:string">mupf</username>' in r, 'SOAP login returns the user name')
+    bad = soap('authenticateUser2', '<username xsi:type="xsd:string">mupf</username>\n'
+               '<password xsi:type="xsd:string">wrong</password>\n<imei xsi:type="xsd:string">350000000000001</imei>\n')
+    check('xsd:boolean">false<' in bad and 'JSESSIONID' not in bad, 'SOAP login with a wrong password fails')
     m = re.search(r'JSESSIONID=([^;\s]+)', r)
     cookie = m.group(1) if m else None
     check(cookie is not None, 'SOAP login sets a session cookie')
@@ -116,6 +120,7 @@ try:
     r = soap('viewAccount', '', cookie)
     check('<item>Michael</item><item>F</item><item>m@x</item>' in r, 'SOAP viewAccount returns the saved profile')
     check('mupf\tfirstName\tMichael' in open(acc).read(), 'profile kept in the accounts file')
+    check('secret' not in open(acc).read(), 'no plain password in the accounts file')
 
     big = soap('editQuote', '<quote xsi:type="xsd:string">' + 'q' * 120 + '</quote>\n' + '<!--' + 'x' * 5000 + '-->',
                cookie)
@@ -132,7 +137,8 @@ try:
     t0 = time.time()
     while b"id='q'" not in got and time.time() - t0 < 5:
         got += s.recv(4096)
-    s.sendall(b"<iq type='set' id='a'><query xmlns='jabber:iq:auth'><username>mupf</username><password>x"
+    pwsha1 = hashlib.sha1(b'secret').hexdigest().encode()
+    s.sendall(b"<iq type='set' id='a'><query xmlns='jabber:iq:auth'><username>mupf</username><password>" + pwsha1 +
               b"</password><resource>segachat</resource></query></iq>")
     while b"id='a'" not in got and time.time() - t0 < 5:
         got += s.recv(4096)

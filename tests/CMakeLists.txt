@@ -29,7 +29,8 @@ add_library(gc_protocol STATIC ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/
 target_include_directories(gc_protocol PUBLIC ${ROOT}/protocol/include)
 
 add_library(gc_server_core STATIC ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
-    ${ROOT}/server/src/gcs_native.c)
+    ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c)
 target_include_directories(gc_server_core PUBLIC ${ROOT}/server/src)
 target_link_libraries(gc_server_core PUBLIC gc_protocol)
 
@@ -40,6 +41,18 @@ target_link_libraries(gc_arena_core PUBLIC gc_protocol)
 add_executable(test_pla arena/test_pla.c)
 target_link_libraries(test_pla gc_arena_core gc_server_core)
 add_test(NAME arena_core COMMAND test_pla)
+add_executable(test_accounts server/test_accounts.c)
+target_link_libraries(test_accounts gc_server_core)
+target_include_directories(test_accounts PRIVATE ${ROOT}/protocol/tests)
+add_test(NAME server_accounts COMMAND test_accounts)
+add_executable(test_rcodec server/test_rcodec.c)
+target_link_libraries(test_rcodec gc_server_core)
+target_include_directories(test_rcodec PRIVATE ${ROOT}/protocol/tests)
+add_test(NAME server_rifts_codec COMMAND test_rcodec)
+add_executable(test_rifts server/test_rifts.c)
+target_link_libraries(test_rifts gc_server_core)
+target_include_directories(test_rifts PRIVATE ${ROOT}/protocol/tests)
+add_test(NAME server_rifts COMMAND test_rifts)
 
 add_library(gc_bridge_core STATIC ${ROOT}/firmware/src/bridge_core.c)
 target_include_directories(gc_bridge_core PUBLIC ${ROOT}/firmware/src)
@@ -82,7 +95,8 @@ add_executable(test_ppp_e2e_small ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmw
     ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c
     ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
     ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
-    ${ROOT}/server/src/gcs_native.c)
+    ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c)
 target_include_directories(test_ppp_e2e_small PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
     ${ROOT}/firmware/src ${ROOT}/server/src)
 target_compile_definitions(test_ppp_e2e_small PRIVATE GC_TCP_TXBUF=512 GC_TCP_CONNS=4)
