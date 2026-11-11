@@ -76,6 +76,12 @@ foreach(t codec link msg ppp ip)
     target_link_libraries(test_${t} gc_protocol)
     add_test(NAME protocol_${t} COMMAND test_${t})
 endforeach()
+# PPP with the ESP32 settings: MRU asked down to 1100, frames written in
+# 16 byte pieces (firmware/platformio.ini uses 256)
+add_executable(test_ppp_esp32 ${ROOT}/protocol/tests/test_ppp.c ${ROOT}/protocol/src/gc_ppp.c)
+target_include_directories(test_ppp_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests)
+target_compile_definitions(test_ppp_esp32 PRIVATE GC_PPP_MRU=1100 GC_PPP_TXBUF=16)
+add_test(NAME protocol_ppp_esp32_config COMMAND test_ppp_esp32)
 
 add_executable(test_server_core ${ROOT}/server/tests/test_core.c)
 target_link_libraries(test_server_core gc_server_core)
@@ -101,6 +107,19 @@ target_include_directories(test_ppp_e2e_small PRIVATE ${ROOT}/protocol/include $
     ${ROOT}/firmware/src ${ROOT}/server/src)
 target_compile_definitions(test_ppp_e2e_small PRIVATE GC_TCP_TXBUF=512 GC_TCP_CONNS=4)
 add_test(NAME e2e_ppp_small_buffers COMMAND test_ppp_e2e_small)
+# the ESP32 configuration (firmware/platformio.ini): MRU and MTU asked
+# down to 1100, PPP frames written in 256 byte pieces
+add_executable(test_ppp_e2e_esp32 ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmware/src/bridge_core.c
+    ${ROOT}/protocol/src/gc_codec.c ${ROOT}/protocol/src/gc_link.c ${ROOT}/protocol/src/gc_msg.c
+    ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
+    ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
+    ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c)
+target_include_directories(test_ppp_e2e_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
+    ${ROOT}/firmware/src ${ROOT}/server/src)
+target_compile_definitions(test_ppp_e2e_esp32 PRIVATE GC_TCP_TXBUF=1536 GC_TCP_CONNS=4 GC_PPP_MRU=1100
+    GC_IP_MTU=1100 GC_PPP_TXBUF=256)
+add_test(NAME e2e_ppp_esp32_config COMMAND test_ppp_e2e_esp32)
 
 add_executable(test_tcp_output ${ROOT}/tests/sim/test_tcp_output.c)
 target_include_directories(test_tcp_output PRIVATE ${ROOT}/firmware/src)
@@ -130,7 +149,7 @@ foreach(flag ${GC_PIO_FLAGS})
 endforeach()
 message(STATUS "ESP32 bridge sizing from platformio.ini: ${GC_ESP32_DEFS}")
 add_library(gc_bridge_esp32 STATIC ${ROOT}/tests/parity/esp32_gc_link.c ${ROOT}/tests/parity/esp32_bridge_core.c
-    ${ROOT}/tests/parity/esp32_gc_ip.c
+    ${ROOT}/tests/parity/esp32_gc_ip.c ${ROOT}/tests/parity/esp32_gc_ppp.c
     ${ROOT}/tests/parity/bridge_profile.c)
 target_include_directories(gc_bridge_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/firmware/src ${ROOT}/tests/parity)
 target_compile_definitions(gc_bridge_esp32 PRIVATE BP_ESP32 ${GC_ESP32_DEFS})

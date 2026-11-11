@@ -479,6 +479,50 @@ static void test_garbage(void)
     }
 }
 
+/* our MRU is asked for when it is below 1500; a Nak drops it. Run with
+ * the ESP32 configuration (GC_PPP_MRU 1100, GC_PPP_TXBUF 16), which also
+ * checks that frames written in pieces deframe like whole ones. */
+static void test_our_mru(void)
+{
+    const pk *k;
+    gc_u8 nak[8];
+    size_t i;
+    int has_mru = 0;
+    setup();
+    feed(GC_PPP_LCP, lcp_req, sizeof(lcp_req), 0);
+    k = find(GC_PPP_LCP, 1);
+    CHECK(k != NULL);
+    if (!k) {
+        return;
+    }
+    for (i = 4; i + 2 <= k->n && k->d[i + 1] >= 2; i += k->d[i + 1]) {
+        if (k->d[i] == 1) {
+            CHECK_EQ(k->d[i + 1], 4);
+            CHECK_EQ((k->d[i + 2] << 8) | k->d[i + 3], GC_PPP_MRU);
+            has_mru = 1;
+        }
+    }
+    CHECK_EQ(has_mru, GC_PPP_MRU < 1500);
+    if (!has_mru) {
+        return;
+    }
+    nak[0] = 3;
+    nak[1] = k->d[1];
+    nak[2] = 0;
+    nak[3] = 8;
+    nak[4] = 1;
+    nak[5] = 4;
+    nak[6] = 0x05;
+    nak[7] = 0xDC;
+    g_c.raw_len = 0;
+    feed(GC_PPP_LCP, nak, sizeof(nak), 10);
+    k = find(GC_PPP_LCP, 1);
+    CHECK(k != NULL);
+    for (i = 4; k && i + 2 <= k->n && k->d[i + 1] >= 2; i += k->d[i + 1]) {
+        CHECK(k->d[i] != 1);
+    }
+}
+
 int main(void)
 {
     RUN(test_fcs);
@@ -493,5 +537,6 @@ int main(void)
     RUN(test_close_and_timeouts);
     RUN(test_back_to_back);
     RUN(test_garbage);
+    RUN(test_our_mru);
     TEST_MAIN_END();
 }

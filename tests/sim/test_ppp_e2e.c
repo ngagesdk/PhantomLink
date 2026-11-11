@@ -426,7 +426,7 @@ static void test_ppp_mode(void)
     po.on_ip = ng_on_ip;
     gc_ppp_init(&ng, &pc, &po, NULL);
     gc_ppp_open(&ng, now);
-    for (i = 0; i < 200 && !(gc_ppp_is_up(&ng) && gc_ppp_is_up(&br.ppp)); i++) {
+    for (i = 0; i < 200 && !(gc_ppp_is_up(&ng) && br.pp && gc_ppp_is_up(&br.pp->ppp)); i++) {
         step();
     }
     CHECK(gc_ppp_is_up(&ng));
@@ -629,6 +629,8 @@ static void test_ppp_mode(void)
     gcs_native_get_stats(gcs_core_native(core), &ns);
     CHECK_EQ(ns.conns, 0);
 
+    bridge_release(&br);
+    CHECK(br.pp == NULL);
     gcs_core_destroy(core);
     remove(ACC);
 }

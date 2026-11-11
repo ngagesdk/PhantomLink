@@ -449,6 +449,7 @@ static void dev_free(pcb_dev *p)
     pcb_com_close(p->com);
     out_free(&p->dev_out);
     srv_close(p);
+    bridge_release(&p->br);
     g_dev[p->index] = NULL;
     g_ndev--;
     free(p);

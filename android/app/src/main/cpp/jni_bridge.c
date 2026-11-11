@@ -181,6 +181,7 @@ JNIEXPORT void JNICALL FN(nativeDestroy)(JNIEnv *env, jclass cls, jlong h)
         return;
     }
     (*env)->DeleteGlobalRef(env, j->cb);
+    bridge_release(&j->br);
     free(j);
 }
 
