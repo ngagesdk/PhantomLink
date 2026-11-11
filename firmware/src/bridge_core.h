@@ -50,6 +50,21 @@ extern "C" {
 
 #define BRIDGE_VERSION "1.0.0"
 
+#if BRIDGE_PPP
+struct bridge_ppp
+{
+    gc_ppp ppp;
+    gc_ip ip;
+    struct
+    {
+        gc_u8 gen;  /* generation, high byte of the GCN id       */
+        gc_u8 open; /* the server knows this connection          */
+        gc_u8 pend; /* TCP_CLOSE still to send: 1 FIN, 2 reset   */
+        gc_u8 pend_gen;
+    } conn[GC_TCP_CONNS];
+};
+#endif
+
 typedef struct
 {
     gc_u16 len;
@@ -127,17 +142,13 @@ typedef struct
     gc_u32 st_dev_msgs;
     gc_u32 st_srv_msgs;
 
-    int mode; /* BRIDGE_MODE_* of the current device connection */
+    int mode;      /* BRIDGE_MODE_* of the current device connection */
+    int ppp_nomem; /* PPP state could not be allocated (logged once) */
 #if BRIDGE_PPP
-    gc_ppp ppp;
-    gc_ip ip;
-    struct
-    {
-        gc_u8 gen;  /* generation, high byte of the GCN id       */
-        gc_u8 open; /* the server knows this connection          */
-        gc_u8 pend; /* TCP_CLOSE still to send: 1 FIN, 2 reset   */
-        gc_u8 pend_gen;
-    } conn[GC_TCP_CONNS];
+    /* PPP mode state (about 9 kB on the ESP32), allocated when a device first speaks
+     * PPP so that bridges that never see an Arena game keep the memory
+     * (the ESP32 needs it for Wi-Fi and Bluetooth) */
+    struct bridge_ppp *pp;
     gc_u32 st_ppp_tcp;
     gc_u32 st_ppp_udp;
 #endif
@@ -145,6 +156,8 @@ typedef struct
 
 void bridge_default_cfg(bridge_cfg *cfg);
 void bridge_init(bridge *b, const bridge_cfg *cfg, const bridge_io *io, void *ctx);
+/** Free what the bridge allocated (PPP mode state) before discarding it. */
+void bridge_release(bridge *b);
 
 void bridge_dev_connected(bridge *b, const gc_u8 *bt_addr, gc_u32 now);
 void bridge_dev_input(bridge *b, const gc_u8 *data, size_t len, gc_u32 now);

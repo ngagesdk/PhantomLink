@@ -32,6 +32,15 @@ extern "C" {
 #ifndef GC_PPP_MRU
 #define GC_PPP_MRU 1500 /* largest information field we receive */
 #endif
+/* Below 1500 the MRU is asked for in LCP, so the peer sends no larger
+ * packets. */
+
+#ifndef GC_PPP_TXBUF
+#define GC_PPP_TXBUF (2 * (GC_PPP_MRU + 8) + 2) /* a whole escaped frame */
+#endif
+/* A smaller send buffer is passed to write() in pieces per frame. */
+GC_STATIC_ASSERT(ppp_txbuf_min, GC_PPP_TXBUF >= 16);
+GC_STATIC_ASSERT(ppp_mru_range, GC_PPP_MRU >= 128 && GC_PPP_MRU <= 1500);
 
 /* protocol numbers */
 #define GC_PPP_IP   0x0021
@@ -105,7 +114,7 @@ typedef struct
     gc_ppp_fsm lcp;
     gc_ppp_fsm ipcp;
     int up; /* GC_PPP_EV_UP reported */
-    gc_u8 tx[2 * (GC_PPP_MRU + 8) + 2];
+    gc_u8 tx[GC_PPP_TXBUF];
 
     gc_u32 now;
     gc_u32 st_rx_frames;

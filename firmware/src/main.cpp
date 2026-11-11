@@ -21,6 +21,7 @@
 #include <esp_bt_device.h>
 #include <esp_bt_main.h>
 #include <esp_gap_bt_api.h>
+#include <esp_heap_caps.h>
 #include <esp_idf_version.h>
 #include <esp_random.h>
 #include <esp_spp_api.h>
@@ -698,11 +699,11 @@ static void printStatus(Print &out)
     out.printf("  bt name   : %s (pin %s)\n", cfg.btname.c_str(), cfg.pin.c_str());
     out.printf("  device    : %s, link state %d\n", btConnected ? "connected" : "-", br.dev.state);
 #if BRIDGE_PPP
-    if (br.mode == BRIDGE_MODE_PPP) {
+    if (br.mode == BRIDGE_MODE_PPP && br.pp) {
         /* retail Arena game: PPP instead of the GameComms link */
         out.printf("  ppp       : %s, frames rx %lu (bad fcs %lu) tx %lu, tcp %lu udp %lu\n",
-                   gc_ppp_is_up(&br.ppp) ? "up" : "negotiating", (unsigned long)br.ppp.st_rx_frames,
-                   (unsigned long)br.ppp.st_rx_bad_fcs, (unsigned long)br.ppp.st_tx_frames,
+                   gc_ppp_is_up(&br.pp->ppp) ? "up" : "negotiating", (unsigned long)br.pp->ppp.st_rx_frames,
+                   (unsigned long)br.pp->ppp.st_rx_bad_fcs, (unsigned long)br.pp->ppp.st_tx_frames,
                    (unsigned long)br.st_ppp_tcp, (unsigned long)br.st_ppp_udp);
     }
 #endif
@@ -731,7 +732,8 @@ static void printStatus(Print &out)
                (unsigned)br.srv.retries, (unsigned long)(millis() - br.srv.t_last_rx));
     out.printf("  latency   : max BT write %lu ms, max loop interval %lu ms (since boot)\n",
                (unsigned long)btWriteMaxMs, (unsigned long)loopMaxMs);
-    out.printf("  free heap : %u (lowest %u)\n", (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap());
+    out.printf("  free heap : %u (lowest %u, largest block %u)\n", (unsigned)ESP.getFreeHeap(),
+               (unsigned)ESP.getMinFreeHeap(), (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
 }
 
 /* Restart after the reply had time to leave (Bluetooth console). */
@@ -840,8 +842,9 @@ static void btStartGame(uint32_t now)
     btConnected = true;
     bridge_dev_connected(&br, btPeer, now);
     if (cfg.verbose) {
-        Serial.printf("[%8lu] free heap %u (lowest %u)\n", (unsigned long)now, (unsigned)ESP.getFreeHeap(),
-                      (unsigned)ESP.getMinFreeHeap());
+        Serial.printf("[%8lu] free heap %u (lowest %u, largest block %u)\n", (unsigned long)now,
+                      (unsigned)ESP.getFreeHeap(), (unsigned)ESP.getMinFreeHeap(),
+                      (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
     }
     if (btSniffLen) {
         bridge_dev_input(&br, btSniff, btSniffLen, now);

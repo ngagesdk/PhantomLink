@@ -272,7 +272,7 @@ static void tcp_out(gc_ip *ip, gc_tcp_conn *c, gc_u32 seq, gc_u8 flags, const gc
         t[21] = 4;
         wr16(t + 22, ip->mss);
     }
-    if (len) {
+    if (len && data != t + hl) {
         memcpy(t + hl, data, len);
     }
     wr16(t + 16, gc_ip_fold(gc_ip_sum(pseudo(c->laddr, c->raddr, GC_IP_PROTO_TCP, hl + len), t, hl + len)));
@@ -328,7 +328,7 @@ static void tcp_output(gc_ip *ip, gc_tcp_conn *c)
         gc_u32 inflight = c->snd_nxt - c->snd_una - (c->fin_sent ? 1u : 0u);
         size_t unsent, n, k, pos;
         gc_u32 wnd = c->snd_wnd;
-        gc_u8 *seg = ip->seg;
+        gc_u8 *seg = ip->out + 40; /* assembled in place: tcp_out skips the copy */
         off = inflight;
         unsent = c->tx_len > off ? c->tx_len - off : 0;
         if (!unsent || c->fin_sent) {

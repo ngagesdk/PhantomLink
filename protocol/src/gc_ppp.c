@@ -138,15 +138,50 @@ size_t gc_ppp_frame(gc_u16 proto, const gc_u8 *info, size_t len, gc_u32 accm, gc
     return n;
 }
 
+static void tx_byte(gc_ppp *p, size_t *n, gc_u8 c)
+{
+    if (*n == sizeof(p->tx)) {
+        p->ops.write(p->ctx, p->tx, *n);
+        *n = 0;
+    }
+    p->tx[(*n)++] = c;
+}
+
+static void tx_esc(gc_ppp *p, size_t *n, gc_u8 c, gc_u32 accm)
+{
+    if (c == 0x7E || c == 0x7D || (c < 0x20 && (accm & ((gc_u32)1 << c)))) {
+        tx_byte(p, n, 0x7D);
+        c = (gc_u8)(c ^ 0x20);
+    }
+    tx_byte(p, n, c);
+}
+
 static void send_frame(gc_ppp *p, gc_u16 proto, const gc_u8 *info, size_t len)
 {
     /* LCP always with every control character escaped (RFC 1662 7.1) */
     gc_u32 accm = (proto == GC_PPP_LCP || p->lcp.state != GC_PPP_ST_OPENED) ? 0xFFFFFFFFu : p->tx_accm;
-    size_t n = gc_ppp_frame(proto, info, len, accm, p->tx, sizeof(p->tx));
-    if (n) {
-        p->st_tx_frames++;
-        p->ops.write(p->ctx, p->tx, n);
+    gc_u8 hdr[4];
+    gc_u16 fcs;
+    size_t n = 0, i;
+    hdr[0] = 0xFF;
+    hdr[1] = 0x03;
+    wr16(hdr + 2, proto);
+    fcs = gc_ppp_fcs(GC_PPP_FCS_INIT, hdr, 4);
+    fcs = (gc_u16)~gc_ppp_fcs(fcs, info, len);
+    /* escaped into tx and written whenever it fills (in one piece when
+     * tx holds the whole frame, the default) */
+    tx_byte(p, &n, 0x7E);
+    for (i = 0; i < 4; i++) {
+        tx_esc(p, &n, hdr[i], accm);
     }
+    for (i = 0; i < len; i++) {
+        tx_esc(p, &n, info[i], accm);
+    }
+    tx_esc(p, &n, (gc_u8)(fcs & 0xFF), accm);
+    tx_esc(p, &n, (gc_u8)(fcs >> 8), accm);
+    tx_byte(p, &n, 0x7E);
+    p->st_tx_frames++;
+    p->ops.write(p->ctx, p->tx, n);
 }
 
 static void send_cp(gc_ppp *p, gc_u16 proto, gc_u8 code, gc_u8 id, const gc_u8 *data, size_t len)
@@ -180,6 +215,14 @@ static size_t our_options(gc_ppp *p, gc_u16 proto, gc_u8 *o)
 {
     size_t n = 0;
     if (proto == GC_PPP_LCP) {
+#if GC_PPP_MRU < 1500
+        if (!rejected(&p->lcp, LCP_MRU)) {
+            o[n++] = LCP_MRU;
+            o[n++] = 4;
+            wr16(o + n, GC_PPP_MRU);
+            n += 2;
+        }
+#endif
         if (!rejected(&p->lcp, LCP_ACCM)) {
             o[n++] = LCP_ACCM;
             o[n++] = 6;
@@ -455,6 +498,8 @@ static void rcv_conf_nak_rej(gc_ppp *p, gc_u16 proto, gc_u8 code, gc_u8 id, cons
             p->cfg.magic = (p->cfg.magic * 1103515245u + 12345u) | 1u;
         } else if (proto == GC_PPP_LCP && t == LCP_ACCM) {
             set_rejected(f, t); /* use the default instead */
+        } else if (proto == GC_PPP_LCP && t == LCP_MRU) {
+            set_rejected(f, t); /* stop asking; frames above GC_PPP_MRU are dropped */
         }
         /* a Nak for our IP address is ignored: we keep ours */
         i += o[i + 1];

@@ -10,6 +10,7 @@
 
 #include "bridge_core.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* ---- logging ---- */
@@ -228,39 +229,39 @@ static int srv_send_net(bridge *b, const gcn_msg *m)
 
 static gc_u16 conn_id(bridge *b, int c)
 {
-    return (gc_u16)((b->conn[c].gen << 8) | (gc_u8)c);
+    return (gc_u16)((b->pp->conn[c].gen << 8) | (gc_u8)c);
 }
 
 /* sends a pending TCP_CLOSE; 1 if nothing is pending any more */
 static int conn_flush_close(bridge *b, int c)
 {
     gcn_msg m;
-    if (!b->conn[c].pend) {
+    if (!b->pp->conn[c].pend) {
         return 1;
     }
     memset(&m, 0, sizeof(m));
     m.type = GCN_MT_TCP_CLOSE;
-    m.id = (gc_u16)((b->conn[c].pend_gen << 8) | (gc_u8)c);
-    m.how = (gc_u8)(b->conn[c].pend == 2 ? GCN_CLOSE_RESET : GCN_CLOSE_FIN);
+    m.id = (gc_u16)((b->pp->conn[c].pend_gen << 8) | (gc_u8)c);
+    m.how = (gc_u8)(b->pp->conn[c].pend == 2 ? GCN_CLOSE_RESET : GCN_CLOSE_FIN);
     if (!srv_send_net(b, &m)) {
         return 0;
     }
-    b->conn[c].pend = 0;
+    b->pp->conn[c].pend = 0;
     return 1;
 }
 
 static void conn_close_later(bridge *b, int c, int how)
 {
-    if (!b->conn[c].open) {
+    if (!b->pp->conn[c].open) {
         return;
     }
     if (how == 2) {
-        b->conn[c].open = 0;
+        b->pp->conn[c].open = 0;
     }
-    if (b->conn[c].pend < how) {
-        b->conn[c].pend = (gc_u8)how;
+    if (b->pp->conn[c].pend < how) {
+        b->pp->conn[c].pend = (gc_u8)how;
     }
-    b->conn[c].pend_gen = b->conn[c].gen;
+    b->pp->conn[c].pend_gen = b->pp->conn[c].gen;
     conn_flush_close(b, c);
 }
 
@@ -275,7 +276,7 @@ static void p_write(void *ctx, const gc_u8 *d, size_t n)
 static void p_on_ip(void *ctx, const gc_u8 *pkt, size_t len)
 {
     bridge *b = (bridge *)ctx;
-    gc_ip_input(&b->ip, pkt, len, b->now);
+    gc_ip_input(&b->pp->ip, pkt, len, b->now);
 }
 
 static void ppp_register(bridge *b)
@@ -301,9 +302,9 @@ static void ppp_abort_all(bridge *b)
 {
     int c;
     for (c = 0; c < GC_TCP_CONNS; c++) {
-        b->conn[c].open = 0;
-        b->conn[c].pend = 0;
-        gc_ip_tcp_abort(&b->ip, c);
+        b->pp->conn[c].open = 0;
+        b->pp->conn[c].pend = 0;
+        gc_ip_tcp_abort(&b->pp->ip, c);
     }
 }
 
@@ -315,7 +316,7 @@ static void p_on_state(void *ctx, int ev)
              b->cfg.ppp_remote[3]);
     } else {
         blog(b, ev == GC_PPP_EV_DEAD ? "ppp: link terminated" : "ppp: IP down");
-        gc_ip_reset(&b->ip);
+        gc_ip_reset(&b->pp->ip);
     }
 }
 
@@ -326,7 +327,7 @@ static void p_log(void *ctx, const char *line)
 
 static void i_send(void *ctx, const gc_u8 *pkt, size_t len)
 {
-    gc_ppp_send_ip(&((bridge *)ctx)->ppp, pkt, len);
+    gc_ppp_send_ip(&((bridge *)ctx)->pp->ppp, pkt, len);
 }
 
 static int i_lookup(void *ctx, const char *name, gc_u8 addr[4])
@@ -365,7 +366,7 @@ static int i_accept(void *ctx, int c, const gc_u8 dst[4], gc_u16 dport, gc_u16 s
     }
     memset(&m, 0, sizeof(m));
     m.type = GCN_MT_TCP_OPEN;
-    b->conn[c].gen++;
+    b->pp->conn[c].gen++;
     m.id = conn_id(b, c);
     memcpy(m.addr, dst, 4);
     m.port = dport;
@@ -374,8 +375,8 @@ static int i_accept(void *ctx, int c, const gc_u8 dst[4], gc_u16 dport, gc_u16 s
         blog(b, "ppp: tcp to port %u refused (server unreachable)", dport);
         return 0;
     }
-    b->conn[c].open = 1;
-    b->conn[c].pend = 0;
+    b->pp->conn[c].open = 1;
+    b->pp->conn[c].pend = 0;
     b->st_ppp_tcp++;
     blog(b, "ppp: tcp %u.%u.%u.%u:%u from port %u (id %04x)", dst[0], dst[1], dst[2], dst[3], dport, sport, m.id);
     return 1;
@@ -387,7 +388,7 @@ static int i_data(void *ctx, int c, const gc_u8 *data, size_t len)
     const size_t chunk = GC_LINK_MAX_MSG - GCN_HDR_DATA;
     size_t chunks = (len + chunk - 1) / chunk, off;
     gcn_msg m;
-    if (!b->conn[c].open) {
+    if (!b->pp->conn[c].open) {
         return 1; /* server side is gone: swallow, a reset follows */
     }
     if (!srv_usable(b) || BRIDGE_FIFO_LEN - b->to_srv.count < (int)chunks || !fifo_room(&b->to_srv, len < chunk ? len + GCN_HDR_DATA : GC_LINK_MAX_MSG)) {
@@ -402,7 +403,7 @@ static int i_data(void *ctx, int c, const gc_u8 *data, size_t len)
         if (!srv_send_net(b, &m)) {
             blog(b, "ppp: server queue full, data lost (id %04x)", m.id);
             conn_close_later(b, c, 2);
-            gc_ip_tcp_abort(&b->ip, c);
+            gc_ip_tcp_abort(&b->pp->ip, c);
             return 1;
         }
     }
@@ -417,17 +418,28 @@ static void i_eof(void *ctx, int c)
 static void i_gone(void *ctx, int c, int reset)
 {
     bridge *b = (bridge *)ctx;
-    if (b->conn[c].open) {
+    if (b->pp->conn[c].open) {
         conn_close_later(b, c, reset ? 2 : 1);
-        b->conn[c].open = 0;
+        b->pp->conn[c].open = 0;
     }
 }
 
-static void ppp_start(bridge *b)
+static int ppp_start(bridge *b)
 {
     gc_ppp_cfg pc;
     gc_ppp_ops po;
     gc_ip_ops io;
+    if (!b->pp) {
+        b->pp = (struct bridge_ppp *)calloc(1, sizeof(*b->pp));
+        if (!b->pp) {
+            if (!b->ppp_nomem) {
+                blog(b, "device speaks PPP, but %u bytes for PPP mode are not available", (unsigned)sizeof(*b->pp));
+            }
+            b->ppp_nomem = 1;
+            return -1;
+        }
+        blog(b, "PPP mode: %u bytes allocated", (unsigned)sizeof(*b->pp));
+    }
     gc_ppp_default_cfg(&pc);
     memcpy(pc.local, b->cfg.ppp_local, 4);
     memcpy(pc.dns, b->cfg.ppp_local, 4);
@@ -438,7 +450,7 @@ static void ppp_start(bridge *b)
     po.on_ip = p_on_ip;
     po.on_state = p_on_state;
     po.log = p_log;
-    gc_ppp_init(&b->ppp, &pc, &po, b);
+    gc_ppp_init(&b->pp->ppp, &pc, &po, b);
     memset(&io, 0, sizeof(io));
     io.send = i_send;
     io.lookup = i_lookup;
@@ -448,12 +460,13 @@ static void ppp_start(bridge *b)
     io.tcp_eof = i_eof;
     io.tcp_gone = i_gone;
     io.log = p_log;
-    gc_ip_init(&b->ip, &io, b, b->cfg.server_link_id + b->now);
-    gc_ip_set_mss(&b->ip, (gc_u16)(GC_LINK_MAX_MSG - GCN_HDR_DATA));
-    memset(b->conn, 0, sizeof(b->conn));
+    gc_ip_init(&b->pp->ip, &io, b, b->cfg.server_link_id + b->now);
+    gc_ip_set_mss(&b->pp->ip, (gc_u16)(GC_LINK_MAX_MSG - GCN_HDR_DATA));
+    memset(b->pp->conn, 0, sizeof(b->pp->conn));
     b->mode = BRIDGE_MODE_PPP;
     blog(b, "device speaks PPP: retail Arena mode");
     ppp_register(b);
+    return 0;
 }
 
 /* a GCN message from the server */
@@ -465,23 +478,23 @@ static void ppp_srv_msg(bridge *b, const gc_u8 *d, size_t n)
         return;
     }
     if (m.type == GCN_MT_UDP) {
-        gc_ip_udp_send(&b->ip, m.addr, m.port, m.peer_port, m.data, m.len);
+        gc_ip_udp_send(&b->pp->ip, m.addr, m.port, m.peer_port, m.data, m.len);
         return;
     }
     c = m.id & 0xFF;
-    if (c >= GC_TCP_CONNS || (m.id >> 8) != b->conn[c].gen || !b->conn[c].open) {
+    if (c >= GC_TCP_CONNS || (m.id >> 8) != b->pp->conn[c].gen || !b->pp->conn[c].open) {
         return; /* an old connection */
     }
     if (m.type == GCN_MT_TCP_DATA) {
-        if (gc_ip_tcp_send(&b->ip, c, m.data, m.len, b->now) != (int)m.len) {
+        if (gc_ip_tcp_send(&b->pp->ip, c, m.data, m.len, b->now) != (int)m.len) {
             blog(b, "ppp: tcp send failed (id %04x)", m.id);
         }
     } else if (m.type == GCN_MT_TCP_CLOSE) {
         if (m.how == GCN_CLOSE_RESET) {
-            b->conn[c].open = 0;
-            gc_ip_tcp_abort(&b->ip, c);
+            b->pp->conn[c].open = 0;
+            gc_ip_tcp_abort(&b->pp->ip, c);
         } else {
-            gc_ip_tcp_close(&b->ip, c, b->now);
+            gc_ip_tcp_close(&b->pp->ip, c, b->now);
         }
     }
 }
@@ -493,17 +506,17 @@ static int ppp_can_accept(bridge *b, const gc_u8 *d, size_t n)
         return 1;
     }
     c = d[2];
-    if (c >= GC_TCP_CONNS || d[1] != b->conn[c].gen || !b->conn[c].open) {
+    if (c >= GC_TCP_CONNS || d[1] != b->pp->conn[c].gen || !b->pp->conn[c].open) {
         return 1; /* dropped anyway */
     }
-    return gc_ip_tcp_space(&b->ip, c) >= n - GCN_HDR_DATA;
+    return gc_ip_tcp_space(&b->pp->ip, c) >= n - GCN_HDR_DATA;
 }
 
 static void ppp_poll(bridge *b)
 {
     int c;
-    gc_ppp_poll(&b->ppp, b->now);
-    gc_ip_poll(&b->ip, b->now);
+    gc_ppp_poll(&b->pp->ppp, b->now);
+    gc_ip_poll(&b->pp->ip, b->now);
     for (c = 0; c < GC_TCP_CONNS; c++) {
         conn_flush_close(b, c);
     }
@@ -770,11 +783,25 @@ void bridge_init(bridge *b, const bridge_cfg *cfg, const bridge_io *io, void *ct
     gc_link_init(&b->srv, &lc, &ops, b);
 }
 
+void bridge_release(bridge *b)
+{
+#if BRIDGE_PPP
+    free(b->pp);
+    b->pp = NULL;
+    if (b->mode == BRIDGE_MODE_PPP) {
+        b->mode = BRIDGE_MODE_NONE;
+    }
+#else
+    (void)b;
+#endif
+}
+
 void bridge_dev_connected(bridge *b, const gc_u8 *bt_addr, gc_u32 now)
 {
     b->now = now;
     b->dev_connected = 1;
     b->mode = BRIDGE_MODE_NONE;
+    b->ppp_nomem = 0;
     if (bt_addr) {
         memcpy(b->dev_addr, bt_addr, GC_DEVICE_ID_LEN);
     }
@@ -791,8 +818,13 @@ void bridge_dev_input(bridge *b, const gc_u8 *data, size_t len, gc_u32 now)
     }
     if (b->mode == BRIDGE_MODE_NONE) {
 #if BRIDGE_PPP
-        if (b->cfg.ppp && gc_ppp_detect(data, len)) {
-            ppp_start(b);
+        if (b->cfg.ppp && (b->ppp_nomem || gc_ppp_detect(data, len))) {
+            if (ppp_start(b) != 0) {
+                /* PPP bytes must not reach the GameComms decoder: drop
+                 * them and retry with the next ones (the N-Gage repeats
+                 * its LCP request) */
+                return;
+            }
         } else
 #endif
         {
@@ -815,7 +847,7 @@ void bridge_dev_input(bridge *b, const gc_u8 *data, size_t len, gc_u32 now)
     }
 #if BRIDGE_PPP
     if (b->mode == BRIDGE_MODE_PPP) {
-        gc_ppp_input(&b->ppp, data, len, now);
+        gc_ppp_input(&b->pp->ppp, data, len, now);
         fifo_drain(b, &b->to_srv, &b->srv);
         return;
     }
@@ -831,7 +863,7 @@ void bridge_dev_disconnected(bridge *b, gc_u32 now)
     blog(b, "device disconnected");
 #if BRIDGE_PPP
     if (b->mode == BRIDGE_MODE_PPP) {
-        gc_ip_reset(&b->ip); /* tells the server about every open connection */
+        gc_ip_reset(&b->pp->ip); /* tells the server about every open connection */
     }
 #endif
     gc_link_transport_lost(&b->dev, now);

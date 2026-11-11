@@ -129,8 +129,7 @@ typedef struct
     gc_u8 peer[4]; /* the N-Gage, from its packets */
     int have_peer;
     gc_tcp_conn tcp[GC_TCP_CONNS];
-    gc_u8 out[GC_IP_MTU];
-    gc_u8 seg[GC_IP_MTU]; /* segment being assembled (kept off the stack) */
+    gc_u8 out[GC_IP_MTU]; /* outgoing packet; TCP data is assembled in place */
 
     gc_u32 st_rx;
     gc_u32 st_rx_bad;
