@@ -206,7 +206,7 @@ Message header, 16 bytes, big endian:
 
 | Offset | Size | Content |
 |---|---|---|
-| 0 | 2 | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 always set by the client, 0x1000 target is the lobby (else the game room), 0x0800 more messages follow, 0x0400 game settings data; bits 0..9 the length including the header |
+| 0 | 2 | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 single packet (`KK_SINGLE_PACKET_DEF` in the game server's kkGSApi.h; without it byte 2 is the `PacketSeq` of a series, counting down to 0, and ArenaFramework takes a list as complete only at 0; both sides set it on every message), 0x1000 target is the lobby (else the game room), 0x0800 more messages follow, 0x0400 game settings data; bits 0..9 the length including the header |
 | 2 | 1 | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it) |
 | 3 | 1 | opcode |
 | 4 | 4 | user id (from the login answer) |
@@ -236,6 +236,7 @@ Requests (client → server):
 | 8 | 0xa000 | attribute list | change room attributes |
 | 9, 10, 12, 13, 67 | | | attributes, user lists (not identified in detail) |
 | 11 | 0xb000 | lobby id | search game rooms |
+| 71 | 0xb000 | - | lobbies of the login's game class (Rifts sends it when the player creates a challenge) |
 | 15 | 0xa400 / 0x2000 | data | game data to the room, reliable / unreliable |
 | 16 | 0xa400 / 0x2000 | count, user ids, data | game data to some users |
 | 17 | 0xa000 | data | game data to the room's **game server** (`SendGameDataToServer`, CArenaFramework vtable slot 0x3c) |
@@ -252,6 +253,7 @@ Answers and notifications (server → client):
 | 4 | room entry | the created room |
 | 11 | header {parent, total, count} + count × room entry (name [16], id, users, max, status, lobby) | room search result |
 | 14 | header + count × {name [16], id, members, max} | lobby list |
+| 71 | header {game class, total, count} + count × {name [16], users, -, max, status, lobby id} | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it) |
 | 10 | header + count × {name [16], user id, property size} | user list |
 | 6 | {name [16], user id, property size} | a user entered the room |
 | 7 | user id | a user left the room |
@@ -261,7 +263,9 @@ Answers and notifications (server → client):
 
 Rifts sets `GameClassId` 8053, `BypassCommunity`, `LobbyToJoin` "S79",
 `RoomToJoin` "BYPASS", `CreateRoomToJoin` 1 and `ReturnContextOnRoomEntry`
-1. Expected order: Community login (SOAP) → SNAP login → lobby "S79" (op 3)
+1. Seen on hardware: Community login (SOAP) → SNAP login → SegaChat login;
+creating a challenge then sends op 71 (lobbies of the game class), and
+ArenaFramework looks for "S79" in that list. Expected after that: lobby "S79" (op 3)
 → enter lobby (op 6) → room search (op 11) → create room "BYPASS" (op 4) →
 enter room (op 6) → room attributes (op 8) → `EGameStart` → game data to
 the game server (op 17), answers as op 15. The server creates lobbies on

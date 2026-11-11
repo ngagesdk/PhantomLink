@@ -216,6 +216,25 @@ static void enter_room(game *g)
 {
     gc_u8 p[44];
     msg *m;
+    /* first the lobbies of the game class (op 71): a list message, no op 40 */
+    memset(p, 0, sizeof(p));
+    send_msg(g, 0xb000, 6, GCSS_OP_GAME_LOBBIES, p, 0);
+    m = take(g, GCSS_OP_GAME_LOBBIES);
+    CHECK(m != NULL);
+    if (m) {
+        gc_u32 i, n = be32(m->p + 8);
+        int found = 0;
+        CHECK(m->h[0] & 0x20); /* single packet: the list is complete */
+        CHECK_EQ(m->h[2], 6);
+        CHECK_EQ(be32(m->p), GCS_RIFTS_GAME_CLASS);
+        CHECK_EQ(m->n, 12 + 36 * n);
+        for (i = 0; i < n; i++) {
+            found |= !strcmp((const char *)m->p + 12 + 36 * i, "S79");
+        }
+        CHECK(found);
+    }
+    CHECK(take(g, GCSS_OP_OK) == NULL);
+
     memset(p, 0, sizeof(p));
     strcpy((char *)p, "S79");
     send_msg(g, 0x9000, 7, GCSS_OP_LOBBY_INFO, p, 16);
@@ -236,6 +255,7 @@ static void enter_room(game *g)
     CHECK(m != NULL);
     if (m) {
         gc_u32 i, n = be32(m->p + 8);
+        CHECK(m->h[0] & 0x20); /* single packet */
         CHECK_EQ(m->n, 12 + 36 * n);
         for (i = 0; i < n; i++) {
             CHECK_EQ(be32(m->p + 12 + 36 * i + 32), g->lobby);

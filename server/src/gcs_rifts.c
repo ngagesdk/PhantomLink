@@ -1979,6 +1979,7 @@ gcs_rifts *gcs_rifts_create(const char *file, void (*log)(void *ctx, int level, 
     }
     r->game.game_class = GCS_RIFTS_GAME_CLASS;
     r->game.name = "Rifts: Promise of Power";
+    r->game.lobby = "S79"; /* LobbyToJoin in game.rsc */
     r->game.ctx = r;
     r->game.joined = g_joined;
     r->game.left = g_left;
