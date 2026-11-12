@@ -70,7 +70,8 @@ Steps:
    `BTCOMM::0` / `BTCOMM`, points `BTCOMM::0` at the bridge
    (`CBTRegistry::SetDefaultCommPort`) and writes the hosts file. On
    Symbian 6.1 the modem record is shared by all data call access points,
-   so the old values are saved; **Arena: restore modem** puts them back.
+   so the old values are saved; **Arena off** puts them back and removes
+   the hosts entries.
 3. Bridge: nothing to set up; PPP mode is on by default (`ppp=1` in
    gcbridge.ini, `ppp_local` / `ppp_remote` change the addresses).
 4. Server: `gamecommsd`; the accounts and their profile data go to
@@ -146,10 +147,79 @@ phone after changing it. The file is on C:, so it works with retail
 cards. The PhantomLink app maps `arena.n-gage.com`,
 `im.prod.pk.nokia.sf.yav4.com`, `snap.prod.pk.nokia.sf.yav4.com` (Pocket
 Kingdom), `im01.rifts.bb.sf.yav4.com`, `bs01.rifts.bb.sf.yav4.com` (Rifts)
-and `ngage-auth` to 10.64.0.1 and keeps all other lines (its own lines carry the
-tag `# PhantomLink Arena`). Because it is unverified whether the N-Gage
+and `ngage-auth` to 10.64.0.1 (Bluetooth) or to the server's public address
+(GPRS) and keeps all other lines (its own lines carry the tag
+`# PhantomLink Arena`). Because it is unverified whether the N-Gage
 resolver uses the file for these names, the bridge also offers its own
-DNS server through IPCP and answers it. Either path is enough on its own.
+DNS server through IPCP and answers it. Either path is enough on its own
+over Bluetooth; over GPRS the hosts file is the only one (see below).
+
+## Retail games: Arena over GPRS (direct, no bridge)
+
+Where a GPRS network still works, the N-Gage can reach the server on its
+own, the way the original Arena was used. Nothing on the card or in the
+phone's network settings changes; only the Arena host names are pointed at
+the PhantomLink server:
+
+```
+game + original Arena DLLs (card)
+  │ TCP/IP through the operator's packet data access point
+  │ C:\System\Data\hosts: Arena names → the server's public IPv4 address
+operator network, internet
+  │
+gamecommsd --direct=1: TCP 80 and 5222, UDP 9090 (gcs_direct.c)
+  │ the same GCN messages a bridge would send, one peer per client address
+gcs_native.c: Community SOAP and pages, SegaChat, SNAP + game servers
+```
+
+GPRS and Bluetooth players use the same accounts, lobbies and game
+servers.
+
+Steps:
+
+1. Server: run `gamecommsd` with `direct = 1` on a machine with a public
+   IPv4 address (or a router that forwards TCP 80, TCP 5222 and UDP 9090
+   to it). The game always uses these three ports; `direct_http_port`,
+   `direct_xmpp_port` and `direct_snap_port` only change where the server
+   listens, for a port forward such as 80 → 8080 (ports below 1024 need
+   privileges, see `server/deploy/gamecommsd.service`). `direct_bind`
+   (default `0.0.0.0`) limits it to one interface. These listeners speak
+   only the Arena protocols in plain text, like the original Arena; the
+   bridge port keeps its own rules (loopback, access key).
+2. On the N-Gage: a packet data access point for the operator (Settings >
+   Connection > Access points, data bearer Packet data, the operator's
+   APN). Most phones have one from the operator's settings message.
+3. PhantomLink app: Settings > **Arena server**: the server's IPv4 address,
+   or a host name (looked up when the next step runs, which opens a data
+   connection; run it again if the address changes).
+4. PhantomLink app: **Arena over GPRS**. It lists the packet data access
+   points, writes the hosts file and asks for a restart.
+5. Restart the N-Gage, then choose **Arena over GPRS** once more. With the
+   entries already in place it looks up `arena.n-gage.com` and reports
+   "Arena names: OK" when the answer is the server. **Do not log in
+   before it does**: without the hosts file the game would send the
+   account name and password to whoever holds the old Arena domains today.
+6. Start the game, choose N-Gage Arena and pick the operator's access point
+   when asked. **Arena off** removes the hosts entries again (and restores
+   the modem if Arena over BT changed it).
+
+How the server tells clients apart: each client address is one peer of
+`gcs_native`. Several N-Gages behind the same carrier NAT share an address,
+so the server keeps every Community login per peer (not only the last one);
+the session cookie picks the user for SOAP and page requests, and a SNAP
+login is accepted for any account that logged in to the Community service
+from the same address. Datagrams are only taken from addresses with a TCP
+connection open or one in the last 10 minutes (`GCSD_IDLE_MS`), so spoofed
+UDP sources are ignored. Silent TCP connections are closed after
+`direct_idle_ms` (default 2 minutes).
+
+Not verified on hardware: whether the N-Gage's resolver uses the hosts file
+for these names (the check in step 5 tells), and how carriers' NATs treat
+the SNAP datagrams over longer games (the client sends regularly, which
+keeps a NAT mapping open). Tests: `tests/server/test_direct.c` (in
+process: logins, two N-Gages behind one address, SNAP, unknown sources,
+idle addresses) and `tests/net/run_direct_test.py` (gamecommsd with real
+sockets).
 
 ## Parts
 
@@ -163,6 +233,7 @@ DNS server through IPCP and answers it. Either path is enough on its own.
 | sc_lib.dll | `dll/arena/symbian/PlScLib.cpp` | logs all slots |
 | HttpDllRequest.dll | `dll/arena/symbian/PlHttpRequest.cpp` | logs all slots |
 | Retail: access point + hosts | `app/src/ArenaSetup.cpp` | done, works on an N-Gage |
+| Retail over GPRS: hosts + check (app), direct clients (server) | `app/src/ArenaSetup.cpp`, `server/src/gcs_direct.c` | written; server tested, app syntax-checked only, **not yet on hardware** |
 | Retail: PPP + IPv4 in every bridge | `protocol/src/gc_ppp.c`, `gc_ip.c`, `gc_net.c`, `firmware/src/bridge_core.c` | done, tested (PC bridge with Linux as the N-Gage) |
 | Retail: native back ends | `server/src/gcs_native.c` | SOAP/pages/Jabber login answered |
 | Retail: shared accounts | `server/src/gcs_accounts.c` | done, tested |

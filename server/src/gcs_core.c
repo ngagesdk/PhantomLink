@@ -95,8 +95,10 @@ struct gcs_core
     gc_u32 next_seq;
     gc_u32 now;
     gcs_stats st;
-    gcs_arena *arena;   /* N-Gage Arena emulation (GC_API_ARENA peers) */
-    gcs_native *native; /* Arena back ends for tunnelled retail games (PPP mode) */
+    gcs_arena *arena;       /* N-Gage Arena emulation (GC_API_ARENA peers) */
+    gcs_native *native;     /* Arena back ends for tunnelled retail games (PPP mode) */
+    gcs_direct_hook direct; /* direct Arena clients (gcs_direct.h), owns NULL: none */
+    void *direct_ctx;
 };
 
 /* ------------------------------------------------------------------ */
@@ -287,6 +289,18 @@ static void arena_send(void *ctx, void *key, const gc_u8 *data, size_t len)
     if (!p->dead) {
         peer_send_raw(p, data, len);
     }
+}
+
+/* gcs_native's output: to a direct client (GPRS, gcs_direct.h) or to the
+ * bridge peer that tunnels the game's traffic */
+static void native_send(void *ctx, void *key, const gc_u8 *data, size_t len)
+{
+    gcs_core *c = (gcs_core *)ctx;
+    if (c->direct.owns && c->direct.owns(c->direct_ctx, key)) {
+        c->direct.send(c->direct_ctx, key, data, len);
+        return;
+    }
+    arena_send(ctx, key, data, len);
 }
 
 static void arena_log(void *ctx, int level, const char *line)
@@ -1435,7 +1449,7 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     c->cfg.www_root[sizeof(c->cfg.www_root) - 1] = '\0';
     {
         gcs_native_io nio;
-        nio.send = arena_send;
+        nio.send = native_send;
         nio.log = arena_log;
         c->native = gcs_native_create(&nio, c, c->cfg.arena_accounts, c->cfg.rifts_data);
         if (!c->native) {
@@ -1656,6 +1670,20 @@ void gcs_core_poll(gcs_core *core, gc_u32 now)
         gcs_native_poll(core->native, now);
     }
     collect_garbage(core);
+}
+
+void gcs_core_set_direct(gcs_core *core, const gcs_direct_hook *hook, void *ctx)
+{
+    if (!core) {
+        return;
+    }
+    if (hook && hook->owns && hook->send) {
+        core->direct = *hook;
+        core->direct_ctx = ctx;
+    } else {
+        memset(&core->direct, 0, sizeof(core->direct));
+        core->direct_ctx = NULL;
+    }
 }
 
 struct gcs_native *gcs_core_native(gcs_core *core)

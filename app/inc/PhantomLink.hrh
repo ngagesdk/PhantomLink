@@ -32,7 +32,8 @@ enum TPhantomLinkCommands
     EPlCmdLog,
     EPlCmdLogClear,
     EPlCmdArenaOn,
-    EPlCmdArenaOff
+    EPlCmdArenaOff,
+    EPlCmdArenaGprs
 };
 
 #endif /* PHANTOMLINK_HRH */

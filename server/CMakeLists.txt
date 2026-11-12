@@ -18,7 +18,7 @@ add_library(gc_protocol STATIC
     ${GC_PROTOCOL_DIR}/src/gc_net.c)
 target_include_directories(gc_protocol PUBLIC ${GC_PROTOCOL_DIR}/include)
 
-add_library(gcs_core STATIC src/gcs_core.c src/gcs_arena.c src/gcs_native.c src/gcs_accounts.c src/gcs_snap.c src/gcs_rifts.c src/gcs_rcodec.c)
+add_library(gcs_core STATIC src/gcs_core.c src/gcs_arena.c src/gcs_native.c src/gcs_accounts.c src/gcs_snap.c src/gcs_rifts.c src/gcs_rcodec.c src/gcs_direct.c)
 target_link_libraries(gcs_core PUBLIC gc_protocol)
 target_include_directories(gcs_core PUBLIC src)
 

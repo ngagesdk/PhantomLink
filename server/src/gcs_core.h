@@ -107,6 +107,16 @@ typedef struct
 void gcs_core_stats(const gcs_core *core, gcs_stats *st);
 /** The module serving tunnelled retail Arena games (gcs_native.h). */
 struct gcs_native *gcs_core_native(gcs_core *core);
+
+/** Direct Arena clients (gcs_direct.h, N-Gages on GPRS): gcs_native's
+ *  output for a key that owns() claims goes to send() instead of a bridge
+ *  peer.  NULL removes the hook. */
+typedef struct
+{
+    int (*owns)(void *ctx, void *key);
+    void (*send)(void *ctx, void *key, const gc_u8 *data, size_t len);
+} gcs_direct_hook;
+void gcs_core_set_direct(gcs_core *core, const gcs_direct_hook *hook, void *ctx);
 /** Writes a human readable status dump via the log callback. */
 void gcs_core_dump(gcs_core *core);
 
