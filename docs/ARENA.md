@@ -210,7 +210,7 @@ Message header, 16 bytes, big endian:
 | 2 | 1 | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it) |
 | 3 | 1 | opcode |
 | 4 | 4 | user id (from the login answer) |
-| 8 | 4 | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last |
+| 8 | 4 | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last. snapcomm.dll numbers one reliable message per datagram; others carry 0 (packed behind it, or sent alone, like Rifts' room attributes ARNC and ARND): the server processes those once and tells repeats by opcode and command sequence |
 | 12 | 4 | acknowledged reliable sequence number |
 
 Every reliable message is acknowledged on its own (the client sends a
@@ -265,9 +265,10 @@ Rifts sets `GameClassId` 8053, `BypassCommunity`, `LobbyToJoin` "S79",
 `RoomToJoin` "BYPASS", `CreateRoomToJoin` 1 and `ReturnContextOnRoomEntry`
 1. Seen on hardware: Community login (SOAP) → SNAP login → SegaChat login;
 creating a challenge then sends op 71 (lobbies of the game class), and
-ArenaFramework looks for "S79" in that list. Expected after that: lobby "S79" (op 3)
-→ enter lobby (op 6) → room search (op 11) → create room "BYPASS" (op 4) →
-enter room (op 6) → room attributes (op 8) → `EGameStart` → game data to
+ArenaFramework looks for "S79" in that list. Then: op 13 + enter lobby
+(op 6, packed) → room search (op 11) → op 13 + create room "BYPASS<user id>"
+(op 4, packed) →
+room attributes (op 8: ARNA, ARNB, ARNC, ARND; creating the room counts as entering it, and ArenaFramework goes on only when all four are confirmed) → `EGameStart` → game data to
 the game server (op 17), answers as op 15. The server creates lobbies on
 demand, gives every created room a game server when one is registered for
 the login's game class, and closes empty rooms.
