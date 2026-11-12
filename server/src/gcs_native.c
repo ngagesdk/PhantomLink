@@ -19,7 +19,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
+
+#if defined(_WIN32) && !defined(S_ISDIR)
+#define S_ISDIR(m) (((m) & _S_IFMT) == _S_IFDIR)
+#endif
 
 #define MAX_NAME  64
 #define MAX_PEERS 64
@@ -732,6 +738,7 @@ static int www_answer(gcs_native *n, conn *c, const char *path, const char *user
         d = www_read(n, "", path, &len);
     }
     if (!d) {
+        LOG_D("http: no file %s%s in %s, placeholder sent", gc ? "(game class folder or) " : "", path, n->www);
         return 0;
     }
     LOG_D("http: %s from %s (game class %u)", path, n->www, (unsigned)gc);
@@ -749,7 +756,12 @@ void gcs_native_set_www_root(gcs_native *n, const char *dir)
         n->www[--l] = 0;
     }
     if (n->www[0]) {
-        LOG_I("http: device pages from %s", n->www);
+        struct stat st;
+        if (stat(n->www, &st) != 0 || !S_ISDIR(st.st_mode)) {
+            LOG_W("http: www_root %s is not a readable folder: built-in placeholders only", n->www);
+        } else {
+            LOG_I("http: device pages from %s", n->www);
+        }
     }
 }
 

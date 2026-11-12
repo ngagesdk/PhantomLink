@@ -16,13 +16,22 @@ The addresses are ArenaFramework's own, the same in every Arena game:
 
 | Page | Path |
 |------|------|
-| Support | `n-gage/device/global/support/support_main.jsp` |
-| Legal | `n-gage/device/global/support/legal_main.jsp` |
-| News | `n-gage/device/global/play/activities/news.jsp` |
+| News (Arena menu) | `n-gage/servlets/msg` (no file extension) |
+| Help | `n-gage/device/global/support/support_main.jsp` |
+| About | `n-gage/device/global/support/legal_main.jsp` |
+| Activity news (Play menu) | `n-gage/device/global/play/activities/news.jsp` |
 | Tournament news | `n-gage/device/global/play/tournaments/news.jsp` |
 | Winners | `n-gage/device/global/play/activities/winners.jsp`, `.../tournaments/winners.jsp` |
 | Spotlight | `n-gage/device/global/play/rankings/spotlight.jsp` |
 | Lists (XML) | `n-gage/device/community/*_x.jsp` (games, rankings, tournaments, ...) |
+
+News, Help and About are the addresses Rifts was seen asking for; the
+others come from ArenaFramework's resource files. The server log names
+every request (`http: GET ...`) and, at log level 3, the file it served
+or the file it looked for (`http: no file ...`).
+
+The example `8053/n-gage/servlets/msg` replaces the News page in Rifts
+only; delete it to see the shared one there.
 
 Pages are XHTML Mobile Profile (UTF-8). The Arena menus around them are
 black, so the examples set a black background three ways (CSS in the head,
