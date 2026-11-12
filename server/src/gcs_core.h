@@ -47,6 +47,7 @@ typedef struct
     char board_file[256];
     char arena_accounts[256]; /* shared accounts of retail Arena games (PPP mode); empty: memory only */
     char rifts_data[256];     /* Rifts: Promise of Power game server data; empty: memory only */
+    char www_root[256];       /* Arena device pages (news, support, lists); empty: built-in placeholders */
     int max_peers;
     int max_sessions;
     gc_u32 link_grace_ms;    /* keep a silent peer's link for resumption */

@@ -431,7 +431,9 @@ The N-Gage Arena back ends (docs/ARENA.md) keep their data next to it:
 `gamecomms-arena.txt` (`arena_accounts`: the Arena accounts, shared by all
 Arena games, passwords as SHA-1) and `gamecomms-rifts.dat` (`rifts_data`:
 the battles, characters and turns of Rifts: Promise of Power). Back them up
-too.
+too. The pages the Arena menus show (news, support) come from the folder
+set as `www_root`; copy `server/deploy/www` there to start with (see its
+README).
 
 ### Docker
 

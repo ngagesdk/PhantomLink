@@ -104,6 +104,7 @@ struct gcs_native
     gcs_accounts *acc;
     gcs_snap *snap;   /* SNAP game server (UDP) */
     gcs_rifts *rifts; /* Rifts: Promise of Power game server */
+    char www[256];    /* device pages folder, "" none */
     gc_u32 now;
     gcs_native_stats st;
 };
@@ -597,11 +598,15 @@ static void soap_body(gcs_native *n, sbuf *b, const char *op, const char *user, 
 #define LIST_XML                                                                                          \
     "<?xml version=\"1.0\" encoding=\"utf-8\"?><list><currentStart value=\"0\"/><listTotal value=\"0\"/>" \
     "</list>"
-#define PAGE_HTML                                                                                   \
-    "<?xml version=\"1.0\" encoding=\"utf-8\"?><html xmlns=\"http://www.w3.org/1999/xhtml\"><head>" \
-    "<title>N-Gage Arena</title></head><body><p>PhantomLink Arena emulator: nothing here yet.</p></body></html>"
+/* black like the Arena menus around it */
+#define PAGE_HTML                                                                                                  \
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?><html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"                \
+    "<title>N-Gage Arena</title></head><body bgcolor=\"#000000\" text=\"#ffffff\" "                                \
+    "style=\"background-color:#000000;color:#ffffff\"><p>PhantomLink Arena emulator: nothing here yet.</p></body>" \
+    "</html>"
 
-static void http_answer(gcs_native *n, conn *c, const char *body, const char *ctype, const char *cookie)
+static void http_answer_n(gcs_native *n, conn *c, const char *body, size_t blen, const char *ctype,
+                          const char *cookie)
 {
     sbuf r;
     memset(&r, 0, sizeof(r));
@@ -612,14 +617,140 @@ static void http_answer(gcs_native *n, conn *c, const char *body, const char *ct
         if (cookie) {
             sb_fmt(&r, "Set-Cookie: JSESSIONID=%s; Path=/n-gage\r\n", cookie);
         }
-        sb_fmt(&r, "Content-Length: %u\r\nConnection: close\r\n\r\n", (unsigned)strlen(body));
-        sb_str(&r, body);
+        sb_fmt(&r, "Content-Length: %u\r\nConnection: close\r\n\r\n", (unsigned)blen);
+        sb_add(&r, body, blen);
     }
     if (!r.oom && r.d) {
         tcp_write(n, c, r.d, r.len);
     }
     free(r.d);
     tcp_close(n, c, GCN_CLOSE_FIN);
+}
+
+static void http_answer(gcs_native *n, conn *c, const char *body, const char *ctype, const char *cookie)
+{
+    http_answer_n(n, c, body, body ? strlen(body) : 0, ctype, cookie);
+}
+
+/* ---- device pages from www_root ---- */
+
+#define WWW_MAX_FILE 65536
+
+/* a path that stays inside the folder: /, letters, digits, '-', '_', '.'
+ * and no ".." */
+static int www_path_ok(const char *path)
+{
+    const char *p;
+    if (path[0] != '/' || strstr(path, "..") || strstr(path, "//")) {
+        return 0;
+    }
+    for (p = path; *p; p++) {
+        if (!((*p >= 'a' && *p <= 'z') || (*p >= 'A' && *p <= 'Z') || (*p >= '0' && *p <= '9') || *p == '/' ||
+              *p == '-' || *p == '_' || *p == '.')) {
+            return 0;
+        }
+    }
+    return p[-1] != '/';
+}
+
+static const char *www_type(const char *path)
+{
+    size_t l = strlen(path);
+#define ENDS(x) (l >= sizeof(x) - 1 && !strcmp(path + l - (sizeof(x) - 1), x))
+    if (ENDS("_x.jsp") || ENDS(".xml")) {
+        return "text/xml; charset=utf-8";
+    }
+    if (ENDS(".jsp") || ENDS(".html") || ENDS(".htm") || ENDS(".xhtml") || !strchr(strrchr(path, '/'), '.')) {
+        return "application/xhtml+xml; charset=utf-8";
+    }
+    if (ENDS(".gif")) {
+        return "image/gif";
+    }
+    if (ENDS(".png")) {
+        return "image/png";
+    }
+    if (ENDS(".jpg") || ENDS(".jpeg")) {
+        return "image/jpeg";
+    }
+    if (ENDS(".css")) {
+        return "text/css";
+    }
+    if (ENDS(".txt")) {
+        return "text/plain; charset=utf-8";
+    }
+#undef ENDS
+    return "application/octet-stream";
+}
+
+/* reads dir[/sub]path; malloc'ed, NULL when missing or too large */
+static char *www_read(gcs_native *n, const char *sub, const char *path, size_t *len)
+{
+    char fn[1024];
+    FILE *f;
+    char *d;
+    size_t got;
+    if (snprintf(fn, sizeof(fn), "%s%s%s%s", n->www, sub[0] ? "/" : "", sub, path) >= (int)sizeof(fn)) {
+        return NULL;
+    }
+    f = fopen(fn, "rb");
+    if (!f) {
+        return NULL;
+    }
+    d = (char *)malloc(WWW_MAX_FILE + 1);
+    got = d ? fread(d, 1, WWW_MAX_FILE + 1, f) : 0;
+    if (d && ferror(f)) { /* a folder, or unreadable */
+        fclose(f);
+        free(d);
+        return NULL;
+    }
+    fclose(f);
+    if (!d || got > WWW_MAX_FILE) {
+        LOG_W("http: %s not served (larger than %u bytes, or out of memory)", fn, (unsigned)WWW_MAX_FILE);
+        free(d);
+        return NULL;
+    }
+    *len = got;
+    return d;
+}
+
+/* 1 when answered from www_root */
+static int www_answer(gcs_native *n, conn *c, const char *path, const char *user)
+{
+    char sub[16];
+    gc_u32 gc;
+    char *d = NULL;
+    size_t len = 0;
+    if (!n->www[0] || !www_path_ok(path)) {
+        return 0;
+    }
+    gc = gcs_snap_game_class_of(n->snap, user);
+    if (gc) {
+        snprintf(sub, sizeof(sub), "%u", (unsigned)gc);
+        d = www_read(n, sub, path, &len);
+    }
+    if (!d) {
+        d = www_read(n, "", path, &len);
+    }
+    if (!d) {
+        return 0;
+    }
+    LOG_D("http: %s from %s (game class %u)", path, n->www, (unsigned)gc);
+    http_answer_n(n, c, d, len, www_type(path), NULL);
+    free(d);
+    return 1;
+}
+
+void gcs_native_set_www_root(gcs_native *n, const char *dir)
+{
+    size_t l;
+    copy_str(n->www, dir ? dir : "", sizeof(n->www));
+    l = strlen(n->www);
+    while (l > 1 && (n->www[l - 1] == '/' || n->www[l - 1] == '\\')) {
+        n->www[--l] = 0;
+    }
+    if (n->www[0]) {
+        LOG_I("http: device pages from %s", n->www);
+    }
 }
 
 /* 1 when one complete request was handled */
@@ -727,6 +858,12 @@ static int http_input(gcs_native *n, conn *c)
         copy_str(base, path, sizeof(base));
         base[strcspn(base, ";?")] = 0;
         bl = strlen(base);
+        if (!session_user(n, cookie, user, sizeof(user))) {
+            copy_str(user, peer_user_get(n, c->key), sizeof(user));
+        }
+        if (www_answer(n, c, base, user)) {
+            return 1;
+        }
         if (bl >= 6 && !strcmp(base + bl - 6, "_x.jsp")) {
             http_answer(n, c, LIST_XML, "text/xml; charset=utf-8", NULL);
         } else if ((bl >= 4 && !strcmp(base + bl - 4, ".jsp")) || strstr(base, "/servlets/")) {

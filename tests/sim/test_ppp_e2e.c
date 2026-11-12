@@ -530,6 +530,22 @@ static void test_ppp_mode(void)
     CHECK(r && strstr(r, "200 OK") && strstr(r, "xhtml"));
     r = tcp_request(80, "GET /favicon.ico HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "404"));
+#ifdef GCS_WWW_DIR
+    /* the example pages (server/deploy/www) */
+    gcs_native_set_www_root(gcs_core_native(core), GCS_WWW_DIR "/");
+    r = tcp_request(80, "GET /n-gage/device/global/support/support_main.jsp HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
+    CHECK(r && strstr(r, "run by a PhantomLink server") && strstr(r, "background-color:#000000"));
+    r = tcp_request(80, "GET /n-gage/device/global/play/activities/news.jsp?locale=1 HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "Welcome back") && !strstr(r, "Rifts"));
+    r = tcp_request(80, "GET /n-gage/device/community/ranking_list_x.jsp HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "<listTotal value=\"0\"/>")); /* no file: built-in list */
+    r = tcp_request(80, "GET /n-gage/../README.md HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "404"));
+    r = tcp_request(80, "GET /n-gage/device HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "404")); /* a folder */
+    gcs_native_set_www_root(gcs_core_native(core), "");
+#endif
 
     /* SegaChat login */
     r = tcp_request(5222,

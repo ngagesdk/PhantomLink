@@ -571,6 +571,9 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "arena_accounts")) {
         return set_str(a->core.arena_accounts, sizeof(a->core.arena_accounts), val) ? 1 : -1;
     }
+    if (!strcmp(key, "www_root")) {
+        return set_str(a->core.www_root, sizeof(a->core.www_root), val) ? 1 : -1;
+    }
     if (!strcmp(key, "rifts_data")) {
         return set_str(a->core.rifts_data, sizeof(a->core.rifts_data), val) ? 1 : -1;
     }
@@ -658,6 +661,7 @@ static void usage(const char *argv0)
            "  --board_file=PATH    persistent message board file\n"
            "  --arena_accounts=PATH Arena accounts, shared by all Arena games (empty: not kept)\n"
            "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
+           "  --www_root=DIR       Arena device pages: news, support, lists (empty: placeholders)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
            "  --reserve_ms=N       keep slots of lost players (default 180000)\n"

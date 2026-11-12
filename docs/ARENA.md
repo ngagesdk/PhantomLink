@@ -91,8 +91,13 @@ see the reverse engineering notes below):
   `changePassword` (checks `oldPassword` when the client sends it), the
   security question, and `errorCode 0` for every other operation (1 when
   the request does not belong to a logged in user).
-- Device pages: `*_x.jsp` lists are empty lists, other `.jsp` pages and
-  `/servlets/*` a stub page.
+- Device pages (news, support, lists): served from the folder `www_root`
+  when set, `www_root/<game class>/n-gage/...` before `www_root/n-gage/...`
+  (game class of the user's SNAP login, e.g. 8053 for Rifts); without a
+  file `*_x.jsp` lists are empty lists, other `.jsp` pages and
+  `/servlets/*` a short black page. The addresses are ArenaFramework's,
+  the same in every game; example pages and the list of addresses in
+  `server/deploy/www`.
 - SegaChat: stream, `jabber:iq:auth` get/set (the password is checked, see
   below), empty roster, an empty result for every other iq; presence and
   messages are not routed yet.

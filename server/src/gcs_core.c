@@ -1432,6 +1432,7 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     }
     c->cfg.arena_accounts[sizeof(c->cfg.arena_accounts) - 1] = '\0';
     c->cfg.rifts_data[sizeof(c->cfg.rifts_data) - 1] = '\0';
+    c->cfg.www_root[sizeof(c->cfg.www_root) - 1] = '\0';
     {
         gcs_native_io nio;
         nio.send = arena_send;
@@ -1442,6 +1443,7 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
             free(c);
             return NULL;
         }
+        gcs_native_set_www_root(c->native, c->cfg.www_root);
     }
     /* never trust the caller's buffers to be terminated */
     c->cfg.server_name[GC_MAX_NAME] = '\0';
