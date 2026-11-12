@@ -1186,3 +1186,14 @@ void gcs_snap_get_stats(const gcs_snap *s, gcs_snap_stats *st)
         st->rooms += s->rooms[i].used;
     }
 }
+
+gc_u32 gcs_snap_game_class_of(const gcs_snap *s, const char *user)
+{
+    int i;
+    for (i = 0; user && user[0] && i < GCSS_MAX_SESSIONS; i++) {
+        if (s->s[i].used && s->s[i].logged_in && ieq(s->s[i].name, user)) {
+            return s->s[i].game_class;
+        }
+    }
+    return 0;
+}

@@ -247,6 +247,7 @@ static void login(game *g)
         g->uid = be32(m->p + 8);
         CHECK(g->uid != 0);
     }
+    CHECK_EQ(gcs_snap_game_class_of(S, g->name), GCS_RIFTS_GAME_CLASS); /* picks www_root/8053 */
 }
 
 /* the bypass flow of ArenaFramework: lobby S79, room BYPASS */

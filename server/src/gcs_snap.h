@@ -101,6 +101,9 @@ void gcs_snap_poll(gcs_snap *s, gc_u32 now);
 /** The peer is gone: drop its sessions. */
 void gcs_snap_peer_gone(gcs_snap *s, void *key);
 
+/** Game class of user's SNAP session (the game he plays), 0 if none. */
+gc_u32 gcs_snap_game_class_of(const gcs_snap *s, const char *user);
+
 /** Game server -> user: reliable game data (arrives as GameDataReceived).
  *  0 ok, -1 unknown user or queue full. */
 int gcs_snap_send_game_data(gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n);

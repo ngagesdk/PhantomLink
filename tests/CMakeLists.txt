@@ -92,6 +92,7 @@ target_link_libraries(test_e2e gc_dev_core gc_bridge_core gc_server_core)
 add_test(NAME e2e_simulated COMMAND test_e2e)
 
 add_executable(test_ppp_e2e ${ROOT}/tests/sim/test_ppp_e2e.c)
+target_compile_definitions(test_ppp_e2e PRIVATE GCS_WWW_DIR="${ROOT}/server/deploy/www")
 target_include_directories(test_ppp_e2e PRIVATE ${ROOT}/protocol/tests)
 target_link_libraries(test_ppp_e2e gc_bridge_core gc_server_core)
 add_test(NAME e2e_ppp COMMAND test_ppp_e2e)

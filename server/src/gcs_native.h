@@ -55,6 +55,11 @@ typedef struct
  *  (gcs_rifts.h).  NULL or "": memory only. */
 gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file);
 void gcs_native_destroy(gcs_native *n);
+/** Folder of the Arena device pages (news, support, lists): a request for
+ *  /n-gage/... is answered with DIR/<game class>/n-gage/... when it exists
+ *  (game class: of the user's SNAP login), else DIR/n-gage/..., else the
+ *  built-in placeholder. NULL or "": placeholders only. */
+void gcs_native_set_www_root(gcs_native *n, const char *dir);
 
 /** A GCN message from a registered peer (key: the core's peer). */
 void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len);
