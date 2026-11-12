@@ -721,6 +721,9 @@ static void h_create_room(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, 
     room_entry(s, e, r);
     send_msg(s, c, F_REL | (be16(h) & F_LOBBY), h[2], GCSS_OP_CREATE_ROOM, e, 36);
     result(s, c, be16(h), h[2], GCSS_OP_CREATE_ROOM, 1, r->id);
+    /* the creator is in the room now: ArenaFramework takes the result as
+     * having entered it and sends no join (CreateRoomToJoin) */
+    room_enter(s, c, r);
 }
 
 static void h_rooms(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t n)
