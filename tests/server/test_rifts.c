@@ -176,6 +176,15 @@ static void send_msg(game *g, gc_u16 flags, gc_u8 seq, gc_u8 op, const gc_u8 *p,
     gcs_snap_input(S, &g->key, SRV, GCSS_PORT, g->port, d, len + 4, g_now);
 }
 
+/* a reliable message with sequence number 0 (not counted) */
+static void send_msg0(game *g, gc_u16 flags, gc_u8 seq, gc_u8 op, const gc_u8 *p, size_t n)
+{
+    gc_u32 keep = g->tx_rel;
+    g->tx_rel = 0;
+    send_msg(g, flags, seq, op, p, n);
+    g->tx_rel = keep;
+}
+
 /* Two reliable messages in one datagram, as snapcomm.dll packs them: the
  * first with F_MORE (0x0800) and the sequence number, the second with
  * sequence number 0. */
@@ -306,6 +315,29 @@ static void enter_room(game *g)
     m = take(g, GCSS_OP_OK);
     CHECK(m && be32(m->p) == GCSS_OP_CREATE_ROOM && m->h[2] == 10);
     g->room = m ? be32(m->p + 4) : 0;
+
+    /* the four room attributes ArenaFramework sets after creating the
+     * room, as on hardware: ARNA with ARNB packed behind it, then ARNC
+     * and ARND on their own with sequence number 0, ARND repeated */
+    {
+        gc_u8 a[8], b[8];
+        int k;
+        memset(a, 0, 8);
+        memset(b, 0, 8);
+        memcpy(a, "ARNA", 4);
+        memcpy(b, "ARNB", 4);
+        send_packed(g, 20, GCSS_OP_ATTR, a, 8, 0x8000, 21, GCSS_OP_ATTR, b, 8);
+        memcpy(a, "ARNC", 4);
+        send_msg0(g, 0x8000, 22, GCSS_OP_ATTR, a, 8);
+        memcpy(a, "ARND", 4);
+        send_msg0(g, 0x8000, 23, GCSS_OP_ATTR, a, 8);
+        send_msg0(g, 0x8000, 23, GCSS_OP_ATTR, a, 8);
+        for (k = 20; k <= 23; k++) {
+            m = take(g, GCSS_OP_OK);
+            CHECK(m && be32(m->p) == GCSS_OP_ATTR && m->h[2] == k);
+        }
+        CHECK(take(g, GCSS_OP_OK) == NULL);
+    }
 
     memset(p, 0, 24);
     put32(p, g->room);

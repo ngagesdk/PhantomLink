@@ -67,6 +67,8 @@ typedef struct
     gc_u32 lobby, room;
     gc_u32 tx_rel, tx_unrel; /* next sequence numbers */
     gc_u32 rx_next;          /* next reliable sequence expected */
+    gc_u16 seq0[16];         /* op << 8 | command sequence of recent reliable messages with sequence 0 */
+    int seq0_n;
     gc_u32 t_last;
     outmsg *outq[OUTQ];
     rxmsg *rx[RXWIN];
@@ -534,6 +536,7 @@ static void h_login(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t
         c->lobby = 0;
         c->tx_rel = 0;
         c->rx_next = 0;
+        c->seq0_n = 0;
         s->st.logins++;
         LOG_I("user %08x '%s' logged in (game class %u, '%s')", c->uid, c->name, gc, extra);
     }
@@ -907,6 +910,27 @@ static void dispatch_unit(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
     }
 }
 
+/* Reliable messages with sequence number 0 after the first: snapcomm.dll
+ * sends some of them on their own (Rifts' room attributes ARNC and ARND
+ * after ARNA, ARNB). They are processed when new; repeats are told apart
+ * by opcode and command sequence, which is new for every request. 1 if
+ * m was seen before (and is remembered now). */
+static int seq0_seen(sess *c, const gc_u8 *m)
+{
+    gc_u16 k = (gc_u16)(m[3] << 8 | m[2]);
+    int i;
+    for (i = 0; i < c->seq0_n && i < 16; i++) {
+        if (c->seq0[i] == k) {
+            return 1;
+        }
+    }
+    c->seq0[c->seq0_n++ % 16] = k;
+    if (c->seq0_n >= 32) {
+        c->seq0_n = 16;
+    }
+    return 0;
+}
+
 /* a reliable message arrived: process in order, buffer what is early */
 static void reliable_in(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
 {
@@ -1039,7 +1063,14 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
                 ulen += flen;
             }
             send_ack(s, c, be32(m + 8));
-            reliable_in(s, c, m, ulen);
+            if (be32(m + 8) == 0 && seq0_seen(c, m) && c->rx_next > 0) {
+                hex(hx, sizeof(hx), m + HDR, len - HDR);
+                LOG_D("op %u command %u with sequence 0 again (%s): repeat, ignored", m[3], m[2], hx);
+            } else if (be32(m + 8) == 0 && c->rx_next > 0) {
+                dispatch_unit(s, c, m, ulen); /* unnumbered: in arrival order */
+            } else {
+                reliable_in(s, c, m, ulen);
+            }
             len = ulen;
         } else if (m[3] != GCSS_OP_ACK || len > HDR) {
             dispatch(s, c, m, m + HDR, len - HDR);
