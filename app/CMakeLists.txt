@@ -103,25 +103,50 @@ build_aif(${PL_RES_DIR} PhantomLink ${PL_UID3})
 # The resource header is needed by the application sources.
 add_dependencies(PhantomLink PhantomLink.rsc)
 
-# SIS installer: the application plus all game variants as dlls\gcvN.dll.
+# SIS installer: the application, one full DLL (the base variant) and a
+# small patch per other variant (dlls\gcvN.pat, made by
+# dll/variants/gcpatch.py).  The variants differ only in their export
+# tables, so this saves about 580 KB on the phone.  GameInstaller.cpp
+# rebuilds the exact variant when the user installs it for a game.
 # The app's game list refers to every variant, so all of them are required.
 set(PL_ALL_VARIANTS 1 2 3 5 6 7 8 9 10 11)
+set(PL_BASE_VARIANT 6)
 foreach(v ${PL_ALL_VARIANTS})
     if(NOT "${v}" IN_LIST GC_VARIANTS)
         message(FATAL_ERROR "PhantomLink.sis needs all DLL variants, but variant ${v} is not in GC_VARIANTS. Build all variants or use -DGC_BUILD_APP=OFF.")
     endif()
 endforeach()
+if(NOT Python3_FOUND)
+    message(FATAL_ERROR "PhantomLink.sis needs Python 3 to make the DLL patches (dll/variants/gcpatch.py). Install Python 3 or use -DGC_BUILD_APP=OFF.")
+endif()
 set(PL_BIN ${CMAKE_CURRENT_BINARY_DIR})
+set(pl_dll_dir ${CMAKE_CURRENT_BINARY_DIR}/dlls)
 set(PL_DLL_LINES "")
 set(pl_out_targets "")
+set(pl_dll_files "")
 foreach(v ${PL_ALL_VARIANTS})
-    file(TO_NATIVE_PATH "${GC_OUT_DIR}/v${v}/gamecomms.dll" dll_native)
-    string(APPEND PL_DLL_LINES "\"${dll_native}\"-\"!:\\System\\Apps\\PhantomLink\\dlls\\gcv${v}.dll\"\n")
+    if(v EQUAL PL_BASE_VARIANT)
+        set(f gcv${v}.dll)
+    else()
+        set(f gcv${v}.pat)
+    endif()
+    list(APPEND pl_dll_files ${pl_dll_dir}/${f})
+    file(TO_NATIVE_PATH "${pl_dll_dir}/${f}" f_native)
+    string(APPEND PL_DLL_LINES "\"${f_native}\"-\"!:\\System\\Apps\\PhantomLink\\dlls\\${f}\"\n")
     list(APPEND pl_out_targets gamecomms_v${v}_out)
 endforeach()
+# A custom target (not a custom command): the inputs come from the
+# gamecomms_vN_out copy targets, which have no file-level outputs.
+# gcpatch.py only rewrites files whose content changed.
+add_custom_target(PhantomLink_dlls
+    COMMAND ${Python3_EXECUTABLE} ${GC_DLL_DIR}/variants/gcpatch.py make
+            ${GC_OUT_DIR} ${pl_dll_dir} ${PL_BASE_VARIANT} ${PL_ALL_VARIANTS}
+    BYPRODUCTS ${pl_dll_files}
+    COMMENT "Making the DLL variant patches for PhantomLink.sis")
+add_dependencies(PhantomLink_dlls ${pl_out_targets})
 file(TO_NATIVE_PATH "${PL_BIN}" PL_BIN_NATIVE)
 set(PL_BIN ${PL_BIN_NATIVE})
 configure_file(${PL_RES_DIR}/PhantomLink.pkg.in ${CMAKE_CURRENT_BINARY_DIR}/PhantomLink.pkg @ONLY)
 
 build_sis(${CMAKE_CURRENT_BINARY_DIR} PhantomLink)
-add_dependencies(PhantomLink.sis PhantomLink.app PhantomLink.rsc PhantomLink.aif ${pl_out_targets})
+add_dependencies(PhantomLink.sis PhantomLink.app PhantomLink.rsc PhantomLink.aif PhantomLink_dlls)

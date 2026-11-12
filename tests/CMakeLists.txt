@@ -223,6 +223,7 @@ if(Python3_FOUND)
         set_tests_properties(pcbridge_bluez PROPERTIES SKIP_RETURN_CODE 77)
     endif()
     add_test(NAME dll_variants COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/compat/check_variants.py)
+    add_test(NAME dll_variant_patches COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/compat/check_gcpatch.py)
 
     # Android bridge: the app's engine (BridgeEngine.java) and JNI library on
     # the host, TCP test devices instead of Bluetooth (needs a JDK)

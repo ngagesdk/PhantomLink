@@ -65,8 +65,8 @@ If an older build folder exists, delete it before building.
 The same build also creates the N-Gage application `PhantomLink.sis`
 (`build/dll/app/PhantomLink.sis`). It contains all DLL variants and lets you
 
-- pick a game from a list: the matching `gamecomms.dll` is copied to
-  `E:\System\Libs` (if the game ships its own copy in its folder, replace
+- pick a game from a list: the matching `gamecomms.dll` is written to
+  `C:\System\Libs` (if the game ships its own copy in its folder, replace
   that one as described below);
 - configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration");
 - read and post short messages on the server's message board using either
@@ -83,6 +83,17 @@ when switching to Games or Bridge setup. If the bridge is still connecting to
 the server, registration is retried until the operation times out. If a
 connection fails, the draft is kept for retry. If a post times out, refresh
 before retrying: it may already have been saved.
+
+To save space on the phone, the SIS does not carry ten full DLLs. The
+variants are built from the same code and differ only in their export
+tables, so it ships one full DLL (`dlls\gcv6.dll`, about 66 KB) and a patch
+per other variant (`dlls\gcvN.pat`, 46 bytes to about 3 KB, made by
+`dll/variants/gcpatch.py`): about 81 KB instead of about 660 KB. When you
+pick a game, the app rebuilds the exact variant (checked with a size and a
+hash) and writes it to a temporary file before it replaces
+`C:\System\Libs\gamecomms.dll`. It refuses with "Not enough free space on
+C:" if less than 128 KB would stay free, since a full C: drive can stop the
+N-Gage from booting. Building the SIS therefore needs Python 3.
 
 Install the SIS on the memory card. The N-Gage toolchain does not generate
 C++ header dependency files; the app build explicitly tracks local headers so
@@ -530,6 +541,7 @@ ctest --test-dir build/tests --output-on-failure
 | `bridge_parity` | ESP32 bridge (sizing from `platformio.ini`, firmware transport glue) and PC bridge against the same DLL logic and server, on links with latency, limited bandwidth and Wi-Fi modem sleep, with 2.x game traffic: what the game observes (send results, callbacks, data) must be identical and free of errors |
 | `queue_storage_default`, `queue_storage_esp32` | Message storage of link queues and bridge FIFOs: message windows, largest message, wrap-around with mixed sizes, stalled and released device |
 | `dll_variants` | Export tables of all variants compared with the original DLLs |
+| `dll_variant_patches` | `gcpatch.py`: patches round-trip and damaged patches or a wrong base are rejected; with `--built DIR` also the real variants against base v6 |
 
 CI runs these tests on Linux and Windows and also builds the Docker image,
 the ESP32 firmware, the server, `gcbridge.exe` and all DLL variants, packs

@@ -856,6 +856,12 @@ void CPhantomLinkAppUi::DescribeError(TInt aError, TDes &aText)
     case KErrCouldNotConnect:
         aText.Copy(_L("Server is unavailable"));
         break;
+    case KErrDiskFull:
+        aText.Copy(_L("Not enough free space on C:"));
+        break;
+    case KErrCorrupt:
+        aText.Copy(_L("Damaged file, reinstall PhantomLink"));
+        break;
     default:
         aText.Copy(_L("Error "));
         aText.AppendNum(aError);
