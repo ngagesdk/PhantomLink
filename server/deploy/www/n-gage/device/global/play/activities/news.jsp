@@ -9,8 +9,8 @@ a { color: #ffcc00; }
 </style>
 </head>
 <body bgcolor="#000000" text="#ffffff" style="background-color:#000000;color:#ffffff">
-<p><b>News</b></p>
-<p><b>12 Nov 2026</b><br/>Welcome back to N-Gage Arena, served by PhantomLink.</p>
-<p>Edit this page on the server: www_root/n-gage/device/global/play/activities/news.jsp. A game can have its own version under www_root/&lt;game class&gt;/n-gage/...</p>
+<p><b>Activity news</b></p>
+<p><b>12 Nov 2026</b><br/>No activities yet.</p>
+<p>Tournament and activity news of the Play menu: www_root/n-gage/device/global/play/activities/news.jsp.</p>
 </body>
 </html>

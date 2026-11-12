@@ -11,6 +11,6 @@ a { color: #ffcc00; }
 <body bgcolor="#000000" text="#ffffff" style="background-color:#000000;color:#ffffff">
 <p><b>Rifts: Promise of Power</b></p>
 <p><b>12 Nov 2026</b><br/>Challenges are back: create one from the Arena menu, or accept an open one.</p>
-<p>This page is only shown in Rifts (game class 8053): www_root/8053/n-gage/device/global/play/activities/news.jsp.</p>
+<p>This page is only shown in Rifts (game class 8053): www_root/8053/n-gage/servlets/msg.</p>
 </body>
 </html>
