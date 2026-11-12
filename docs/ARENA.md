@@ -268,7 +268,7 @@ creating a challenge then sends op 71 (lobbies of the game class), and
 ArenaFramework looks for "S79" in that list. Then: op 13 + enter lobby
 (op 6, packed) → room search (op 11) → op 13 + create room "BYPASS<user id>"
 (op 4, packed) →
-room attributes (op 8: ARNA, ARNB, ARNC, ARND; creating the room counts as entering it, and ArenaFramework goes on only when all four are confirmed) → `EGameStart` → game data to
+room attributes (op 8: ARNA, ARNB, ARNC, ARND; creating the room counts as entering it: the server makes the creator a member, there is no join; ArenaFramework goes on only when all four are confirmed) → room status (op 8 STAT 0x90000000) → `EGameStart` → game data to
 the game server (op 17), answers as op 15. The server creates lobbies on
 demand, gives every created room a game server when one is registered for
 the login's game class, and closes empty rooms.

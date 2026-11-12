@@ -339,11 +339,8 @@ static void enter_room(game *g)
         CHECK(take(g, GCSS_OP_OK) == NULL);
     }
 
-    memset(p, 0, 24);
-    put32(p, g->room);
-    send_msg(g, 0x8000, 11, GCSS_OP_JOIN, p, 24);
-    m = take(g, GCSS_OP_OK);
-    CHECK(m && be32(m->p) == GCSS_OP_JOIN && be32(m->p + 4) == g->room && !(m->h[0] & 0x10));
+    /* no room join: creating the room entered it (the game data below
+     * reaches the Rifts game server only for room members) */
 }
 
 /* ---- Rifts client actions ---- */
