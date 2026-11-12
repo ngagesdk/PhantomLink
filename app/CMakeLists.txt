@@ -58,6 +58,7 @@ set(pl_libs
     ${EPOC_LIB}/efsrv.lib
     ${EPOC_LIB}/bafl.lib
     ${EPOC_LIB}/esock.lib
+    ${EPOC_LIB}/insock.lib
     ${EPOC_LIB}/commdb.lib
     ${EPOC_LIB}/btregistry.lib
     ${EPOC_LIB}/bluetooth.lib

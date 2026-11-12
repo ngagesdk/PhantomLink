@@ -17,6 +17,9 @@
  *  Address=0002ee112233      ; Bluetooth address of the bridge, saved automatically
  *                            ; after the first selection
  *  Channel=0                 ; RFCOMM channel, 0 = SDP lookup (optional, by hand)
+ *  [Arena]
+ *  ArenaServer=203.0.113.7   ; PhantomLink server for "Arena over GPRS"
+ *                            ; (IPv4 address or host name; PhantomLink app only)
  *
  *  Copyright (c) 2023-2026, Michael Fitzmayer. All rights reserved.
  *  SPDX-License-Identifier: MIT
@@ -53,7 +56,8 @@ class TGcConfig
     TBool iHasBridge;
     TBTDevAddr iBridge;
     TInt iChannel;
-    TFileName iPath; /* the settings file if it exists, else empty */
+    TBuf8<40> iArenaServer; /* Arena over GPRS: server address, empty = not set (SetValue keeps 40) */
+    TFileName iPath;        /* the settings file if it exists, else empty */
 };
 
 #endif /* GCCONFIG_H */

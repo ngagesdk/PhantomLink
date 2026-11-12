@@ -54,6 +54,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
         ECommsRelease,
         ECommsFollow,
         ECommsBridge, /* no bridge saved: one click selects one */
+        ECommsArena,  /* Arena over GPRS: the server's address */
         ECommsRowCount
     };
     enum TOperation

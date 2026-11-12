@@ -28,7 +28,7 @@
 #endif
 
 #define MAX_NAME  64
-#define MAX_PEERS 64
+#define MAX_PEERS 256 /* (peer, user) logins: bridges and direct clients */
 
 #define K_OTHER 0
 #define K_HTTP  1
@@ -85,9 +85,14 @@ typedef struct
     char xmpp_user[MAX_NAME];
 } conn;
 
+/* A Community login seen on a peer.  A bridge carries one N-Gage, but a
+ * direct client address (gcs_direct.h) can be shared by several N-Gages
+ * behind the same carrier NAT, so a peer can have several users; the
+ * latest one is the fallback for requests without a session cookie. */
 typedef struct
 {
     void *key;
+    gc_u32 stamp; /* order of the logins, 0 = free */
     char user[MAX_NAME];
 } peer_user;
 
@@ -107,6 +112,7 @@ struct gcs_native
     session sessions[MAX_SESSIONS];
     int next_session;
     gc_u32 token_ctr;
+    gc_u32 login_ctr;
     gcs_accounts *acc;
     gcs_snap *snap;   /* SNAP game server (UDP) */
     gcs_rifts *rifts; /* Rifts: Promise of Power game server */
@@ -344,35 +350,48 @@ static const char *boolstr(const char *v)
     return (ieq_prefix(v, "true") || ieq_prefix(v, "yes") || !strcmp(v, "1")) ? "true" : "false";
 }
 
-/* ---- users per bridge connection (the client sends the name only at login) ---- */
+/* ---- users per peer (the client sends the name only at login) ---- */
 
 static const char *peer_user_get(gcs_native *n, void *key)
 {
-    int i;
+    int i, best = -1;
     for (i = 0; i < MAX_PEERS; i++) {
-        if (n->peers[i].key == key) {
-            return n->peers[i].user;
+        if (n->peers[i].stamp && n->peers[i].key == key &&
+            (best < 0 || GC_TIME_BEFORE(n->peers[best].stamp, n->peers[i].stamp))) {
+            best = i;
         }
     }
-    return ""; /* not logged in: matches no account */
+    return best < 0 ? "" : n->peers[best].user; /* "": matches no account */
 }
 
 static void peer_user_set(gcs_native *n, void *key, const char *user)
 {
-    int i, free_i = -1;
+    int i, slot = -1;
     for (i = 0; i < MAX_PEERS; i++) {
-        if (n->peers[i].key == key) {
+        if (n->peers[i].stamp && n->peers[i].key == key && !strcmp(n->peers[i].user, user)) {
+            slot = i; /* the same user again */
             break;
         }
-        if (!n->peers[i].key && free_i < 0) {
-            free_i = i;
+    }
+    for (i = 0; slot < 0 && i < MAX_PEERS; i++) {
+        if (!n->peers[i].stamp) {
+            slot = i;
         }
     }
-    if (i == MAX_PEERS) {
-        i = free_i >= 0 ? free_i : 0;
+    if (slot < 0) { /* full: replace the oldest login */
+        slot = 0;
+        for (i = 1; i < MAX_PEERS; i++) {
+            if (GC_TIME_BEFORE(n->peers[i].stamp, n->peers[slot].stamp)) {
+                slot = i;
+            }
+        }
     }
-    n->peers[i].key = key;
-    copy_str(n->peers[i].user, user, MAX_NAME);
+    if (++n->login_ctr == 0) {
+        n->login_ctr = 1;
+    }
+    n->peers[slot].key = key;
+    n->peers[slot].stamp = n->login_ctr;
+    copy_str(n->peers[slot].user, user, MAX_NAME);
 }
 
 /* A new random session id for user ("PL" + 32 hex digits). */
@@ -1162,26 +1181,27 @@ static void snap_log(void *ctx, int level, const char *line)
     nlog(n, level, "%s", line);
 }
 
-/* SNAP login: the account must exist and this N-Gage must have logged in
- * to the Community service with it (the SNAP login carries no password
- * the server could check) */
+/* SNAP login: the account must exist and must have logged in to the
+ * Community service through the same peer: the same bridge, or for direct
+ * clients the same public address (the SNAP login carries no password the
+ * server could check) */
 static int snap_auth(void *ctx, void *key, const char *user, char canon[GCSS_MAX_NAME + 1])
 {
     gcs_native *n = (gcs_native *)ctx;
     char acc[GCSA_MAX_NAME + 1];
-    const char *seen = peer_user_get(n, key);
-    if (!gcs_accounts_exists(n->acc, user, acc) || !seen[0] || !gcs_accounts_exists(n->acc, seen, NULL)) {
+    int i;
+    if (!gcs_accounts_exists(n->acc, user, acc)) {
         return 0;
     }
-    {
+    for (i = 0; i < MAX_PEERS; i++) {
         char seen_canon[GCSA_MAX_NAME + 1];
-        gcs_accounts_exists(n->acc, seen, seen_canon);
-        if (strcmp(seen_canon, acc)) {
-            return 0;
+        if (n->peers[i].stamp && n->peers[i].key == key && n->peers[i].user[0] &&
+            gcs_accounts_exists(n->acc, n->peers[i].user, seen_canon) && !strcmp(seen_canon, acc)) {
+            copy_str(canon, acc, GCSS_MAX_NAME + 1);
+            return 1;
         }
     }
-    copy_str(canon, acc, GCSS_MAX_NAME + 1);
-    return 1;
+    return 0;
 }
 
 void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len)
@@ -1241,7 +1261,7 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
     }
     for (i = 0; i < MAX_PEERS; i++) {
         if (n->peers[i].key == key) {
-            n->peers[i].key = NULL;
+            memset(&n->peers[i], 0, sizeof(n->peers[i]));
         }
     }
 }

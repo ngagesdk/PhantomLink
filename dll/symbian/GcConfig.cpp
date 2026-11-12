@@ -133,6 +133,8 @@ void TGcConfig::Load()
             iHasBridge = ParseAddr(val, iBridge);
         } else if (key.CompareF(_L8("Channel")) == 0) {
             iChannel = ToInt(val);
+        } else if (key.CompareF(_L8("ArenaServer")) == 0) {
+            iArenaServer = val.Left(iArenaServer.MaxLength());
         }
     }
     delete heap;

@@ -1,7 +1,7 @@
 /** @file gcs_native.h
  *
  *  N-Gage Arena back ends in their native protocols, for retail games in
- *  PPP mode (docs/ARENA.md).
+ *  PPP mode and for direct clients over GPRS (gcs_direct.h; docs/ARENA.md).
  *
  *  The bridges terminate the game's TCP/IP traffic (gc_ppp, gc_ip) and
  *  tunnel each TCP connection and UDP datagram to the server in GCN

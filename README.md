@@ -189,11 +189,15 @@ modes. Arena games bring their own network stack on the cartridge instead of
 GameComms, and the service was shut down in 2010.
 
 PhantomLink connects Arena games to the PhantomLink server without changing
-the game card:
+the game card, over Bluetooth through a bridge or, where GPRS networks still
+run, directly:
 
 1. In the PhantomLink app, **Arena over BT** turns an access point named
    `PhantomLink` into a direct PPP connection over Bluetooth to the chosen
-   bridge and writes the hosts file. **Restore modem** undoes it.
+   bridge and writes the hosts file. **Arena over GPRS** only writes the
+   hosts file, pointing the Arena names at the server set under Settings >
+   Arena server (the server runs with `direct = 1`); the game then uses the
+   operator's packet data access point. **Arena off** undoes either.
 2. Every bridge (ESP32, PC, Android) carries its own PPP and TCP/IP stack.
    It answers the Arena host names with its own address and passes the
    game's connections and datagrams to the server.

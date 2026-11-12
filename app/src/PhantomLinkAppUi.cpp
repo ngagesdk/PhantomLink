@@ -31,6 +31,7 @@
 const TInt KStatusLine = 0;
 
 _LIT8(KSecConfig, "[Config]");
+_LIT8(KSecArena, "[Arena]");
 _LIT(KGcLogPath, "C:\\System\\Data\\GameComms.log"); /* written by GAMECOMMS.DLL */
 const TInt KLogTail = 3000;                          /* bytes shown from the end of the log */
 
@@ -208,6 +209,16 @@ void CPhantomLinkAppUi::CommsText(TInt aRow, TDes &aText) const
             aText.Append(_L("Select bridge"));
         }
         break;
+    case ECommsArena:
+        aText.Append(_L("Arena server: "));
+        if (iComms.iArenaServer.Length()) {
+            TBuf<40> server;
+            server.Copy(iComms.iArenaServer);
+            aText.Append(server);
+        } else {
+            aText.Append(_L("not set"));
+        }
+        break;
     default:
         break;
     }
@@ -258,6 +269,31 @@ void CPhantomLinkAppUi::EditCommsL()
             iPicker->StartL();
         }
         return;
+    case ECommsArena:
+    {
+        /* for Arena over GPRS: the PhantomLink server's public address */
+        TBuf<40> server;
+        server.Copy(iComms.iArenaServer);
+        CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(server);
+        dialog->SetMaxLength(40);
+        if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Arena server (- = none)"))) {
+            return;
+        }
+        if (server.Compare(_L("-")) == 0) {
+            server.Zero();
+        }
+        TBuf8<40> server8;
+        for (TInt i = 0; i < server.Length(); i++) {
+            TChar c = server[i];
+            if (c <= ' ' || c > '~') {
+                ErrorL(_L("Use an IPv4 address or a host name"));
+                return;
+            }
+        }
+        server8.Copy(server);
+        err = iComms.SetValue(KSecArena, _L8("ArenaServer"), server8); /* empty: remove */
+        break;
+    }
     default:
         return;
     }
@@ -566,6 +602,28 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
     case EPlCmdCommsReset:
         ResetCommsL();
         break;
+    case EPlCmdArenaGprs:
+    {
+        /* docs/ARENA.md: retail Arena games straight to the server over
+         * the operator's packet data network */
+        iComms = TGcConfig();
+        iComms.Load();
+        if (!iComms.iArenaServer.Length()) {
+            ErrorL(_L("Enter the Arena server in Settings first"));
+            break;
+        }
+        HBufC *log = HBufC::NewLC(768);
+        TPtr l = log->Des();
+        TRAPD(err, ArenaSetup::EnableGprsL(iComms.iArenaServer, l));
+        if (err != KErrNone) {
+            l.AppendFormat(_L("Error %d"), err);
+            ErrorL(l);
+        } else {
+            InfoL(l);
+        }
+        CleanupStack::PopAndDestroy(log);
+        break;
+    }
     case EPlCmdArenaOn:
     case EPlCmdArenaOff:
     {

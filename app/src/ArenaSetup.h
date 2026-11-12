@@ -1,6 +1,13 @@
 /** @file ArenaSetup.h
  *
- *  N-Gage Arena over Bluetooth (retail cartridges, docs/ARENA.md):
+ *  Two routes for retail Arena games (docs/ARENA.md):
+ *
+ *  Arena over GPRS: the game uses an operator packet data access point
+ *  and talks to the PhantomLink server directly (gamecommsd --direct=1).
+ *  Only the hosts file is needed: the Arena host names point to the
+ *  server's public IPv4 address.  No bridge, no modem changes.
+ *
+ *  Arena over Bluetooth (PPP to a PhantomLink bridge):
  *
  *   - turns the user created access point "PhantomLink" (Settings >
  *     Connection > Access points, data bearer GSM data, any number) into
@@ -40,6 +47,14 @@ class ArenaSetup
      *  aAddr (dotted IPv4).  Other lines of the file are kept. */
     static void WriteHostsL(const TDesC8 &aAddr, TDes &aLog);
     static void RemoveHostsL(TDes &aLog);
+
+    /** Arena over GPRS.  aServer: the server's IPv4 address or host name
+     *  (a name is looked up now, which opens a data connection).  Lists
+     *  the packet data access points, writes the hosts file and, if it
+     *  already held the same entries (so they may be in force after a
+     *  restart), checks that the Arena names resolve to the server.
+     *  Leaves with KErrArgument if aServer is empty or not usable. */
+    static void EnableGprsL(const TDesC8 &aServer, TDes &aLog);
 };
 
 #endif /* ARENASETUP_H */
