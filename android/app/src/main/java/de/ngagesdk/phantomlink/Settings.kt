@@ -3,14 +3,14 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink
+package de.ngagesdk.phantomlink
 
 import android.content.Context
 import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import org.ngagesdk.phantomlink.bridge.BridgeConfig
+import de.ngagesdk.phantomlink.BridgeConfig
 
 enum class ThemeMode { LIGHT, DARK, SYSTEM }
 

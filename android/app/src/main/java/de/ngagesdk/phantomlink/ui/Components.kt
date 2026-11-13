@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.ui
+package de.ngagesdk.phantomlink.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,7 +35,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.ngagesdk.phantomlink.R
+import de.ngagesdk.phantomlink.R
 
 /** The PhantomLink logo, shown at the top of every screen. */
 @Composable

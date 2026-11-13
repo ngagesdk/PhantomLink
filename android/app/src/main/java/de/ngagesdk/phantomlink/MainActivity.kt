@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink
+package de.ngagesdk.phantomlink
 
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
@@ -45,11 +45,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import org.ngagesdk.phantomlink.ui.HomeScreen
-import org.ngagesdk.phantomlink.ui.LogScreen
-import org.ngagesdk.phantomlink.ui.PhantomTheme
-import org.ngagesdk.phantomlink.ui.SettingsScreen
-import org.ngagesdk.phantomlink.ui.isDark
+import de.ngagesdk.phantomlink.ui.HomeScreen
+import de.ngagesdk.phantomlink.ui.LogScreen
+import de.ngagesdk.phantomlink.ui.PhantomTheme
+import de.ngagesdk.phantomlink.ui.SettingsScreen
+import de.ngagesdk.phantomlink.ui.isDark
 
 class MainActivity : ComponentActivity() {
 

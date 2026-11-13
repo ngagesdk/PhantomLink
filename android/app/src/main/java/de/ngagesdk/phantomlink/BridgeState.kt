@@ -3,13 +3,13 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink
+package de.ngagesdk.phantomlink
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import org.ngagesdk.phantomlink.bridge.BridgeEngine
+import de.ngagesdk.phantomlink.BridgeEngine
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

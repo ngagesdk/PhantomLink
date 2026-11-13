@@ -7,12 +7,12 @@ plugins {
 }
 
 android {
-    namespace = "org.ngagesdk.phantomlink"
+    namespace = "de.ngagesdk.phantomlink"
     compileSdk = 36
 
     defaultConfig {
         // App identifier on Google Play. Cannot change after the first upload.
-        applicationId = "org.ngagesdk.phantomlink.bridge"
+        applicationId = "de.ngagesdk.phantomlink"
         minSdk = 26
         targetSdk = 36
         // versionCode: whole number, +1 for every upload to Google Play.

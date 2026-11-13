@@ -59,4 +59,4 @@ Changes to this policy are published in the project repository:
 https://github.com/ngagesdk/PhantomLink/blob/main/android/PRIVACY.md
 
 Questions: open an issue at https://github.com/ngagesdk/PhantomLink/issues
-or write to CONTACT_EMAIL.
+or write to mail@michael-fitzmayer.de.

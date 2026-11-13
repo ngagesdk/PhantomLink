@@ -65,12 +65,12 @@ All in `android/app/build.gradle.kts`, block `defaultConfig`:
 
 | What | Line | Notes |
 |---|---|---|
-| App identifier (package name on Google Play) | `applicationId = "org.ngagesdk.phantomlink.bridge"` | Cannot be changed after the first upload to Google Play. |
+| App identifier (package name on Google Play) | `applicationId = "de.ngagesdk.phantomlink"` | Cannot be changed after the first upload to Google Play. |
 | Version code | `versionCode = 1` | Whole number. Must go up with every upload to Google Play. |
 | Version name | `versionName = "1.0.0"` | The version users see. |
 | Target / minimum Android | `targetSdk = 36`, `minSdk = 26` | Google Play requires target 36 for new apps and updates. |
 
-`namespace = "org.ngagesdk.phantomlink"` (same file) is the Kotlin/Java
+`namespace = "de.ngagesdk.phantomlink"` (same file) is the Kotlin/Java
 package of the code and the `R` class. It is independent of the app
 identifier; leave it unless you move the sources.
 

@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.ui
+package de.ngagesdk.phantomlink.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,10 +36,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import org.ngagesdk.phantomlink.AppSettings
-import org.ngagesdk.phantomlink.ThemeMode
-import org.ngagesdk.phantomlink.bridge.BridgeConfig
-import org.ngagesdk.phantomlink.bridge.BridgeEngine
+import de.ngagesdk.phantomlink.AppSettings
+import de.ngagesdk.phantomlink.ThemeMode
+import de.ngagesdk.phantomlink.BridgeConfig
+import de.ngagesdk.phantomlink.BridgeEngine
 
 @Composable
 fun SettingsScreen(settings: AppSettings, onChange: ((AppSettings) -> AppSettings) -> Unit, contentPadding: PaddingValues) {

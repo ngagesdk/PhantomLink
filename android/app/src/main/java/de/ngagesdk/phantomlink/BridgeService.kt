@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink
+package de.ngagesdk.phantomlink
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -34,8 +34,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
-import org.ngagesdk.phantomlink.bridge.BridgeEngine
-import org.ngagesdk.phantomlink.bridge.NativeBridge
+import de.ngagesdk.phantomlink.BridgeEngine
+import de.ngagesdk.phantomlink.NativeBridge
 
 class BridgeService : Service() {
 
@@ -368,9 +368,9 @@ class BridgeService : Service() {
     companion object {
         private const val CHANNEL_ID = "bridge"
         private const val NOTIFICATION_ID = 1
-        const val ACTION_START = "org.ngagesdk.phantomlink.START"
-        const val ACTION_STOP = "org.ngagesdk.phantomlink.STOP"
-        const val ACTION_RESTART = "org.ngagesdk.phantomlink.RESTART"
+        const val ACTION_START = "de.ngagesdk.phantomlink.START"
+        const val ACTION_STOP = "de.ngagesdk.phantomlink.STOP"
+        const val ACTION_RESTART = "de.ngagesdk.phantomlink.RESTART"
 
         fun start(context: Context) {
             ContextCompat.startForegroundService(context, Intent(context, BridgeService::class.java).setAction(ACTION_START))

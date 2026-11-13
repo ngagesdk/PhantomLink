@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.ui
+package de.ngagesdk.phantomlink.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,7 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.ngagesdk.phantomlink.LogLine
+import de.ngagesdk.phantomlink.LogLine
 
 @Composable
 fun LogScreen(lines: List<LogLine>, onShare: () -> Unit, onClear: () -> Unit, contentPadding: PaddingValues) {

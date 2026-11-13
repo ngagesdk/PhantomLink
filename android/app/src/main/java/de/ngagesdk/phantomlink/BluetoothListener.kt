@@ -6,14 +6,14 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink
+package de.ngagesdk.phantomlink
 
 import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothServerSocket
 import android.bluetooth.BluetoothSocket
-import org.ngagesdk.phantomlink.bridge.BridgeEngine
-import org.ngagesdk.phantomlink.bridge.DeviceConnection
+import de.ngagesdk.phantomlink.BridgeEngine
+import de.ngagesdk.phantomlink.DeviceConnection
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream

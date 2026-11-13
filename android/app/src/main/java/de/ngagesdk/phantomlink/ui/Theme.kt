@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.ui
+package de.ngagesdk.phantomlink.ui
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
@@ -16,7 +16,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import org.ngagesdk.phantomlink.ThemeMode
+import de.ngagesdk.phantomlink.ThemeMode
 
 private val Light = lightColorScheme(
     primary = Color(0xFF8A12D6),
