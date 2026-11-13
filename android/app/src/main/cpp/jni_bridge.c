@@ -122,7 +122,7 @@ static void cb_log(void *ctx, const char *line)
 }
 
 #define JB(h)    ((jb *)(intptr_t)(h))
-#define FN(name) Java_org_ngagesdk_phantomlink_bridge_NativeBridge_##name
+#define FN(name) Java_de_ngagesdk_phantomlink_NativeBridge_##name
 
 JNIEXPORT jlong JNICALL FN(nativeCreate)(JNIEnv *env, jclass cls, jobject callbacks, jint linkId, jstring key)
 {
