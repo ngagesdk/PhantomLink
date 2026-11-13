@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.bridge;
+package de.ngagesdk.phantomlink;
 
 import java.io.IOException;
 import java.io.InputStream;

@@ -15,9 +15,9 @@ import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 
-import org.ngagesdk.phantomlink.bridge.BridgeConfig;
-import org.ngagesdk.phantomlink.bridge.BridgeEngine;
-import org.ngagesdk.phantomlink.bridge.DeviceConnection;
+import de.ngagesdk.phantomlink.BridgeConfig;
+import de.ngagesdk.phantomlink.BridgeEngine;
+import de.ngagesdk.phantomlink.DeviceConnection;
 
 public final class HostBridge
 {

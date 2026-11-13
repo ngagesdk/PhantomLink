@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.bridge;
+package de.ngagesdk.phantomlink;
 
 public final class BridgeConfig
 {

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: MIT
  */
-package org.ngagesdk.phantomlink.ui
+package de.ngagesdk.phantomlink.ui
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -38,11 +38,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import org.ngagesdk.phantomlink.AppSettings
-import org.ngagesdk.phantomlink.BridgeUi
-import org.ngagesdk.phantomlink.BtState
-import org.ngagesdk.phantomlink.bridge.BridgeEngine
-import org.ngagesdk.phantomlink.bridge.NativeBridge
+import de.ngagesdk.phantomlink.AppSettings
+import de.ngagesdk.phantomlink.BridgeUi
+import de.ngagesdk.phantomlink.BtState
+import de.ngagesdk.phantomlink.BridgeEngine
+import de.ngagesdk.phantomlink.NativeBridge
 
 @Composable
 fun HomeScreen(
