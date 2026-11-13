@@ -250,7 +250,7 @@ if(Python3_FOUND)
         if(WIN32)
             set_target_properties(gcbridge_jni PROPERTIES PREFIX "") # System.loadLibrary wants gcbridge.dll
         endif()
-        file(GLOB GC_ANDROID_JAVA ${GC_ANDROID}/app/src/main/java/org/ngagesdk/phantomlink/bridge/*.java)
+        file(GLOB GC_ANDROID_JAVA ${GC_ANDROID}/app/src/main/java/org/ngagesdk/phantomlink/*.java)
         set(GC_ANDROID_CLASSES ${CMAKE_CURRENT_BINARY_DIR}/android_classes)
         add_custom_target(android_host_classes ALL
             COMMAND ${CMAKE_COMMAND} -E make_directory ${GC_ANDROID_CLASSES}
