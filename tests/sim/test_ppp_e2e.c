@@ -523,8 +523,14 @@ static void test_ppp_mode(void)
     /* The profile page uses the requested account, not the most recent login. */
     r = soap("editDisplayOptions", "<displayFirstName>true</displayFirstName><displayLastName>false</displayLastName>", cookie);
     CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = soap("viewFavorites", "", cookie);
+    CHECK(r && strstr(r, "<viewFavoritesReturn><item></item><item></item><item></item><item></item><item></item><item></item></viewFavoritesReturn>"));
+    CHECK(r && !strstr(r, "xsi:type=\"xsd:string\""));
     r = soap("editFavorites", "<favGame>Rifts &amp; more</favGame>", cookie);
     CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = soap("viewFavorites", "", cookie);
+    CHECK(r && strstr(r, "<viewFavoritesReturn><item>Rifts &amp; more</item><item></item><item></item><item></item><item></item><item></item></viewFavoritesReturn>"));
+    CHECK(r && !strstr(r, "xsi:type=\"xsd:string\""));
     r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp;jsessionid=PL0?locale=1&username=%74ester&%C4%84 HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
     CHECK(r && strstr(r, "Username:</b> tester") && strstr(r, "First name:</b> Ann"));

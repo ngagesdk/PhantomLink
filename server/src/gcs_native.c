@@ -490,10 +490,6 @@ static void items(gcs_native *n, sbuf *b, const char *user, const view_op *v)
         }
         if (v->kind == V_BOOL || (v->kind == V_MIXED && i == 0)) {
             sb_fmt(b, "<item>%s</item>", boolstr(val));
-        } else if (v->kind == V_NIL) {
-            sb_str(b, "<item xsi:type=\"xsd:string\">");
-            sb_xml(b, val);
-            sb_str(b, "</item>");
         } else {
             sb_str(b, "<item>");
             sb_xml(b, val);
@@ -501,7 +497,7 @@ static void items(gcs_native *n, sbuf *b, const char *user, const view_op *v)
         }
     }
     if (v->kind == V_NIL) {
-        sb_str(b, "<item xsi:type=\"xsd:string\"></item>"); /* the parser reads six */
+        sb_str(b, "<item></item>"); /* the favorites parser reads six */
     }
 }
 

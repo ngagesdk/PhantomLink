@@ -88,10 +88,11 @@ see the reverse engineering notes below):
   the user name as the first `xsd:string`, which the client uses for Jabber
   and in URLs, and a random session cookie; false for a refused login, see
   "Accounts" below), the `view*` and `edit*` account, display, alert,
-  favourites and quote operations with the data kept per user,
-  `changePassword` (checks `oldPassword` when the client sends it), the
-  security question, and `errorCode 0` for every other operation (1 when
-  the request does not belong to a logged in user).
+  favourites and quote operations with the data kept per user. `viewFavorites`
+  returns six plain `<item>` elements, including empty entries, as expected by
+  the client parser. Also supported are `changePassword` (checks `oldPassword`
+  when the client sends it), the security question, and `errorCode 0` for every
+  other operation (1 when the request does not belong to a logged in user).
 - Device pages (news, support, lists): served from the folder `www_root`
   when set, `www_root/<game class>/n-gage/...` before `www_root/n-gage/...`
   (game class of the user's SNAP login, e.g. 8053 for Rifts); without a
