@@ -674,6 +674,23 @@ static void test_battle(void)
     gcs_rifts_get_stats(R, &rst);
     CHECK_EQ(rst.players, 2);
 
+    /* These IDs match ServerActionID in the original Rifts source. */
+    CHECK_EQ(GCSR_DOWNLOAD_TURNS, 0);
+    CHECK_EQ(GCSR_TURN_COUNT, 1);
+    CHECK_EQ(GCSR_DOWNLOAD_CHALLENGE_UNUSED, 10);
+    CHECK_EQ(GCSR_DOWNLOAD_CHARACTERS, 11);
+    CHECK_EQ(GCSR_END_GAME, 12);
+    CHECK_EQ(GCSR_GAME_UPKEEP, 13);
+    CHECK_EQ(GCSR_UPDATE_FRIENDS, 14);
+
+    /* The original server leaves its type-10 download action unregistered. */
+    w.n = 0;
+    w64(&w, 1);
+    w32(&w, 0);
+    r = request(a, GCSR_DOWNLOAD_CHALLENGE_UNUSED, w.d, w.n);
+    CHECK(r.cancelled);
+    free(r.d);
+
     /* ping */
     {
         unsigned char ping[4] = { GCSR_MSG_PING, 0, 0, 0 };
