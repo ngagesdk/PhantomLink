@@ -3,7 +3,7 @@
 [![PhantomLink](https://raw.githubusercontent.com/ngagesdk/PhantomLink/main/media/logo-modern.png)](https://raw.githubusercontent.com/ngagesdk/PhantomLink/main/media/logo-modern.png?raw=true "PhantomLink")
 
 [![Continuous Integration](https://github.com/ngagesdk/PhantomLink/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/ngagesdk/PhantomLink/actions/workflows/continuous-integration.yml)
-[![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/dbUzqJ26vs)
+[![Join Discord](https://img.shields.io/badge/Discord-Join%20Community-5865F2?logo=discord&logoColor=white)](https://discord.gg/z3yzYPC49J)
 
 PhantomLink aims to provide drop-in replacements for **GameComms**, the proprietary
 multiplayer communication library included in the Nokia N-Gage SDK.
