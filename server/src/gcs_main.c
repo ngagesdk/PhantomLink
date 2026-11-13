@@ -163,6 +163,10 @@ static void log_line(void *ctx, int level, const char *line)
                                                                                            : level],
             line);
     fflush(g_logfile ? g_logfile : stdout);
+    if (g_logfile && level <= 0) {
+        fprintf(stderr, "%s %s %s\n", ts, lv[0], line);
+        fflush(stderr);
+    }
 }
 
 static void logmsg(int level, const char *fmt, ...)
@@ -1023,7 +1027,7 @@ int main(int argc, char *argv[])
     if (a.logfile[0]) {
         g_logfile = fopen(a.logfile, "a");
         if (!g_logfile) {
-            fprintf(stderr, "cannot open log file %s, logging to stdout\n", a.logfile);
+            fprintf(stderr, "cannot open log file %s: %s; logging to stdout\n", a.logfile, strerror(errno));
         }
     }
     {
@@ -1054,6 +1058,7 @@ int main(int argc, char *argv[])
     io.log = log_line;
     g_core = gcs_core_create(&a.core, &io, NULL, core_random(NULL));
     if (!g_core) {
+        logmsg(0, "cannot create server core");
         return 1;
     }
     gcs_core_set_random(g_core, core_random, NULL);
