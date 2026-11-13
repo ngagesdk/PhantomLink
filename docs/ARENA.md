@@ -96,9 +96,12 @@ see the reverse engineering notes below):
   when set, `www_root/<game class>/n-gage/...` before `www_root/n-gage/...`
   (game class of the user's SNAP login, e.g. 8053 for Rifts); without a
   file `*_x.jsp` lists are empty lists, other `.jsp` pages and
-  `/servlets/*` a short black page. The addresses are ArenaFramework's,
-  the same in every game; example pages and the list of addresses in
-  `server/deploy/www`.
+  `/servlets/*` a short black page. The profile view is generated from the
+  requested account instead of a file: it shows the username, names enabled
+  in display options, favourites and quote, but not email or credentials.
+  An invalid or unknown username returns 404. The addresses are
+  ArenaFramework's, the same in every game; example pages and the list of
+  addresses in `server/deploy/www`.
 - SegaChat: stream, `jabber:iq:auth` get/set (the password is checked, see
   below), empty roster, an empty result for every other iq; presence and
   messages are not routed yet.

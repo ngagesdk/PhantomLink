@@ -12,6 +12,10 @@ A request for `/n-gage/...` is answered with:
 3. else the server's built-in placeholder (an empty list for `*_x.jsp`,
    a short black page otherwise).
 
+The profile view is an exception: the server generates it from account data
+and does not serve a static file for that path. Names are shown only when
+allowed by the account's display options; email and credentials are omitted.
+
 The addresses are ArenaFramework's own, the same in every Arena game:
 
 | Page | Path |
@@ -19,6 +23,7 @@ The addresses are ArenaFramework's own, the same in every Arena game:
 | News (Arena menu) | `n-gage/servlets/msg` (no file extension) |
 | Help | `n-gage/device/global/support/support_main.jsp` |
 | About | `n-gage/device/global/support/legal_main.jsp` |
+| Profile (generated) | `n-gage/device/global/customize/profile/profile_view.jsp` |
 | Activity news (Play menu) | `n-gage/device/global/play/activities/news.jsp` |
 | Tournament news | `n-gage/device/global/play/tournaments/news.jsp` |
 | Winners | `n-gage/device/global/play/activities/winners.jsp`, `.../tournaments/winners.jsp` |

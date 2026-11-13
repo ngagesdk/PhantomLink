@@ -657,6 +657,110 @@ static void http_answer(gcs_native *n, conn *c, const char *body, const char *ct
     http_answer_n(n, c, body, body ? strlen(body) : 0, ctype, cookie);
 }
 
+/* Returns 1 for a username, 0 when absent, and -1 for an invalid value. */
+static int profile_query_user(const char *path, char out[GCSA_MAX_NAME + 1])
+{
+    const char *p = strchr(path, '?');
+    int found = 0;
+    if (!p) {
+        return 0;
+    }
+    p++;
+    while (*p) {
+        const char *end = p + strcspn(p, "&");
+        if ((size_t)(end - p) >= 9 && !strncmp(p, "username=", 9)) {
+            size_t len = 0;
+            if (found) {
+                return -1;
+            }
+            found = 1;
+            p += 9;
+            while (p < end) {
+                unsigned char ch = (unsigned char)*p++;
+                if (ch == '%') {
+                    int a, b;
+                    if (end - p < 2) {
+                        return -1;
+                    }
+                    a = (*p >= '0' && *p <= '9') ? *p - '0' : (*p >= 'a' && *p <= 'f') ? *p - 'a' + 10
+                                                          : (*p >= 'A' && *p <= 'F')   ? *p - 'A' + 10
+                                                                                       : -1;
+                    p++;
+                    b = (*p >= '0' && *p <= '9') ? *p - '0' : (*p >= 'a' && *p <= 'f') ? *p - 'a' + 10
+                                                          : (*p >= 'A' && *p <= 'F')   ? *p - 'A' + 10
+                                                                                       : -1;
+                    p++;
+                    if (a < 0 || b < 0) {
+                        return -1;
+                    }
+                    ch = (unsigned char)((a << 4) | b);
+                } else if (ch == '+') {
+                    ch = ' ';
+                }
+                if (ch < 0x20 || ch == 0x7f || len >= GCSA_MAX_NAME) {
+                    return -1;
+                }
+                out[len++] = (char)ch;
+            }
+            out[len] = 0;
+            if (!len) {
+                return -1;
+            }
+        }
+        p = *end ? end + 1 : end;
+    }
+    return found;
+}
+
+static void profile_line(sbuf *b, const char *label, const char *value)
+{
+    if (!value[0]) {
+        return;
+    }
+    sb_str(b, "<p><b>");
+    sb_str(b, label);
+    sb_str(b, ":</b> ");
+    sb_xml(b, value);
+    sb_str(b, "</p>");
+}
+
+static void profile_answer(gcs_native *n, conn *c, const char *path, const char *viewer)
+{
+    static const char *const labels[] = { "Favorite game", "Favorite music", "Favorite food", "Hobbies", "Zodiac", "Quote" };
+    char requested[GCSA_MAX_NAME + 1], canon[GCSA_MAX_NAME + 1];
+    int query = profile_query_user(path, requested), i;
+    sbuf b;
+    if (query == 0) {
+        copy_str(requested, viewer, sizeof(requested));
+    }
+    if (query < 0 || !gcs_accounts_exists(n->acc, requested, canon)) {
+        LOG_W("http: profile requested with invalid or unknown username");
+        http_answer(n, c, NULL, NULL, NULL);
+        return;
+    }
+    memset(&b, 0, sizeof(b));
+    sb_str(&b, "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
+               "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>Profile</title></head>"
+               "<body bgcolor=\"#000000\" text=\"#ffffff\" style=\"background-color:#000000;color:#ffffff\">"
+               "<p><b>Profile</b></p>");
+    profile_line(&b, "Username", canon);
+    if (!strcmp(boolstr(pf(n, canon, 3)), "true")) {
+        profile_line(&b, "First name", pf(n, canon, 0));
+    }
+    if (!strcmp(boolstr(pf(n, canon, 4)), "true")) {
+        profile_line(&b, "Last name", pf(n, canon, 1));
+    }
+    for (i = 0; i < 6; i++) {
+        profile_line(&b, labels[i], pf(n, canon, 15 + i));
+    }
+    sb_str(&b, "</body></html>");
+    if (b.oom) {
+        LOG_W("http: out of memory rendering profile");
+    }
+    http_answer(n, c, b.oom ? NULL : b.d, "application/xhtml+xml; charset=utf-8", NULL);
+    free(b.d);
+}
+
 /* ---- device pages from www_root ---- */
 
 #define WWW_MAX_FILE 65536
@@ -891,6 +995,10 @@ static int http_input(gcs_native *n, conn *c)
         bl = strlen(base);
         if (!session_user(n, cookie, user, sizeof(user))) {
             copy_str(user, peer_user_get(n, c->key), sizeof(user));
+        }
+        if (!strcmp(base, "/n-gage/device/global/customize/profile/profile_view.jsp")) {
+            profile_answer(n, c, path, user);
+            return 1;
         }
         if (www_answer(n, c, base, user)) {
             return 1;
