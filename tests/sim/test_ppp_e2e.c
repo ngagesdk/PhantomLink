@@ -520,6 +520,29 @@ static void test_ppp_mode(void)
         CHECK(strstr(buf, "\tpassword\t") == NULL && strstr(buf, "tester\tfirstName\tEvil") == NULL);
     }
 
+    /* The profile page uses the requested account, not the most recent login. */
+    r = soap("editDisplayOptions", "<displayFirstName>true</displayFirstName><displayLastName>false</displayLastName>", cookie);
+    CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = soap("editFavorites", "<favGame>Rifts &amp; more</favGame>", cookie);
+    CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp;jsessionid=PL0?locale=1&username=%74ester&%C4%84 HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
+    CHECK(r && strstr(r, "Username:</b> tester") && strstr(r, "First name:</b> Ann"));
+    CHECK(r && strstr(r, "Favorite game:</b> Rifts &amp; more") && !strstr(r, "B &amp; C") && !strstr(r, "a@b.c"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=other HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "Username:</b> other") && !strstr(r, "Evil") && !strstr(r, "Ann"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=missing HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "404 Not Found"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=tester%00other HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "404 Not Found"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=tester&username=other HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "404 Not Found"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "Username:</b> tester"));
+    CHECK_EQ(gcs_accounts_login(gcs_native_accounts(gcs_core_native(core)), "Joe & Jane", "pw", ""), GCSA_CREATED);
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=Joe+%26+Jane HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "Username:</b> Joe &amp; Jane"));
+
     /* device pages */
     r = tcp_request(80,
                     "GET /n-gage/device/community/ranking_list_x.jsp;jsessionid=PL746573746572?locale=1&username=tester "
@@ -533,6 +556,8 @@ static void test_ppp_mode(void)
 #ifdef GCS_WWW_DIR
     /* the example pages (server/deploy/www) */
     gcs_native_set_www_root(gcs_core_native(core), GCS_WWW_DIR "/");
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=tester HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "Username:</b> tester") && strstr(r, "First name:</b> Ann"));
     r = tcp_request(80, "GET /n-gage/device/global/support/support_main.jsp HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
     CHECK(r && strstr(r, "run by a PhantomLink server") && strstr(r, "background-color:#000000"));

@@ -11,7 +11,7 @@
  *     the shared accounts (gcs_accounts.h: created on the first login,
  *     bound to the N-Gage's IMEI, the same for every game), the account
  *     and alert operations with per user profile data, the device pages
- *     (*_x.jsp lists empty, other pages a stub),
+ *     (profile view generated, *_x.jsp lists empty, other pages a stub),
  *   - TCP 5222: SegaChat, just enough Jabber (jabber:iq:auth checked
  *     against the same accounts, roster, presence) for the client to log
  *     in,
