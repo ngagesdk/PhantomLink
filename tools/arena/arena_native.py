@@ -47,10 +47,6 @@ def items(*vals):
     return ''.join(f'<item>{v}</item>' for v in vals)
 
 
-def typed_items(*vals):
-    return ''.join(f'<item xsi:type="xsd:string">{v}</item>' for v in vals)
-
-
 ACCOUNT_FIELDS = {
     # view op: (edit op, request fields, kind) - order is the order of the <item>s
     'viewAccount': ('editAccount', ('firstName', 'lastName', 'emailAddress'), 'str'),
@@ -124,7 +120,7 @@ def soap_body(op, user, body=''):
         if kind == 'mixed':
             return ret.format(op=op, v=items(boolstr(vals[0]), xml_escape(vals[1])))
         if kind == 'nil':
-            return ret.format(op=op, v=typed_items(*[xml_escape(v) for v in vals] + ['']))
+            return ret.format(op=op, v=items(*[xml_escape(v) for v in vals] + ['']))
         if kind == 'quote':
             return f'<viewQuoteReturn xsi:type="xsd:string">{xml_escape(vals[0])}</viewQuoteReturn>'
         return ret.format(op=op, v=items(*[xml_escape(v) for v in vals]))
