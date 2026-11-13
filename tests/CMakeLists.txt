@@ -208,6 +208,8 @@ find_package(Python3 COMPONENTS Interpreter)
 if(Python3_FOUND)
     add_test(NAME e2e_network COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/net/run_net_test.py
              $<TARGET_FILE:gamecommsd> $<TARGET_FILE:gcsim>)
+    add_test(NAME server_log_restart COMMAND ${Python3_EXECUTABLE} ${ROOT}/tests/net/run_server_log_test.py
+             $<TARGET_FILE:gamecommsd>)
     if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         # PPP mode with real processes; pppsim plays the N-Gage through a TUN
         # interface (needs root, skipped otherwise)
