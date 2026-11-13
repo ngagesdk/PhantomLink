@@ -56,20 +56,21 @@ typedef struct
 void gcs_rifts_get_stats(const gcs_rifts *r, gcs_rifts_stats *st);
 
 /* action types (object type of MSG_SERVER) */
-#define GCSR_DOWNLOAD_TURNS      0
-#define GCSR_TURN_COUNT          1
-#define GCSR_UPLOAD_TURNS        2
-#define GCSR_UPLOAD_CHARACTERS   3
-#define GCSR_CREATE_CHALLENGE    4
-#define GCSR_SERVER_CONFIG       5
-#define GCSR_NAME_VALIDATION     6
-#define GCSR_FIND_CHALLENGE      7
-#define GCSR_ACCEPT_CHALLENGE    8
-#define GCSR_CHALLENGE_STATUS    9
-#define GCSR_DOWNLOAD_CHARACTERS 11
-#define GCSR_END_GAME            12
-#define GCSR_GAME_UPKEEP         13
-#define GCSR_UPDATE_FRIENDS      14
+#define GCSR_DOWNLOAD_TURNS            0
+#define GCSR_TURN_COUNT                1
+#define GCSR_UPLOAD_TURNS              2
+#define GCSR_UPLOAD_CHARACTERS         3
+#define GCSR_CREATE_CHALLENGE          4
+#define GCSR_SERVER_CONFIG             5
+#define GCSR_NAME_VALIDATION           6
+#define GCSR_FIND_CHALLENGE            7
+#define GCSR_ACCEPT_CHALLENGE          8
+#define GCSR_CHALLENGE_STATUS          9
+#define GCSR_DOWNLOAD_CHALLENGE_UNUSED 10 /* reserved in the game enum; not implemented by its server */
+#define GCSR_DOWNLOAD_CHARACTERS       11
+#define GCSR_END_GAME                  12
+#define GCSR_GAME_UPKEEP               13
+#define GCSR_UPDATE_FRIENDS            14
 
 /* game messages */
 #define GCSR_MSG_SERVER        4

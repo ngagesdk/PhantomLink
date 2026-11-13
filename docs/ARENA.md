@@ -425,6 +425,7 @@ user [32], name [32], 265 stats, then an attribute list: count +
 | 7 | find challenge | paging data, min/max power, kind (-1 any), players, friends only, ranked only, name [16], max rows, user | count, battles, their players, 4, player count |
 | 8 | accept challenge | upload | result (0 waiting, 1 last player: the battle starts, 2 full, 3 error, 4 gone, 5 team taken), device, seed, character ids |
 | 9 | challenge status | user, count, {battle, turn, save slot} | count, {state, turns available, next device} |
+| 10 | download challenge (unused placeholder) | battle, device | not implemented by the original server; rejected by this emulator |
 | 11 | download characters | battle, user | count, the other players' characters |
 | 12 | end game | battle, user, wins, losses, points | - |
 | 13 | game upkeep | update flag; battle row, or battle, next device, my device + battle, turn | (no update) battle, server time, game over, dropped devices [8] + names, then the download turns answer |

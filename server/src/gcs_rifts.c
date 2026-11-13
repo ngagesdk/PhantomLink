@@ -1585,8 +1585,8 @@ static const char *action_name(int t)
 {
     static const char *const names[] = { "download turns", "turn count", "upload turns", "upload characters",
                                          "create challenge", "server config", "name validation", "find challenge",
-                                         "accept challenge", "challenge status", "download challenge", "download characters",
-                                         "end game", "game upkeep", "update friends" };
+                                         "accept challenge", "challenge status", "download challenge (unused)",
+                                         "download characters", "end game", "game upkeep", "update friends" };
     return (t >= 0 && t < (int)(sizeof(names) / sizeof(names[0]))) ? names[t] : "unknown";
 }
 
@@ -1744,6 +1744,11 @@ static void run_action(gcs_rifts *r, action *a)
         break;
     case GCSR_UPDATE_FRIENDS:
         ans = a_update_friends(&q);
+        break;
+    case GCSR_DOWNLOAD_CHALLENGE_UNUSED:
+        LOG_W("user %08x: requested unused action type %d", a->uid, a->type);
+        q.cancel_reason = CR_ACTION_FAILED;
+        ans = ANS_CANCEL;
         break;
     default:
         LOG_W("user %08x: unknown action type %d", a->uid, a->type);
