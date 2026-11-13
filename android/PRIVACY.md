@@ -1,11 +1,10 @@
-# PhantomLink Bridge for Android: Privacy Policy
+# PhantomLink for Android: Privacy Policy
 
 Last updated: 8 November 2026
 
-PhantomLink Bridge ("the app") is an open source app that forwards the
-multiplayer traffic of N-Gage games between an N-Gage connected over
-Bluetooth and a PhantomLink server. This policy explains what data the app
-handles.
+PhantomLink ("the app") is an open source app that forwards the multiplayer
+traffic of N-Gage games between an N-Gage connected over Bluetooth and a
+PhantomLink server. This policy explains what data the app handles.
 
 ## Summary
 
