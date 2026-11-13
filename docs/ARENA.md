@@ -89,8 +89,10 @@ see the reverse engineering notes below):
   and in URLs, and a random session cookie; false for a refused login, see
   "Accounts" below), the `view*` and `edit*` account, display, alert,
   favourites and quote operations with the data kept per user. `viewFavorites`
-  returns six plain `<item>` elements, including empty entries, as expected by
-  the client parser. Also supported are `changePassword` (checks `oldPassword`
+  returns six plain `<item>` elements in client order: game, game types, music,
+  food, hobbies and zodiac. The client sends game types as `favMusic` and music
+  as `editFavorites` in its edit request; these wire names are also used in the
+  account store. Also supported are `changePassword` (checks `oldPassword`
   when the client sends it), the security question, and `errorCode 0` for every
   other operation (1 when the request does not belong to a logged in user).
 - Device pages (news, support, lists): served from the folder `www_root`
