@@ -55,7 +55,8 @@ ACCOUNT_FIELDS = {
     'viewAlertSubscriptions': ('editAlertSubscriptions', ('gameReleaseNews', 'tournamentNews', 'ladderNews',
                                                           'downloadNews', 'activityNews', 'ngageNews'), 'bool'),
     'viewAlertOptions': ('editAlertOptions', ('sendEmail', 'emailAddress'), 'mixed'),
-    'viewFavorites': ('editFavorites', ('favGame', 'favMusic', 'favFood', 'hobbies', 'zodiac'), 'nil'),
+    # The client calls game types favMusic, and music editFavorites on the wire.
+    'viewFavorites': ('editFavorites', ('favGame', 'favMusic', 'editFavorites', 'favFood', 'hobbies', 'zodiac'), 'str'),
     'viewQuote': ('editQuote', ('quote',), 'quote'),
 }
 EDIT_OPS = {v[0]: v[1] for v in ACCOUNT_FIELDS.values()}
@@ -119,8 +120,6 @@ def soap_body(op, user, body=''):
             return ret.format(op=op, v=items(*[boolstr(v) for v in vals]))
         if kind == 'mixed':
             return ret.format(op=op, v=items(boolstr(vals[0]), xml_escape(vals[1])))
-        if kind == 'nil':
-            return ret.format(op=op, v=items(*[xml_escape(v) for v in vals] + ['']))
         if kind == 'quote':
             return f'<viewQuoteReturn xsi:type="xsd:string">{xml_escape(vals[0])}</viewQuoteReturn>'
         return ret.format(op=op, v=items(*[xml_escape(v) for v in vals]))

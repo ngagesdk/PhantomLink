@@ -34,17 +34,17 @@
 #define K_HTTP  1
 #define K_XMPP  2
 
-/* profile fields, the order of the <item>s in the view answers; kept as
- * account fields under these names (gcs_accounts) */
+/* Profile fields in view order, stored under their request names. The client
+ * sends game types as favMusic and music as editFavorites. */
 static const char *const FIELDS[] = {
-    "firstName", "lastName", "emailAddress",                                                  /* 0..2   */
-    "displayFirstName", "displayLastName", "displayCity", "displayState", "displayCountry",   /* 3..7   */
-    "gameReleaseNews", "tournamentNews", "ladderNews", "downloadNews", "activityNews",        /* 8..12  */
-    "ngageNews", "sendEmail", "favGame", "favMusic", "favFood", "hobbies", "zodiac", "quote", /* 13..20 */
-    "question", "answer"                                                                      /* 21..22 */
+    "firstName", "lastName", "emailAddress",                                                          /* 0..2   */
+    "displayFirstName", "displayLastName", "displayCity", "displayState", "displayCountry",           /* 3..7   */
+    "gameReleaseNews", "tournamentNews", "ladderNews", "downloadNews", "activityNews",                /* 8..12  */
+    "ngageNews", "sendEmail", "favGame", "favMusic", "editFavorites", "favFood", "hobbies", "zodiac", /* 13..20 */
+    "quote", "question", "answer"                                                                     /* 21..23 */
 };
-#define F_QUESTION 21
-#define F_ANSWER   22
+#define F_QUESTION 22
+#define F_ANSWER   23
 
 #define MAX_SESSIONS 256
 
@@ -52,8 +52,7 @@ static const char *const FIELDS[] = {
 #define V_STR   0
 #define V_BOOL  1
 #define V_MIXED 2 /* bool, string */
-#define V_NIL   3 /* typed items */
-#define V_QUOTE 4
+#define V_QUOTE 3
 typedef struct
 {
     const char *view;
@@ -66,8 +65,8 @@ static const view_op VIEWS[] = {
     { "viewDisplayOptions", "editDisplayOptions", 3, 5, V_BOOL },
     { "viewAlertSubscriptions", "editAlertSubscriptions", 8, 6, V_BOOL },
     { "viewAlertOptions", "editAlertOptions", 14, 2, V_MIXED }, /* sendEmail, emailAddress (field 2) */
-    { "viewFavorites", "editFavorites", 15, 5, V_NIL },
-    { "viewQuote", "editQuote", 20, 1, V_QUOTE },
+    { "viewFavorites", "editFavorites", 15, 6, V_STR },
+    { "viewQuote", "editQuote", 21, 1, V_QUOTE },
 };
 #define N_VIEWS ((int)(sizeof(VIEWS) / sizeof(VIEWS[0])))
 
@@ -496,9 +495,6 @@ static void items(gcs_native *n, sbuf *b, const char *user, const view_op *v)
             sb_str(b, "</item>");
         }
     }
-    if (v->kind == V_NIL) {
-        sb_str(b, "<item></item>"); /* the favorites parser reads six */
-    }
 }
 
 static int is_login_op(const char *op)
@@ -722,7 +718,8 @@ static void profile_line(sbuf *b, const char *label, const char *value)
 
 static void profile_answer(gcs_native *n, conn *c, const char *path, const char *viewer)
 {
-    static const char *const labels[] = { "Favorite game", "Favorite music", "Favorite food", "Hobbies", "Zodiac", "Quote" };
+    static const char *const labels[] = { "Favorite game", "Favorite game types", "Favorite music", "Favorite food",
+                                          "Hobbies", "Zodiac", "Quote" };
     char requested[GCSA_MAX_NAME + 1], canon[GCSA_MAX_NAME + 1];
     int query = profile_query_user(path, requested), i;
     sbuf b;
@@ -746,7 +743,7 @@ static void profile_answer(gcs_native *n, conn *c, const char *path, const char 
     if (!strcmp(boolstr(pf(n, canon, 4)), "true")) {
         profile_line(&b, "Last name", pf(n, canon, 1));
     }
-    for (i = 0; i < 6; i++) {
+    for (i = 0; i < 7; i++) {
         profile_line(&b, labels[i], pf(n, canon, 15 + i));
     }
     sb_str(&b, "</body></html>");

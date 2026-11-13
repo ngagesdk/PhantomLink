@@ -524,17 +524,51 @@ static void test_ppp_mode(void)
     r = soap("editDisplayOptions", "<displayFirstName>true</displayFirstName><displayLastName>false</displayLastName>", cookie);
     CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
     r = soap("viewFavorites", "", cookie);
-    CHECK(r && strstr(r, "<viewFavoritesReturn><item></item><item></item><item></item><item></item><item></item><item></item></viewFavoritesReturn>"));
-    CHECK(r && !strstr(r, "xsi:type=\"xsd:string\""));
-    r = soap("editFavorites", "<favGame>Rifts &amp; more</favGame>", cookie);
+    CHECK(r && strstr(r, "<viewFavoritesReturn><item></item><item></item><item></item><item></item>"
+                         "<item></item><item></item></viewFavoritesReturn>"));
+    r = soap("editFavorites", "<editFavorites xsi:type=\"xsd:string\">Jazz &amp; rock</editFavorites>", cookie);
     CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
     r = soap("viewFavorites", "", cookie);
-    CHECK(r && strstr(r, "<viewFavoritesReturn><item>Rifts &amp; more</item><item></item><item></item><item></item><item></item><item></item></viewFavoritesReturn>"));
-    CHECK(r && !strstr(r, "xsi:type=\"xsd:string\""));
+    CHECK(r && strstr(r, "<viewFavoritesReturn><item></item><item></item><item>Jazz &amp; rock</item>"
+                         "<item></item><item></item><item></item></viewFavoritesReturn>"));
+    r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=tester HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "Favorite music:</b> Jazz &amp; rock") && !strstr(r, "Favorite game types:"));
+    r = soap("editFavorites", "<favGame>Rifts &amp; more</favGame><favMusic>Strategy</favMusic>"
+                              "<editFavorites>Jazz &amp; rock</editFavorites><favFood>Pizza</favFood>"
+                              "<hobbies>Chess</hobbies><zodiac>Aries</zodiac>",
+             cookie);
+    CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = soap("viewFavorites", "", cookie);
+    CHECK(r && strstr(r, "<viewFavoritesReturn><item>Rifts &amp; more</item><item>Strategy</item>"
+                         "<item>Jazz &amp; rock</item><item>Pizza</item><item>Chess</item>"
+                         "<item>Aries</item></viewFavoritesReturn>"));
+    r = soap("editQuote", "<quote>Be kind</quote>", cookie);
+    CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = soap("viewQuote", "", cookie);
+    CHECK(r && strstr(r, ">Be kind</viewQuoteReturn>"));
+    r = soap("updateSecurityQA", "<question>Question?</question><answer>Answer</answer>", cookie);
+    CHECK(r && strstr(r, "<errorCode xsi:type=\"xsd:int\">0</errorCode>"));
+    r = soap("getSecurityQuestion", "", cookie);
+    CHECK(r && strstr(r, ">Question?</getSecurityQuestionReturn>"));
+    {
+        gcs_accounts *saved = gcs_accounts_create(ACC, NULL, NULL);
+        CHECK(saved != NULL);
+        if (saved) {
+            CHECK(!strcmp(gcs_accounts_get(saved, "tester", "favMusic"), "Strategy"));
+            CHECK(!strcmp(gcs_accounts_get(saved, "tester", "editFavorites"), "Jazz & rock"));
+            CHECK(!strcmp(gcs_accounts_get(saved, "tester", "zodiac"), "Aries"));
+            CHECK(!strcmp(gcs_accounts_get(saved, "tester", "quote"), "Be kind"));
+            CHECK(!strcmp(gcs_accounts_get(saved, "tester", "answer"), "Answer"));
+            gcs_accounts_destroy(saved);
+        }
+    }
     r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp;jsessionid=PL0?locale=1&username=%74ester&%C4%84 HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
     CHECK(r && strstr(r, "Username:</b> tester") && strstr(r, "First name:</b> Ann"));
     CHECK(r && strstr(r, "Favorite game:</b> Rifts &amp; more") && !strstr(r, "B &amp; C") && !strstr(r, "a@b.c"));
+    CHECK(r && strstr(r, "Favorite game types:</b> Strategy") && strstr(r, "Favorite music:</b> Jazz &amp; rock"));
+    CHECK(r && strstr(r, "Favorite food:</b> Pizza") && strstr(r, "Hobbies:</b> Chess") &&
+          strstr(r, "Zodiac:</b> Aries") && strstr(r, "Quote:</b> Be kind"));
     r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=other HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "Username:</b> other") && !strstr(r, "Evil") && !strstr(r, "Ann"));
     r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp?username=missing HTTP/1.1\r\n\r\n", 1);
