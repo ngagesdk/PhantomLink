@@ -725,7 +725,15 @@ as lobby and room name (keys 0x200a, 0x200b); it has no class number.
 The SegaChat presence carries `GameClassId='1'` on hardware, so the server
 attaches the game server to class 1 (`GCS_PK_GAME_CLASS`) and lists the
 lobby "Scrimmage". Not verified: the class the SNAP login carries (the
-server also scans the login for it). Game data from a user who has not
+server also scans the login for it).
+
+After entering the lobby, the Play Now screens (caamplaynow.dll, 0x94bc)
+look for the room "Scrimmage" (RoomToJoin) in the room list and enter
+it. Without it they log "room not found or not available" and go back
+to the mode selection; Pocket Kingdom has no CreateRoomToJoin, so it never
+creates the room. The server therefore keeps fixed rooms for a game
+(`gcs_snap_game.rooms`, kept when empty, up to 64 users): "Scrimmage"
+and "Auction" (which the game enters by name) in the lobby "Scrimmage". Game data from a user who has not
 entered a room yet reaches the game server, too.
 
 ### Messages

@@ -86,6 +86,11 @@ typedef struct
     void (*data)(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n);
     /** called from gcs_snap_poll */
     void (*poll)(void *ctx, gcs_snap *s, gc_u32 now);
+    /** game rooms that always exist in the game's (first) lobby, also
+     *  when empty, for games that look for a room by name and do not
+     *  create it (RoomToJoin without CreateRoomToJoin); comma separated,
+     *  may be NULL */
+    const char *rooms;
 } gcs_snap_game;
 
 gcs_snap *gcs_snap_create(const gcs_snap_io *io, void *ctx);

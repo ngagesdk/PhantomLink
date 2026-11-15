@@ -1115,6 +1115,7 @@ gcs_pk *gcs_pk_create(const char *file, void (*log)(void *ctx, int level, const 
     p->game.left = g_left;
     p->game.data = g_data;
     p->game.poll = NULL;
+    p->game.rooms = GCS_PK_ROOMS;
     load(p);
     return p;
 }
