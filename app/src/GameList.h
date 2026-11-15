@@ -1,7 +1,7 @@
 /** @file GameList.h
  *
  *  Games supported by PhantomLink and the replacement GAMECOMMS.DLL
- *  variant each one needs (see the table in README.md).
+ *  variant each one needs (see the table in docs/COMPATIBILITY.md).
  *
  *  Copyright (c) 2023-2026, Michael Fitzmayer. All rights reserved.
  *  SPDX-License-Identifier: MIT

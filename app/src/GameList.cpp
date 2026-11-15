@@ -7,7 +7,7 @@
 
 #include "GameList.h"
 
-/* Keep in sync with "Which DLL for which game" in README.md
+/* Keep in sync with "Games" in docs/COMPATIBILITY.md
    (tests/compat/check_app_games.py verifies it). */
 static const TGameEntry KGames[] = {
     { "Ashen", 8 },

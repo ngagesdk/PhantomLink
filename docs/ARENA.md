@@ -18,6 +18,43 @@ game ─ arenaframework.dll ─┬─ arenabase.dll ─┬─ SnapComm.dll ─�
                                                          gamecommsd + gcs_arena.c
 ```
 
+## Overview
+
+PhantomLink connects Arena games to the PhantomLink server without changing
+the game card, over Bluetooth through a bridge or, where GPRS networks still
+run, directly:
+
+1. In the PhantomLink app, **Arena over BT** turns an access point named
+   `PhantomLink` into a direct PPP connection over Bluetooth to the chosen
+   bridge and writes the hosts file. **Arena over GPRS** only writes the
+   hosts file, pointing the Arena names at the server set under Settings >
+   Arena server (the server runs with `direct = 1`); the game then uses the
+   operator's packet data access point. **Arena off** undoes either.
+2. Every bridge (ESP32, PC, Android) carries its own PPP and TCP/IP stack.
+   It answers the Arena host names with its own address and passes the
+   game's connections and datagrams to the server.
+3. The server answers in the Arena's own protocols: the Community web service
+   (SOAP), SegaChat (Jabber), SNAP (lobbies, game rooms) and the game servers
+   of the individual games.
+
+One Arena account works for all games. The first login with a new user name
+creates the account and binds the user name, the password and the N-Gage
+(its IMEI) together; later logins need the same password on the same N-Gage,
+and one N-Gage can have one account. The server keeps the accounts in
+`gamecomms-arena.txt` (passwords only as SHA-1). Details below.
+
+### Supported games
+
+| Game                          | Arena features                                                                     | Server side                                                        |                                Status                                |
+| ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ | :------------------------------------------------------------------: |
+| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login; game server open | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
+| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+
+Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage. The Rifts
+game server is tested against simulated games, but has not run with a real N-Gage
+yet. Rifts' Bluetooth multiplayer works with the GameComms replacement
+(see COMPATIBILITY.md), independently of Arena.
+
 ## Retail games: PPP over Bluetooth (no DLLs replaced)
 
 On a retail cartridge everything the game ships is read only, and its own

@@ -16,6 +16,20 @@ GitHub Releases page): `PhantomLink.zip` with the Windows PC bridge, the
 server for Linux x86_64 and Windows, all DLL variants and the ESP32
 firmware. It is rebuilt on every push to `main`.
 
+## Repository layout
+
+- `app/` - PhantomLink Symbian app (`PhantomLink.sis`)
+- `dll/` - replacement GAMECOMMS.DLL for all 11 original variants
+- `firmware/` - ESP32 bridge firmware
+- `pcbridge/` - PC bridge for Linux and Windows (`gcbridge`), same job as the ESP32
+- `android/` - Android bridge app, same job as the ESP32, same bridge engine
+- `server/` - endpoint server (`gamecommsd`), including the N-Gage Arena
+  back ends
+- `protocol/` - protocol library shared by the DLL, the bridges and the server
+- `tests/` - automated tests
+- `tools/` - variant identification and reverse engineering scripts;
+  `tools/gc_usage.py` shows how a game uses GameComms
+
 ## CMake presets
 
 `CMakePresets.json` builds each part on its own or everything at once
@@ -68,12 +82,17 @@ The same build also creates the N-Gage application `PhantomLink.sis`
 - pick a game from a list: the matching `gamecomms.dll` is written to
   `C:\System\Libs` (if the game ships its own copy in its folder, replace
   that one as described below);
+- choose **Restore original behavior** to remove the `gamecomms.dll` it
+  wrote to `C:\System\Libs`;
 - configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration");
 - read and post short messages on the server's message board using either
   the ESP32 or PC bridge. Select **Message board**, then use the options
   menu to post, refresh, or move between older and newer messages. Select
   an entry to read its full text. Names are chosen when posting. Scroll the
   board list to see the author, date, time and message preview.
+
+In the game list, Up and Down wrap at the ends; Left and Right move six
+entries at a time, stopping at the first or last entry.
 
 Messages are limited to 160 UTF-8 bytes (names to 32 bytes). Times are
 assigned by the server in UTC, not by the phone. The board is shared by
@@ -99,7 +118,7 @@ Install the SIS on the memory card. The N-Gage toolchain does not generate
 C++ header dependency files; the app build explicitly tracks local headers so
 incremental builds rebuild affected C++ objects. Rebuild and reinstall the SIS
 after updating the app. Disable the app with `cmake -B build -DGC_BUILD_APP=OFF`.
-The game list is kept in sync with the README by
+The game list is kept in sync with docs/COMPATIBILITY.md by
 `python tests/compat/check_app_games.py`.
 
 ### Installing on the N-Gage
