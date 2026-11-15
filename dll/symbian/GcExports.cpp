@@ -4,8 +4,8 @@
  *  generated gamecomms_vN.def) to one of the extern "C" thunks below.
  *  The thunks reproduce the GCC 2.9 / ARM calling convention of the
  *  original C++ member functions: the object pointer arrives in r0
- *  ("this"), arguments follow in r1..r3 and on the stack, class-typed
- *  by-value arguments arrive as pointers to a copy.
+ *  ("this"), and arguments follow in r1..r3 and on the stack. Preserve
+ *  the original argument types, including structs passed by value.
  *
  *  Copyright (c) 2023-2026, Michael Fitzmayer. All rights reserved.
  *  SPDX-License-Identifier: MIT
@@ -123,7 +123,7 @@ GC_EXPORT TInt gc2_ConnectState(CGameBTComms2 *aThis) { return aThis->ConnectSta
 GC_EXPORT TInt gc2_GetLocalDeviceName(CGameBTComms2 *aThis, THostName &aName) { return aThis->GetLocalDeviceName(aName); }
 GC_EXPORT TInt gc2_BluetoothPowerState(CGameBTComms2 *aThis, TBool &aState) { return aThis->BluetoothPowerState(aState); }
 GC_EXPORT TInt gc2_SetBluetoothPowerState(CGameBTComms2 *aThis, TBool aState) { return aThis->SetBluetoothPowerState(aState); }
-GC_EXPORT TInt gc2_SetLocalDeviceName(CGameBTComms2 *aThis, const TDesC &aName) { return aThis->SetLocalDeviceName(aName); }
+GC_EXPORT TInt gc2_SetLocalDeviceName(CGameBTComms2 *aThis, THostName aName) { return aThis->SetLocalDeviceName(aName); }
 GC_EXPORT TInt gc2_DeclareRemoteDevice(CGameBTComms2 *aThis, const TDeviceDetails &aDev) { return aThis->DeclareRemoteDevice(aDev); }
 GC_EXPORT TInt gc2_Connect(CGameBTComms2 *aThis) { return aThis->Connect(); }
 GC_EXPORT TInt gc2_ConnectClient(CGameBTComms2 *aThis, TUint16 aId) { return aThis->Connect(aId); }

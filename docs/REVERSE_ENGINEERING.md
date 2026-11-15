@@ -120,7 +120,7 @@ these themselves.
 | 20 | GetLocalDeviceName(THostName&) | [V] |
 | 2 | BluetoothPowerState(TBool&) | [V] |
 | 34 | SetBluetoothPowerState(TBool) | [V] |
-| 56 | SetLocalDeviceName(THostName) | v3 and later [V] |
+| 56 | SetLocalDeviceName(THostName) | v3 and later; passed by value, split across argument registers and stack by the ARM compiler [V] |
 | 58 | EndSession() | v10 and later, deletes the role object [V] |
 | 61 | SetDiscoverabilityModeLimited(TBool) | v10 and later, refreshed every 55 seconds by a timer [V] |
 | 59 | IsDiscoverabilityModeLimited(TBool&) | v10 and later, writes ETrue for the limited inquiry access code [S] |
