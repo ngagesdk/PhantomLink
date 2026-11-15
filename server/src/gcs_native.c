@@ -13,6 +13,7 @@
 #include "gc_link.h"
 #include "gcs_accounts.h"
 #include "gcs_habbo.h"
+#include "gcs_pk.h"
 #include "gcs_rifts.h"
 #include "gcs_scores.h"
 #include "gcs_snap.h"
@@ -117,6 +118,7 @@ struct gcs_native
     gcs_accounts *acc;
     gcs_snap *snap;     /* SNAP game server (UDP) */
     gcs_rifts *rifts;   /* Rifts: Promise of Power game server */
+    gcs_pk *pk;         /* Pocket Kingdom game server */
     gcs_habbo *habbo;   /* Habbo Console (Habbo Islands, port 8080) */
     gcs_scores *scores; /* SegaChat leaderboards (Ashen) */
     char www[256];      /* device pages folder, "" none */
@@ -1522,7 +1524,7 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
 }
 
 gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file,
-                              const char *habbo_file, const char *scores_file)
+                              const char *habbo_file, const char *scores_file, const char *pk_file)
 {
     gcs_native *n = (gcs_native *)calloc(1, sizeof(*n));
     gcs_snap_io sio;
@@ -1540,7 +1542,9 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     n->rifts = gcs_rifts_create(rifts_file, snap_log, n);
     n->habbo = n->acc ? gcs_habbo_create(n->acc, habbo_file, acc_log, n) : NULL;
     n->scores = gcs_scores_create(scores_file, acc_log, n);
-    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores) {
+    n->pk = gcs_pk_create(pk_file, snap_log, n);
+    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk) {
+        gcs_pk_destroy(n->pk);
         gcs_scores_destroy(n->scores);
         gcs_habbo_destroy(n->habbo);
         gcs_accounts_destroy(n->acc);
@@ -1550,6 +1554,7 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
         return NULL;
     }
     gcs_snap_add_game(n->snap, gcs_rifts_game(n->rifts));
+    gcs_snap_add_game(n->snap, gcs_pk_game(n->pk));
     return n;
 }
 
@@ -1564,6 +1569,7 @@ void gcs_native_destroy(gcs_native *n)
     }
     gcs_snap_destroy(n->snap);
     gcs_rifts_destroy(n->rifts);
+    gcs_pk_destroy(n->pk);
     gcs_habbo_destroy(n->habbo);
     gcs_scores_destroy(n->scores);
     gcs_accounts_destroy(n->acc);
@@ -1583,6 +1589,11 @@ struct gcs_snap *gcs_native_snap(gcs_native *n)
 struct gcs_habbo *gcs_native_habbo(gcs_native *n)
 {
     return n ? n->habbo : NULL;
+}
+
+struct gcs_pk *gcs_native_pk(gcs_native *n)
+{
+    return n ? n->pk : NULL;
 }
 
 struct gcs_rifts *gcs_native_rifts(gcs_native *n)

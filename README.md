@@ -77,7 +77,9 @@ standard GameComms library, so PhantomLink cannot support them.
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"               | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
 | Ashen                         | Online leaderboards for every level and the whole game      | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
-Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage.
+Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; the
+game server for the online map, battles, chat and the Global Auction is
+tested against simulated games only.
 Ashen's leaderboards are tested against the server only, not yet on a
 real N-Gage.
 

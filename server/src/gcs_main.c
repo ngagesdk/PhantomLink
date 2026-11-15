@@ -847,6 +847,9 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "habbo_data")) {
         return set_str(a->core.habbo_data, sizeof(a->core.habbo_data), val) ? 1 : -1;
     }
+    if (!strcmp(key, "pk_data")) {
+        return set_str(a->core.pk_data, sizeof(a->core.pk_data), val) ? 1 : -1;
+    }
     if (!strcmp(key, "scores_data")) {
         return set_str(a->core.scores_data, sizeof(a->core.scores_data), val) ? 1 : -1;
     }
@@ -945,6 +948,7 @@ static void usage(const char *argv0)
            "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
            "  --habbo_data=PATH    Habbo Islands: Habbo Console friends and messages (empty: not kept)\n"
            "  --scores_data=PATH   Arena leaderboards over SegaChat, e.g. Ashen (empty: not kept)\n"
+           "  --pk_data=PATH       Pocket Kingdom kingdoms and Global Auction (empty: not kept)\n"
            "  --www_root=DIR       Arena device pages: news, support, lists (empty: placeholders)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"

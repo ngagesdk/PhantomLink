@@ -56,10 +56,11 @@ typedef struct
 /** accounts_file: where the shared Arena accounts and their profile data
  *  are kept (gcs_accounts.h); rifts_file: the Rifts game server's data
  *  (gcs_rifts.h); habbo_file: Habbo Console friends and messages
- *  (gcs_habbo.h); scores_file: the leaderboards (gcs_scores.h).
+ *  (gcs_habbo.h); scores_file: the leaderboards (gcs_scores.h); pk_file:
+ *  Pocket Kingdom's kingdoms and Global Auction (gcs_pk.h).
  *  NULL or "": memory only. */
 gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file,
-                              const char *habbo_file, const char *scores_file);
+                              const char *habbo_file, const char *scores_file, const char *pk_file);
 void gcs_native_destroy(gcs_native *n);
 /** Folder of the Arena device pages (news, support, lists): a request for
  *  /n-gage/... is answered with DIR/<game class>/n-gage/... when it exists
@@ -93,6 +94,9 @@ struct gcs_snap *gcs_native_snap(gcs_native *n);
 struct gcs_rifts *gcs_native_rifts(gcs_native *n);
 /** The Habbo Console back end (gcs_habbo.h). */
 struct gcs_habbo *gcs_native_habbo(gcs_native *n);
+/** The Pocket Kingdom game server (gcs_pk.h). */
+struct gcs_pk *gcs_native_pk(gcs_native *n);
+
 /** The SegaChat leaderboards (gcs_scores.h). */
 struct gcs_scores *gcs_native_scores(gcs_native *n);
 
