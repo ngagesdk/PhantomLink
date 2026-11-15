@@ -847,6 +847,9 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "habbo_data")) {
         return set_str(a->core.habbo_data, sizeof(a->core.habbo_data), val) ? 1 : -1;
     }
+    if (!strcmp(key, "scores_data")) {
+        return set_str(a->core.scores_data, sizeof(a->core.scores_data), val) ? 1 : -1;
+    }
     if (!strcmp(key, "direct_bind")) {
         return set_str(a->direct_bind, sizeof(a->direct_bind), val) ? 1 : -1;
     }
@@ -941,6 +944,7 @@ static void usage(const char *argv0)
            "  --arena_accounts=PATH Arena accounts, shared by all Arena games (empty: not kept)\n"
            "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
            "  --habbo_data=PATH    Habbo Islands: Habbo Console friends and messages (empty: not kept)\n"
+           "  --scores_data=PATH   Arena leaderboards over SegaChat, e.g. Ashen (empty: not kept)\n"
            "  --www_root=DIR       Arena device pages: news, support, lists (empty: placeholders)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
@@ -1046,6 +1050,23 @@ int main(int argc, char *argv[])
         }
     }
 
+    /* before the first socket: a stop request during the start-up (data
+     * files being loaded) ends the server cleanly after it */
+#ifndef _WIN32
+    {
+        struct sigaction sa;
+        memset(&sa, 0, sizeof(sa));
+        sigemptyset(&sa.sa_mask);
+        sa.sa_handler = SIG_IGN;
+        sigaction(SIGPIPE, &sa, NULL);
+        sa.sa_handler = on_signal;
+        sigaction(SIGINT, &sa, NULL);
+        sigaction(SIGTERM, &sa, NULL);
+        sigaction(SIGUSR1, &sa, NULL);
+    }
+#else
+    SetConsoleCtrlHandler(on_console, TRUE);
+#endif
     for (i = 0; i < MAX_CONNS; i++) {
         g_conns[i].fd = SOCK_INVALID;
     }
@@ -1109,21 +1130,6 @@ int main(int argc, char *argv[])
         logmsg(2, "direct clients on %s: HTTP %d, Jabber %d, SNAP UDP %d, Habbo Console %d", a.direct_bind,
                a.direct_http_port, a.direct_xmpp_port, a.direct_snap_port, a.direct_habbo_port);
     }
-#ifndef _WIN32
-    {
-        struct sigaction sa;
-        memset(&sa, 0, sizeof(sa));
-        sigemptyset(&sa.sa_mask);
-        sa.sa_handler = SIG_IGN;
-        sigaction(SIGPIPE, &sa, NULL);
-        sa.sa_handler = on_signal;
-        sigaction(SIGINT, &sa, NULL);
-        sigaction(SIGTERM, &sa, NULL);
-        sigaction(SIGUSR1, &sa, NULL);
-    }
-#else
-    SetConsoleCtrlHandler(on_console, TRUE);
-#endif
     logmsg(2, "GameComms server %s '%s' listening on %s:%d (protocol %d)%s", GCS_VERSION, a.core.server_name,
            a.bind_addr[0] ? a.bind_addr : "*", a.port, GC_PROTO_VERSION_MAX,
            a.core.access_key[0] ? ", access key required" : "");
