@@ -71,10 +71,10 @@ standard GameComms library, so PhantomLink cannot support them.
 
 ### N-Gage Arena games
 
-| Game                          | Status |
-| ----------------------------- | :----: |
-| Pocket Kingdom: Own the World | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
-| Rifts: Promise of Power       | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
+| Game                          | Online feature                                              | Status |
+| ----------------------------- | ----------------------------------------------------------- | :----: |
+| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
+| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"               | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage.
 
