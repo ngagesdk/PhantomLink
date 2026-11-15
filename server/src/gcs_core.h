@@ -48,6 +48,7 @@ typedef struct
     char arena_accounts[256]; /* shared accounts of retail Arena games (PPP mode); empty: memory only */
     char rifts_data[256];     /* Rifts: Promise of Power game server data; empty: memory only */
     char habbo_data[256];     /* Habbo Console friends and messages (Habbo Islands); empty: memory only */
+    char pk_data[256];        /* Pocket Kingdom: kingdoms, Global Auction, waiting chat; empty: memory only */
     char scores_data[256];    /* SegaChat leaderboards (Ashen); empty: memory only */
     char www_root[256];       /* Arena device pages (news, support, lists); empty: built-in placeholders */
     int max_peers;

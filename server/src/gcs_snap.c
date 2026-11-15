@@ -1187,6 +1187,17 @@ void gcs_snap_get_stats(const gcs_snap *s, gcs_snap_stats *st)
     }
 }
 
+const char *gcs_snap_user_of(const gcs_snap *s, gc_u32 uid)
+{
+    int i;
+    for (i = 0; uid && i < GCSS_MAX_SESSIONS; i++) {
+        if (s->s[i].used && s->s[i].logged_in && s->s[i].uid == uid) {
+            return s->s[i].name;
+        }
+    }
+    return NULL;
+}
+
 gc_u32 gcs_snap_game_class_of(const gcs_snap *s, const char *user)
 {
     int i;

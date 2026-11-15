@@ -47,11 +47,12 @@ and one N-Gage can have one account. The server keeps the accounts in
 
 | Game                          | Arena features                                                                     | Server side                                                        |                                Status                                |
 | ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ | :------------------------------------------------------------------: |
-| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login; game server open | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
+| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction) | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 | Ashen                         | Online leaderboards: best score of every level and of the whole game               | SegaChat login, score reports and top lists (gcs_scores.c)         | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
-Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage. The Rifts
+Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; its game
+server (below) is tested against simulated games only. The Rifts
 game server is tested against simulated games, but has not run with a real N-Gage
 yet. Rifts' Bluetooth multiplayer works with the GameComms replacement
 (see COMPATIBILITY.md), independently of Arena. Ashen's leaderboards are
@@ -582,6 +583,113 @@ does (same splitter, number reader, field counts and limits) and runs a
 SegaChat session through gcs_direct with the messages as sc_lib writes
 them.
 
+## Pocket Kingdom: game server
+
+Found in the retail game (6RAH.APP 110804, ARM code; static analysis of
+the network code at 0x65ce0..0x68400 and the Global Auction screens at
+0x2a000..0x2e000). The game creates its ArenaFramework with an observer
+(AppUi+0x30) and keeps it at AppUi+0x1aa04. It uses these
+CArenaFramework slots: 0x3c SendGameDataToServer(ptr, len), 0x48 own
+user name, 0x5c/0x64 current room names, 0x6c join room by name ("Auction"
+for the Global Auction, then back to the previous room), 0x70 opens the
+Arena menus. Observer slot 0x38 is GameDataReceived (the parser at
+0x67eb8), slot 0x08 the events 23, 27 and 28 (28: connection lost).
+
+So Pocket Kingdom has a real game server behind the SNAP room
+(op 17 in, op 15 out, gcs_snap.c). Battles are **not** played against
+stored kingdoms, as the manual suggested: the defender's game is online
+and answers scouting and attacks itself; the server passes the messages
+on. Server code: `server/src/gcs_pk.c`, tests: `tests/server/test_pk.c`.
+
+### Game class and rooms
+
+game.rsc sets three flags (keys 0x2007, 0x2010, 0x201c) and "Scrimmage"
+as lobby and room name (keys 0x200a, 0x200b); it has no class number.
+The SegaChat presence carries `GameClassId='1'` on hardware, so the server
+attaches the game server to class 1 (`GCS_PK_GAME_CLASS`) and lists the
+lobby "Scrimmage". Not verified: the class the SNAP login carries (the
+server also scans the login for it). Game data from a user who has not
+entered a room yet reaches the game server, too.
+
+### Messages
+
+Byte 0 is the type, byte 1 a sequence number the answer echoes (not in
+type 3). Names are 16 byte fields (15 characters, zero padded). Numbers
+in auction messages are big endian.
+
+| Type | Len | Direction | Content |
+|---:|---:|---|---|
+| 1 | 24 | game → server | online: [2] area, [3..6] kingdom look, name @8 → **129** (4 bytes, only counted) |
+| 2 | 20 | game → server | keep alive (every ~165 frames), name @4 → **130** |
+| 3 | 20 | game → server | going offline, name @4 (no answer) |
+| 5 | 20 | game → server | moved: [2] new area, name @4 (no answer) |
+| 6 | 20 | game → server | enemy search: [2] area, name @4 → **134** |
+| 134 | 104 | server → game | up to 5 entries of 20 bytes from offset 4: name[16], look[4] (the castle, transporter, mark and colour other players see); empty name = end |
+| 7 | 36 | relayed | scout: from @4, to @20 |
+| 135 | 52 | relayed | scout answer from the defender's game: [2] result, to @4, from @20, party data |
+| 9 | 88 | relayed | attack: [3] party, from @4, to @20, 4 units × 12 bytes from @40 |
+| 137 | 88 | relayed | attack answer from the defender's game: [2] result, to @8, from @24, defending units |
+| 10 | 36 | relayed | the battle starts: from @4, to @20 |
+| 18 | 116 | relayed | chat: [2] area, from @4, to @20, text @36 (78 chars), [115] → **146** [2] = 1 delivered, 0 not |
+| 13 | 32 | game → server | exhibit: name @4, item @20..26, starting price u32 @28 → **141** |
+| 141 | 8 | server → game | [3] 0 exhibited (trigger041), 1 too many (040), 2 refused (043); u32 @4 auction id |
+| 14 | 32 | game → server | browse: [2] category, [3] item type, [4] rarity, [8] sub-filter (0xff = any), u32 @12 page, name @16 → **142** |
+| 142 | 248 | server → game | u16 @2 page, u32 @4 matches (0: trigger052), 10 entries from @8 |
+| 15 | 28 | game → server | bid: u32 @4 auction, u32 @8 amount, name @12 → **143** |
+| 143 | 8 | server → game | [2] 0 placed (044), 1 someone bid higher (045), 2 ended (046), 3 too many bids (042), 4 own exhibit (050), 5 refused (051); u32 @4 the bidder's previous bid on it: the game pays amount − this |
+| 16 | 20 | game → server | own list: [3] mode 0 exhibits, 1 bids (looking), 2 exhibits, 3 bids (collecting), name @4 → **144** |
+| 144 | 244 | server → game | 10 entries from @4 |
+| 21 | 112 | game → server | kingdom summary: u32 @4 victory points, u32 @8 loot, unit table, parties, look, area → **149** |
+| 17, 22 | 20, 32 | game → server | built by the game, never sent → 145, 150 |
+| 255 | 4 | server → game | the game goes offline at once (never sent by this server) |
+
+Auction list entry (24 bytes): u32 auction id, [4] status (0 = end of
+list), [5..11] the exhibit's item bytes 20..26 (category, type, item,
+three item values, level), u32 @12 seconds left (0: ended, the time is
+not shown), u32 @16 price (highest bid or starting price), u32 @20 the
+player's own bid.
+
+| List | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| browse (142) | — | the player has the high bid | | |
+| exhibits (144, modes 0/2) | running, no bids | running, bids | sold: the game adds @16 to the loot | no sale: the item comes back |
+| bids (144, modes 1/3) | outbid | high bid | won: the game adds the item | lost: the game adds @20 back |
+
+The game only books statuses 3 and 4 in the collecting modes (2 and 3);
+it asks for mode 3 only when its inventory has room for the items it
+bids on (trigger054), otherwise mode 1. The server forgets a result once
+it has reported it in a collecting mode. The exhibit leaves the
+inventory when it is sent and comes back if 141 refuses it.
+
+Scout and attack results above 252 end the mission without a battle:
+255 is what the defender's game sends when it cannot defend ("nobody
+home"), 253/254 make the attacker's game report that the kingdom moved
+area. The server answers with 254 when the defender is offline or in
+another area.
+
+### Server rules
+
+- Online kingdoms: SNAP users of the game; the area and look come from
+  messages 1, 5 and 6. The search answers up to five random online
+  kingdoms of the same area. Kingdoms are kept by name (area, look, last
+  summary, victory points, loot, last visit).
+- Relayed messages go to the user named in the "to" field (any case);
+  the server writes the sender's real name into the "from" field.
+- Chat to a known kingdom that is offline is kept (at most 50 per player)
+  and delivered after its next message 1; unknown names get 146 with 0.
+- Auctions run 24 hours (`GCSP_AUCTION_SECS`); at most 10 exhibits and 10
+  bids per player (results not yet collected count); prices up to
+  9,999,999. A bid must be at least the starting price, or higher than the
+  current price. The browse filter uses the category only (item type and
+  rarity need the game's item tables), sorted by end time.
+- Data file `pk_data` (default `gamecomms-pk.dat`), tab separated lines
+  N (next auction id), K (kingdom), A (auction), B (bid), M (waiting chat).
+
+Not implemented: bots ("Cannot chat with Bot!": the game seems to fill
+the map with its own), the All-Time Owner Board (the Arena menus ask the
+retrieval service for board `player_skills`; its answer format for this
+game is unknown, the summary's victory points are stored for it).
+
 ## Reverse engineering notes (Pocket Kingdom retail, SnapComm "Client Ver 2.1 Build: Oct 20 2004")
 
 All Arena DLLs are Thumb code; `tools/re/e32dis.py` disassembles ARM only.
@@ -661,10 +769,9 @@ From the manual:
   auctions". The game box had a separate "N-Gage Arena Quick Start Guide
   for Pocket Kingdom" insert with more detail; worth finding.
 - Battles run automatically from the party settings until one side is
-  wiped out or the timer ends. Attacking another player therefore
-  probably does not need that player online: the server likely stores
-  each kingdom (defending parties, battlefield conditions) and hands it
-  to the attacker. Scout shows an enemy kingdom's defences.
+  wiped out or the timer ends. (The guess that the server stores kingdoms
+  for attacks was wrong: the defender's game answers online, see
+  "Pocket Kingdom: game server".) Scout shows an enemy kingdom's defences.
 - Battle results move loot, items and "Owned" (permanently lost) units
   between kingdoms, so the defender must learn about them later
   (offline messages or kingdom data from the server).
@@ -702,5 +809,8 @@ Pocket Kingdom:
 3. Identify the remaining slots from the logged calls and the arenabase
    wrappers. Implement the SnapComm observer events (login result first,
    then lobby/room lists and entries), forward the HTTP slots as HTTP_REQ.
-4. Pocket Kingdom game module on the server: kingdom storage, auctions,
-   the Owner Board.
+4. Game server (done, gcs_pk.c): run the online map and the Global
+   Auction with two N-Gages and the server at log level 3. Check the game
+   class in the SNAP login, the area numbers, and whether the look bytes
+   of the search answer come out in the right order.
+5. The All-Time Owner Board (retrieval board `player_skills`).

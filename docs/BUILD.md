@@ -464,7 +464,8 @@ the battles, characters and turns of Rifts: Promise of Power), and
 `gamecomms-habbo.dat` (`habbo_data`: friends, friend requests and unread
 messages of Habbo Islands' Habbo Console, docs/HABBO.md) and
 `gamecomms-scores.dat` (`scores_data`: the online leaderboards of Ashen,
-docs/ARENA.md). Back them up too. The pages the Arena menus show (news, support) come from the folder
+docs/ARENA.md) and `gamecomms-pk.dat` (`pk_data`: Pocket Kingdom's
+kingdoms, Global Auction and waiting chat messages). Back them up too. The pages the Arena menus show (news, support) come from the folder
 set as `www_root`; copy `server/deploy/www` there to start with (see its
 README).
 
