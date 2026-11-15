@@ -207,6 +207,7 @@ void gcs_default_config(gcs_config *cfg)
     strcpy(cfg->board_file, "gamecomms-board.dat");
     strcpy(cfg->arena_accounts, "gamecomms-arena.txt");
     strcpy(cfg->rifts_data, "gamecomms-rifts.dat");
+    strcpy(cfg->habbo_data, "gamecomms-habbo.dat");
     cfg->max_peers = 512;
     cfg->max_sessions = 256;
     cfg->link_grace_ms = 20000;
@@ -1446,12 +1447,13 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     }
     c->cfg.arena_accounts[sizeof(c->cfg.arena_accounts) - 1] = '\0';
     c->cfg.rifts_data[sizeof(c->cfg.rifts_data) - 1] = '\0';
+    c->cfg.habbo_data[sizeof(c->cfg.habbo_data) - 1] = '\0';
     c->cfg.www_root[sizeof(c->cfg.www_root) - 1] = '\0';
     {
         gcs_native_io nio;
         nio.send = native_send;
         nio.log = arena_log;
-        c->native = gcs_native_create(&nio, c, c->cfg.arena_accounts, c->cfg.rifts_data);
+        c->native = gcs_native_create(&nio, c, c->cfg.arena_accounts, c->cfg.rifts_data, c->cfg.habbo_data);
         if (!c->native) {
             gcs_arena_destroy(c->arena);
             free(c);

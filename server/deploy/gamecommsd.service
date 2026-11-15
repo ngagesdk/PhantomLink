@@ -37,7 +37,7 @@ AmbientCapabilities=
 # Arena over GPRS with direct_http_port = 80: replace the two lines above with
 #   CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 #   AmbientCapabilities=CAP_NET_BIND_SERVICE
-# (or listen on 8080 and forward port 80 to it).
+# (or listen on 8000 and forward port 80 to it; 8080 is Habbo Islands').
 UMask=0077
 LimitNOFILE=4096
 # For a separate log file, use LogsDirectory=gamecommsd and

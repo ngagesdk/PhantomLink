@@ -20,6 +20,10 @@
  *   - writes C:\System\Data\hosts so that the Arena server names resolve
  *     to the PhantomLink bridge (Symbian 6.1-9.0 read that file).
  *
+ *  Both routes also serve Habbo Islands, which is not an Arena game: its
+ *  Habbo Console asks builder.sulake.com (port 8080), which the same
+ *  hosts file points to the server or the bridge (docs/HABBO.md).
+ *
  *  BTCOMM::0's remote device is set to the bridge through CBTRegistry::
  *  SetDefaultCommPort (btregistry.lib, part of the 6.1 SDK).  Not verified
  *  on hardware yet.

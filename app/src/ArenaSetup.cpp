@@ -25,7 +25,9 @@ _LIT(KHostsFile, "C:\\System\\Data\\hosts");
 _LIT8(KHostsTag, " # PhantomLink Arena");
 
 /* the Arena back ends named in the games' arena.amr (read only on the
- * cartridge): Pocket Kingdom, then Rifts: Promise of Power */
+ * cartridge): Pocket Kingdom, then Rifts: Promise of Power; then, not
+ * Arena, the Habbo Console locator of Habbo Islands (SULAKEUI.DLL, port
+ * 8080; docs/HABBO.md) */
 static const char *const KArenaHosts[] = {
     "arena.n-gage.com",
     "im.prod.pk.nokia.sf.yav4.com",
@@ -33,6 +35,7 @@ static const char *const KArenaHosts[] = {
     "im01.rifts.bb.sf.yav4.com",
     "bs01.rifts.bb.sf.yav4.com",
     "ngage-auth",
+    "builder.sulake.com",
 };
 const TInt KArenaHostCount = sizeof(KArenaHosts) / sizeof(KArenaHosts[0]);
 

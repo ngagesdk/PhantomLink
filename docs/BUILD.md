@@ -459,8 +459,10 @@ file with the rest of the server's state. The supplied systemd service uses
 
 The N-Gage Arena back ends (docs/ARENA.md) keep their data next to it:
 `gamecomms-arena.txt` (`arena_accounts`: the Arena accounts, shared by all
-Arena games, passwords as SHA-1) and `gamecomms-rifts.dat` (`rifts_data`:
-the battles, characters and turns of Rifts: Promise of Power). Back them up
+Arena games, passwords as SHA-1), `gamecomms-rifts.dat` (`rifts_data`:
+the battles, characters and turns of Rifts: Promise of Power), and
+`gamecomms-habbo.dat` (`habbo_data`: friends, friend requests and unread
+messages of Habbo Islands' Habbo Console, docs/HABBO.md). Back them up
 too. The pages the Arena menus show (news, support) come from the folder
 set as `www_root`; copy `server/deploy/www` there to start with (see its
 README).
@@ -549,6 +551,7 @@ ctest --test-dir build/tests --output-on-failure
 | `protocol_msg` | Encoding and decoding of every message, truncated and random input |
 | `server_core` | Registration, matchmaking, slots, isolation by game, routing, timeouts, rejoin, kick |
 | `server_accounts` | Shared Arena accounts: SHA-1, creation on the first login, password and IMEI binding, one account per N-Gage, restart, conversion of old account files |
+| `server_habbo` | Habbo Islands' Habbo Console: locator, login with the shared accounts, find, friend requests, accept/decline/remove, messages with UTF-8 cut at 255 bytes, mark read, logout, restart; answers decoded like the game, and requests over TCP through the direct service |
 | `server_rifts_codec` | Rifts stream codec: Blowfish test vectors, CBC, CRC-32, Adler-32, inflate of real zlib data, stored blocks, packing round trips, damaged data and wrong keys |
 | `server_rifts` | SNAP game server and Rifts game server against simulated games: login (refused and repeated), lobby, room search, room creation and entry, retransmission, logout; a whole battle of two players (server config, name check, create, find, accept, status, turns, characters, upkeep, end, friends), flow control, persistence across a restart, given up save slots, and random input |
 | `e2e_ppp`, `e2e_ppp_small_buffers` | Bridge core and server in one process with a simulated N-Gage in PPP mode: DNS, Community SOAP with account creation and refused logins, profile data, device pages, SegaChat login with the SHA-1 password, a SNAP login over UDP 9090, connections closed and reset |

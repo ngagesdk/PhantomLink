@@ -7,7 +7,8 @@
  *  The PhantomLink app maps the Arena host names to the server's public
  *  IPv4 address in C:\System\Data\hosts, so the game's TCP connections
  *  (Community web service on port 80, SegaChat on 5222) and its SNAP
- *  datagrams (UDP 9090) arrive at the server itself.  This module turns
+ *  datagrams (UDP 9090) arrive at the server itself.  Habbo Islands'
+ *  Habbo Console (TCP 8080) takes the same way.  This module turns
  *  them into the GCN messages a bridge would tunnel (gc_net.h) and feeds
  *  them to the same gcs_native instance, so GPRS players and bridge
  *  players share accounts, lobbies and game servers.
@@ -45,9 +46,10 @@ typedef struct gcs_direct gcs_direct;
 
 /* the services, as the game sees them (the listening ports may differ,
  * e.g. behind a port forward) */
-#define GCSD_HTTP 80
-#define GCSD_XMPP 5222
-#define GCSD_SNAP 9090
+#define GCSD_HTTP  80
+#define GCSD_XMPP  5222
+#define GCSD_SNAP  9090
+#define GCSD_HABBO 8080 /* not Arena: Habbo Islands' Habbo Console (gcs_habbo.h) */
 
 typedef struct
 {
@@ -67,7 +69,8 @@ typedef struct
 gcs_direct *gcs_direct_create(struct gcs_core *core, const gcs_direct_io *io, void *ctx);
 void gcs_direct_destroy(gcs_direct *d);
 
-/** A TCP connection from ip:port to service (GCSD_HTTP, GCSD_XMPP) was
+/** A TCP connection from ip:port to service (GCSD_HTTP, GCSD_XMPP,
+ *  GCSD_HABBO) was
  *  accepted.  0: taken; -1: refused (no room), the caller closes sock
  *  without calling gcs_direct_tcp_gone. */
 int gcs_direct_tcp_open(gcs_direct *d, void *sock, const gc_u8 ip[4], gc_u16 port, gc_u16 service, gc_u32 now);
