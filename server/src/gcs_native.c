@@ -17,6 +17,7 @@
 #include "gcs_rifts.h"
 #include "gcs_scores.h"
 #include "gcs_snap.h"
+#include "gcs_wwp.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -1082,12 +1083,52 @@ static void attr(const char *tag, size_t len, const char *name, char *out, size_
     }
 }
 
-/* "node@domain[/resource]" or "node" */
-static int jid_node_is(const char *jid, const char *node)
+/* "reporter@...", "reporter1104@..." (arena.amr JabberReportingName /
+ * JabberServicesName add the game class to the node) */
+static int jid_service_is(const char *jid, const char *node)
 {
     size_t k = strlen(node);
-    return ieq_prefix(jid, node) && (jid[k] == '@' || jid[k] == 0);
+    if (!ieq_prefix(jid, node)) {
+        return 0;
+    }
+    while (jid[k] >= '0' && jid[k] <= '9') {
+        k++;
+    }
+    return jid[k] == '@' || jid[k] == 0;
 }
+
+/* Answer to a SegaChat request: id segachat_retrieve_resp, the request's
+ * event_type and game_class_id (ArenaFramework checks the class), CSV. */
+static void xmpp_retrieve_resp(gcs_native *n, conn *c, const char *from, const char *ev, const char *gcid,
+                               const char *csv)
+{
+    sbuf b;
+    char node[48];
+    size_t k = 0;
+    while (from[k] && from[k] != '@' && from[k] != '/' && k + 1 < sizeof(node)) {
+        node[k] = from[k];
+        k++;
+    }
+    node[k] = 0;
+    memset(&b, 0, sizeof(b));
+    sb_str(&b, "<message from='");
+    sb_xml(&b, node[0] ? node : "retrieval");
+    sb_str(&b, "@ngage-auth' to='");
+    sb_xml(&b, c->xmpp_user);
+    sb_str(&b, "@ngage-auth' id='segachat_retrieve_resp' event_type='");
+    sb_xml(&b, ev);
+    sb_str(&b, "' game_class_id='");
+    sb_xml(&b, gcid);
+    sb_str(&b, "'><retrieve><response>");
+    sb_xml(&b, csv);
+    sb_str(&b, "</response></retrieve></message>");
+    if (!b.oom && b.d) {
+        xmpp_send(n, c, b.d);
+    }
+    free(b.d);
+}
+
+#define MAX_REPORT_ITEMS 32
 
 /* Score reports and leaderboard queries (gcs_scores.h).  sc_lib sends
  * them as messages without a type attribute; the kind is in the id. */
@@ -1104,9 +1145,11 @@ static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size
     xml_unescape(ev);
     xml_unescape(gcid);
     xml_unescape(snap);
-    if (!strcmp(id, "segachat_send_event") && jid_node_is(to, GCSS_REPORTER)) {
+    if (!strcmp(id, "segachat_send_event") && jid_service_is(to, GCSS_REPORTER)) {
         const char *p = s + taglen + 2;
-        int items = 0, best = 0;
+        char names[MAX_REPORT_ITEMS][GCSS_MAX_STAT + 8], values[MAX_REPORT_ITEMS][32], match[32];
+        gcs_scores_item items[MAX_REPORT_ITEMS];
+        int nitems = 0, af = 0, best = 0, i;
         if (!c->xmpp_user[0]) {
             LOG_W("xmpp: score report before the login ignored");
             return;
@@ -1115,11 +1158,12 @@ static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size
         if (snap[0] && !(ieq_prefix(snap, c->xmpp_user) && strlen(snap) == strlen(c->xmpp_user))) {
             LOG_W("xmpp: '%s' reports scores as '%s'; kept for '%s'", c->xmpp_user, snap, c->xmpp_user);
         }
-        LOG_I("xmpp: score report of '%s' (game class %s, %s)", c->xmpp_user, gcid, ev);
-        while (p < end) {
+        attr(s + 1, taglen, "match_id", match, sizeof(match));
+        xml_unescape(match);
+        LOG_I("xmpp: score report of '%s' (game class %s, %s, match '%s')", c->xmpp_user, gcid, ev, match);
+        while (p < end && nitems < MAX_REPORT_ITEMS) {
             const char *it = find_n(p, (size_t)(end - p), "<item");
             const char *gt, *ie;
-            char name[GCSS_MAX_STAT + 8], value[32];
             if (!it) {
                 break;
             }
@@ -1129,22 +1173,37 @@ static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size
             }
             ie = find_n(gt, (size_t)(end - gt), "</item>");
             ie = ie ? ie : gt + 1;
-            attr(it + 1, (size_t)(gt - it - 1), "name", name, sizeof(name));
-            xml_unescape(name);
-            if (!xml_field(it, (size_t)(ie - it), "value", value, sizeof(value))) {
-                value[0] = 0;
+            attr(it + 1, (size_t)(gt - it - 1), "name", names[nitems], sizeof(names[0]));
+            xml_unescape(names[nitems]);
+            if (!xml_field(it, (size_t)(ie - it), "value", values[nitems], sizeof(values[0]))) {
+                /* <item name='x' value='y'/> */
+                attr(it + 1, (size_t)(gt - it - 1), "value", values[nitems], sizeof(values[0]));
+                xml_unescape(values[nitems]);
             }
-            if (gcs_scores_submit(n->scores, gcid, c->xmpp_user, name, value, (long)time(NULL)) > 0) {
-                best++;
-            }
-            items++;
+            items[nitems].name = names[nitems];
+            items[nitems].value = values[nitems];
+            af |= gcs_scores_is_af(names[nitems]);
+            LOG_D("xmpp:   %s = %s", names[nitems], values[nitems]);
+            nitems++;
             p = ie + 1;
         }
-        gcs_scores_commit(n->scores);
-        LOG_D("xmpp: %d items, %d new best values", items, best);
-    } else if (!strcmp(id, "segachat_retrieve_req") && jid_node_is(to, GCSS_RETRIEVAL)) {
-        char req[2048], csv[GCSS_MAX_CSV + 24];
-        sbuf b;
+        if (af) {
+            /* ArenaFramework game: every report is answered */
+            char csv[256];
+            gcs_scores_af_submit(n->scores, gcid, c->xmpp_user, match, items, nitems, (long)time(NULL), csv,
+                                 sizeof(csv));
+            xmpp_retrieve_resp(n, c, to, ev, gcid, csv);
+        } else {
+            for (i = 0; i < nitems; i++) {
+                if (gcs_scores_submit(n->scores, gcid, c->xmpp_user, names[i], values[i], (long)time(NULL)) > 0) {
+                    best++;
+                }
+            }
+            gcs_scores_commit(n->scores);
+            LOG_D("xmpp: %d items, %d new best values", nitems, best);
+        }
+    } else if (!strcmp(id, "segachat_retrieve_req") && jid_service_is(to, GCSS_RETRIEVAL)) {
+        char req[2048], csv[GCSS_AF_MAX_CSV + 64];
         int rows;
         if (!c->xmpp_user[0]) {
             LOG_W("xmpp: leaderboard query before the login ignored");
@@ -1154,22 +1213,13 @@ static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size
         if (!xml_field(s, len, "request", req, sizeof(req))) {
             req[0] = 0;
         }
-        rows = gcs_scores_query(n->scores, gcid, req, csv, sizeof(csv));
-        LOG_I("xmpp: leaderboard query of '%s' (game class %s, %s): %d rows", c->xmpp_user, gcid, ev, rows);
-        memset(&b, 0, sizeof(b));
-        sb_str(&b, "<message from='retrieval@ngage-auth' to='");
-        sb_xml(&b, c->xmpp_user);
-        sb_str(&b, "@ngage-auth' id='segachat_retrieve_resp' event_type='");
-        sb_xml(&b, ev);
-        sb_str(&b, "' game_class_id='");
-        sb_xml(&b, gcid);
-        sb_str(&b, "'><retrieve><response>");
-        sb_xml(&b, csv);
-        sb_str(&b, "</response></retrieve></message>");
-        if (!b.oom && b.d) {
-            xmpp_send(n, c, b.d);
+        if (gcs_scores_is_af(req)) {
+            rows = gcs_scores_af_query(n->scores, gcid, ev, c->xmpp_user, req, csv, sizeof(csv));
+        } else {
+            rows = gcs_scores_query(n->scores, gcid, req, csv, sizeof(csv));
         }
-        free(b.d);
+        LOG_I("xmpp: leaderboard query of '%s' (game class %s, %s): %d rows", c->xmpp_user, gcid, ev, rows);
+        xmpp_retrieve_resp(n, c, to, ev, gcid, csv);
     } else {
         LOG_D("xmpp: message to '%s' (id '%s') ignored", to, id);
     }
@@ -1555,6 +1605,7 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     }
     gcs_snap_add_game(n->snap, gcs_rifts_game(n->rifts));
     gcs_snap_add_game(n->snap, gcs_pk_game(n->pk));
+    gcs_snap_add_game(n->snap, gcs_wwp_game());
     return n;
 }
 

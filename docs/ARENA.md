@@ -1,8 +1,9 @@
 # N-Gage Arena support (work in progress)
 
 Some N-Gage games, such as Pocket Kingdom: Own the World (UID 0x101fd3dd),
-Rifts: Promise of Power (game class 8053) and Ashen (game class 42318,
-online leaderboards), do not use GameComms for their online modes. They ship the N-Gage Arena client stack (Nokia's
+Rifts: Promise of Power (game class 8053), Ashen (game class 42318,
+online leaderboards) and Worms World Party (game class 1104), do not use
+GameComms for their online modes. They ship the N-Gage Arena client stack (Nokia's
 version of SEGA's SNAP middleware) in their own `E:\System\Libs` and went
 online over GPRS. PhantomLink replaces the three network clients of that
 stack with plug-ins that use the PhantomLink Bluetooth bridge. The server
@@ -50,6 +51,7 @@ and one N-Gage can have one account. The server keeps the accounts in
 | Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction) | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 | Ashen                         | Online leaderboards: best score of every level and of the whole game               | SegaChat login, score reports and top lists (gcs_scores.c)         | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Worms World Party             | Play Now: Freestyle and Ranked game rooms, games between 2–4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | ![Untested](https://img.shields.io/badge/Untested-grey) |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; its game
 server (below) is tested against simulated games only. The Rifts
@@ -198,7 +200,8 @@ phone after changing it. The file is on C:, so it works with retail
 cards. The PhantomLink app maps `arena.n-gage.com`,
 `im.prod.pk.nokia.sf.yav4.com`, `snap.prod.pk.nokia.sf.yav4.com` (Pocket
 Kingdom), `im01.rifts.bb.sf.yav4.com`, `bs01.rifts.bb.sf.yav4.com` (Rifts),
-`im01.ashen.torus.sf.yav4.com` (Ashen), `ngage-auth` and, not Arena, `builder.sulake.com` (Habbo Islands'
+`im01.ashen.torus.sf.yav4.com` (Ashen), `im01.worms.paragon5.sf.yav4.com`,
+`snap01.worms.paragon5.sf.yav4.com` (Worms World Party), `ngage-auth` and, not Arena, `builder.sulake.com` (Habbo Islands'
 Habbo Console, docs/HABBO.md) to 10.64.0.1 (Bluetooth) or to the server's public address
 (GPRS) and keeps all other lines (its own lines carry the tag
 `# PhantomLink Arena`). Because it is unverified whether the N-Gage
@@ -363,8 +366,10 @@ Requests (client → server):
 | 6 | 0xb000 | lobby id (or name [16] + id) | enter lobby |
 | 6 | 0xa000 | room id, password [16], word | enter game room |
 | 7 | 0xb000/0xa000 | - | leave lobby / room |
-| 8 | 0xa000 | attribute list | change room attributes |
-| 9, 10, 12, 13, 67 | | | attributes, user lists (not identified in detail) |
+| 8 | 0xa000 | attribute (four letters), value (4 bytes BE, text for NAME) | set an attribute of the user's room: the server keeps it (up to 16 per room) and tells the other members (op 8 below); STAT is the room status of the room lists, MAXI the room size |
+| 9 | 0xa000 | object id, attribute | read an attribute: op 9 {id, attribute, value}, then success |
+| 72 | 0xb000 | {value, count, 3 bytes}, count × {attribute, operator, value} | room search with criteria (ArenaFramework's SelectGameRooms, "Find Game"): open rooms of the user's lobby that are not full and match; the operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word); seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID) |
+| 10, 12, 13, 67 | | | user lists, user properties (not identified in detail) |
 | 11 | 0xb000 | lobby id | search game rooms |
 | 71 | 0xb000 | - | lobbies of the login's game class (Rifts sends it when the player creates a challenge) |
 | 15 | 0xa400 / 0x2000 | data | game data to the room, reliable / unreliable |
@@ -384,7 +389,9 @@ Answers and notifications (server → client):
 | 11 | header {parent, total, count} + count × room entry (name [16], id, users, max, status, lobby) | room search result |
 | 14 | header + count × {name [16], id, members, max} | lobby list |
 | 71 | header {game class, total, count} + count × {name [16], users, -, max, status, lobby id} | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it) |
-| 10 | header + count × {name [16], user id, property size} | user list |
+| 8 | room id, attribute, value | an attribute of the room changed (snapcomm.dll parser 0x39a0) |
+| 72 | like op 11 | result of the room search with criteria (parser 0x3bf0) |
+| 10 | header + count × {name [16], user id, property size, properties padded to 4 bytes} | user list |
 | 6 | {name [16], user id, property size} | a user entered the room |
 | 7 | user id | a user left the room |
 | 15 | data | game data (also what the game server sends; arrives as `GameDataReceived`) |
@@ -582,6 +589,116 @@ Tests: `tests/server/test_scores.c` decodes every answer the way the game
 does (same splitter, number reader, field counts and limits) and runs a
 SegaChat session through gcs_direct with the messages as sc_lib writes
 them.
+
+## Worms World Party
+
+Worms World Party (6R39, UID 0x101fd3f3) is a Mophun game: 6R39.APP
+starts `mophun.dll`, which runs `worms.mpn`. The game's online mode uses
+N-Gage Arena through ArenaFramework 2.01.066 (the version in `arena.amr`),
+whose Play Now screens do the lobby and room part; the server side is the
+generic SNAP and SegaChat code plus the registration in
+`server/src/gcs_wwp.c`. Tests: `tests/server/test_wwp.c`.
+
+### Findings
+
+- `arena.amr`: `JabberFQDN` im01.worms.paragon5.sf.yav4.com, `GameServerFQDN`
+  snap01.worms.paragon5.sf.yav4.com, `JabberServicesName` retrieval1104,
+  `JabberReportingName` reporter1104. The SegaChat requests go to these
+  nodes (`retrieval1104@ngage-auth`), not to `retrieval@`; the server
+  accepts both.
+- `game.rsc` (a Symbian resource file): resource 2 links the settings,
+  resource 3 holds key 0x2007 = **1104** (GameClassId; Pocket Kingdom has
+  1 there, matching its SegaChat presence), 0x2000 = 6, two links to the
+  settings of the two matchmaking modes (0x2019 and 0x201a), 0x2022 = 1,
+  0x2009 = 1. Resource 4 (Freestyle): 0x200e = 2 and 0x200d = 4 (minimum
+  and maximum players), the room fields Game name, Password, Game Mode
+  (Beginner .. Going Up!), Terrain (Random, 1..15), Worms per team (1..4),
+  Round time and Turn time. Resource 5 (Ranked): 2 players, Game name,
+  Ranked, Equal Skill. No lobby name: the lobby list comes from the
+  server, which offers one lobby per mode (`Freestyle`, `Ranked`).
+- `mophun.dll` gives the Mophun program 33 `vArena*` functions (table at
+  0x24c28, entries {function, argument count, name, 0xffff0000}). They call
+  the "ArenaGlue" object that ArenaFramework ordinal 154 creates: game data
+  to the room, private game data, game text, echo data, user property,
+  match id, player stats and skills, top lists, proximity lists, and the
+  fields of the retrieval answers (`vArenaGetNumRows`, `GetFieldValue`,
+  `GetFieldIntValue`, which arenabase serves from the parsed CSV).
+- `worms.mpn` is compressed (VMGP header flag 0x80 in byte 15: every
+  section is `u32 compressed size` + an "LZ" block, an LZSS bit stream;
+  `mophun.dll` 0x11838 and 0x11ac0). The data section unpacks; the code
+  section is also encrypted (key from the game's licence, `mophun.dll`
+  0x1bfec) and was not read. The data section names the report items:
+  `win_lose`, `draw`, `opponent_id`, `gametime`, `roundsplayed`,
+  `$matchmakingMode`, `checksum1`, `checksum2`, `medal`, `medal_val`, and
+  the modes `freestyle` and `ranked`. The game shows "Points Total: %d (%d)"
+  and "New Ranked Position: %d (%d)" after a ranked game.
+- No game server: the turns travel as game data between the members of
+  the room (SNAP ops 15 and 16).
+
+### SegaChat services (arenabase.dll)
+
+arenabase.dll builds the item lists (` <itemlist> <item name=".." value=".."/> ..`
+with `$version` and a numeric `queryid`) and parses every answer the
+same way (0x792c): the answer's `game_class_id` must be the game's class,
+line 1 is the status (anything but 0: line 2 is the error), line 2 the
+message, then lines of `|` separated fields (0x7774); all lines after
+the first must have the same number of fields. The event type picks the
+parser:
+
+| Request | To | Items | Answer the parser accepts |
+|---|---|---|---|
+| `submit` (stats) | reporter | the game's items, `$version`, `queryid` | one line of 4 fields; field 3 goes to the game |
+| `submit` (skills) | reporter | `$ps_skilltype` arena, `$ps_points` N, `$version`, `queryid` | the same |
+| `getmatchid` | retrieval | `format`, `$version`, `queryid` | one line of 6 fields, field 1 the match id |
+| `getplayer`, `topn`, `proximitylist` | retrieval | `board` (player_skills, highscores, hsfilter), `name`, `stat`, `offset`, `limit`, `below`, `periodicity`, `ordering`, `$matchmakingMode`, `format` csv | header + rows; header field 4 must be `playerskills`, `highscores` or `hsfilter`, header field 1 is read as a number |
+
+| Board | getplayer | topn | proximitylist |
+|---|---|---|---|
+| playerskills | header 7, rows 6 | header 6, rows 7 | header 6, rows 7 |
+| highscores | header 6, rows 4 | header 7, rows 4 | header 7, rows 4 |
+| hsfilter | header 6, rows 3 | header 7, rows 3 | header 6, rows 3 |
+
+Highscores top lists with a 7 field header and 4 field rows are the
+shape Ashen's own parser reads, too. What the fields mean is decided by
+the game's (encrypted) Mophun code; the server's choice follows Ashen's
+rows:
+
+- header `queryid|total|offset|rows|board|periodicity[|name or stat]`
+- playerskills rows `name|rank|points|wins|losses|draws[|games]`
+- highscores rows `name|rank|score|date`, hsfilter rows `name|rank|score`
+- getmatchid `queryid|id|0|1|getmatchid|periodicity`, submit `queryid|1|submit|0`
+
+Server rules (`gcs_scores.c`):
+
+- `$ps_points` is added to the player's total (the game computes the
+  points of a match; ArenaFramework passes them on unchanged), once per
+  match id and player. A player starts at 0 points; getplayer for a
+  player without ranked games answers rank 0.
+- `win_lose` / `draw` count won, lost and drawn games, once per match id
+  and player; `opponent_id`, `gametime`, `roundsplayed` and the checksums
+  are only logged.
+- Other numeric items are kept as best values (highscores, like Ashen).
+- Match ids count up from a start value derived from the clock and are
+  kept in the data file (`scores_data`), with the skill points (`K` lines)
+  next to the best values (`S` lines).
+- Ranks: most points first; equal points share a rank. proximitylist
+  centres the list on the player.
+
+### SNAP
+
+Play Now uses the SNAP lobby list of the game class (ops 71 and 14),
+lobby chat and users, creates rooms, sets the room's attributes (op 8:
+the game settings and the room status), searches rooms with criteria
+(op 72, "Find Game"), joins, and starts the game. The server keeps the
+room attributes, tells the members about changes, and filters op 72 by
+them (see the opcode tables above).
+
+Not verified (no hardware run yet): the whole flow. In particular which
+ops the Play Now screens send for ready states, chat and the game start
+(the server answers the unidentified ops 5, 12, 13, 37, 67, 70, 73..75
+with success and logs them), whether the room needs more than its
+attributes, and the meaning of the playerskills fields. The server log
+at level 3 shows every SNAP and SegaChat message for that.
 
 ## Pocket Kingdom: game server
 

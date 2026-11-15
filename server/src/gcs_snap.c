@@ -83,6 +83,14 @@ typedef struct
     gc_u32 game_class; /* of the game that asked for it first (0: none yet) */
 } lobby;
 
+/* a room attribute set with op 8 (ARNA, STAT, NAME, ...) */
+typedef struct
+{
+    gc_u32 name;
+    gc_u8 len;
+    gc_u8 v[16];
+} rattr;
+
 typedef struct
 {
     int used;
@@ -92,6 +100,8 @@ typedef struct
     gc_u32 max;
     gc_u32 status;
     gc_u32 game_class;
+    int n_attrs;
+    rattr attrs[GCSS_MAX_ATTRS];
 } room;
 
 struct gcs_snap
@@ -401,6 +411,36 @@ static room *room_by_id(gcs_snap *s, gc_u32 id)
     return NULL;
 }
 
+#define FOURCC(a, b, c, d) (((gc_u32)(a) << 24) | ((gc_u32)(b) << 16) | ((gc_u32)(c) << 8) | (gc_u32)(d))
+#define A_STAT             FOURCC('S', 'T', 'A', 'T')
+#define A_MAXI             FOURCC('M', 'A', 'X', 'I')
+#define A_USER             FOURCC('U', 'S', 'E', 'R')
+#define A_LOID             FOURCC('L', 'O', 'I', 'D')
+#define A_NAME             FOURCC('N', 'A', 'M', 'E')
+
+static rattr *room_attr(room *r, gc_u32 name, int create)
+{
+    int i;
+    for (i = 0; i < r->n_attrs; i++) {
+        if (r->attrs[i].name == name) {
+            return &r->attrs[i];
+        }
+    }
+    if (!create || r->n_attrs >= GCSS_MAX_ATTRS) {
+        return NULL;
+    }
+    memset(&r->attrs[r->n_attrs], 0, sizeof(rattr));
+    r->attrs[r->n_attrs].name = name;
+    return &r->attrs[r->n_attrs++];
+}
+
+/* numeric value of a room attribute (0 when not set) */
+static gc_u32 room_attr_u32(room *r, gc_u32 name)
+{
+    rattr *a = room_attr(r, name, 0);
+    return (a && a->len >= 4) ? be32(a->v) : 0;
+}
+
 static int room_members(gcs_snap *s, gc_u32 id)
 {
     int i, n = 0;
@@ -577,11 +617,43 @@ static void h_lobby_info(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, s
     result(s, c, be16(h), h[2], GCSS_OP_LOBBY_INFO, 1, (gc_u32)count);
 }
 
+/* Creates the lobbies a game asks for (comma separated list). */
+static void game_lobbies(gcs_snap *s, const gcs_snap_game *g)
+{
+    const char *p = g->lobby;
+    while (p && *p) {
+        char name[17];
+        size_t k = 0;
+        while (*p == ',' || *p == ' ') {
+            p++;
+        }
+        while (*p && *p != ',' && k + 1 < sizeof(name)) {
+            name[k++] = *p++;
+        }
+        while (*p && *p != ',') {
+            p++;
+        }
+        while (k && name[k - 1] == ' ') {
+            k--;
+        }
+        name[k] = 0;
+        if (k) {
+            lobby *l = lobby_by_name(s, name, 1);
+            if (l && !l->game_class) {
+                l->game_class = g->game_class;
+            }
+        }
+    }
+}
+
 static void h_lobbies(gcs_snap *s, sess *c, const gc_u8 *h)
 {
     gc_u8 p[12 + GCSS_MAX_LOBBIES * 28];
+    const gcs_snap_game *g = game_of(s, c->game_class);
     int i, k = 0;
-    (void)h;
+    if (g && g->lobby) {
+        game_lobbies(s, g);
+    }
     for (i = 0; i < GCSS_MAX_LOBBIES; i++) {
         lobby *l = &s->lobbies[i];
         if (l->used) {
@@ -611,10 +683,7 @@ static void h_game_lobbies(gcs_snap *s, sess *c, const gc_u8 *h)
     const gcs_snap_game *g = game_of(s, c->game_class);
     int i, k = 0;
     if (g && g->lobby) {
-        lobby *l = lobby_by_name(s, g->lobby, 1);
-        if (l && !l->game_class) {
-            l->game_class = c->game_class;
-        }
+        game_lobbies(s, g);
     }
     for (i = 0; i < GCSS_MAX_LOBBIES; i++) {
         lobby *l = &s->lobbies[i];
@@ -767,6 +836,203 @@ static void h_users(gcs_snap *s, sess *c, const gc_u8 *h)
     send_msg(s, c, F_REL | (fl & F_LOBBY), h[2], GCSS_OP_USERS, out, 12 + 24 * (size_t)k);
 }
 
+/* op 8 (0xa000): change one attribute of the room the user is in.
+ * snapcomm.dll builds {u32 attribute (four letters, BE), value}: four
+ * bytes (BE) for numbers, the raw text for NAME.  The other members get
+ * op 8 {room id, attribute, value} (parser 0x39a0 of snapcomm.dll; a NAME
+ * value stays text).  STAT is the room status of the room lists (the
+ * game server bit 1 stays set), MAXI the maximum number of users.  With
+ * the lobby flag there is no room to keep it for; the answer is success
+ * either way. */
+static void h_attr(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t n)
+{
+    gc_u16 fl = be16(h);
+    room *r = (fl & F_LOBBY) ? NULL : room_by_id(s, c->room);
+    char hx[3 * 20 + 4];
+    hex(hx, sizeof(hx), p, n);
+    if (r && n >= 4) {
+        gc_u32 name = be32(p);
+        size_t vlen = n - 4 > 16 ? 16 : n - 4;
+        rattr *a = room_attr(r, name, 1);
+        if (a) {
+            gc_u8 out[24];
+            int i;
+            a->len = (gc_u8)vlen;
+            memset(a->v, 0, sizeof(a->v));
+            memcpy(a->v, p + 4, vlen);
+            if (name == A_STAT && vlen >= 4) {
+                r->status = be32(a->v) | (r->status & 1u);
+            } else if (name == A_MAXI && vlen >= 4 && be32(a->v) > 0 && be32(a->v) <= 64) {
+                r->max = be32(a->v);
+            }
+            put32(out, r->id);
+            memcpy(out + 4, p, 4 + vlen);
+            for (i = 0; i < GCSS_MAX_SESSIONS; i++) {
+                sess *o = &s->s[i];
+                if (o != c && o->used && o->logged_in && o->room == r->id) {
+                    send_msg(s, o, F_REL, 0, GCSS_OP_ATTR, out, 8 + vlen);
+                }
+            }
+        }
+        LOG_I("user %08x: room %08x attribute %c%c%c%c = %s", c->uid, r->id, p[0], p[1], p[2], p[3], hx);
+    } else {
+        LOG_I("user %08x: attribute %s (flags %04x, not in a room) answered with success", c->uid, hx, fl);
+    }
+    result(s, c, fl, h[2], GCSS_OP_ATTR, 1, 0);
+}
+
+/* op 9 (0xa000): read an attribute, {u32 object id, u32 attribute}.
+ * Answered with op 9 {id, attribute, value} like the notification of
+ * op 8 (0 when the attribute was never set), then success. */
+static void h_get_attr(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t n)
+{
+    gc_u16 fl = be16(h);
+    gc_u32 id = n >= 8 ? be32(p) : c->room;
+    gc_u32 name = n >= 8 ? be32(p + 4) : (n >= 4 ? be32(p) : 0);
+    room *r = room_by_id(s, id);
+    gc_u8 out[24];
+    size_t vlen = 4;
+    memset(out, 0, sizeof(out));
+    put32(out, id);
+    put32(out + 4, name);
+    if (r) {
+        rattr *a = room_attr(r, name, 0);
+        if (a) {
+            vlen = a->len < 4 ? 4 : a->len;
+            memcpy(out + 8, a->v, a->len);
+        } else if (name == A_STAT) {
+            put32(out + 8, r->status);
+        } else if (name == A_MAXI) {
+            put32(out + 8, r->max);
+        } else if (name == A_USER) {
+            put32(out + 8, (gc_u32)room_members(s, r->id));
+        }
+    }
+    if (name) {
+        send_msg(s, c, (gc_u16)(F_REL | (fl & F_LOBBY)), h[2], GCSS_OP_ATTR2, out, 8 + vlen);
+    }
+    result(s, c, fl, h[2], GCSS_OP_ATTR2, 1, 0);
+}
+
+/* One search criterion of op 72 against a room.  Operators seen in
+ * ArenaFramework's SelectGameRooms: 0x21 STAT (value, mask: masked
+ * equal), 6 USER (room has fewer users than the value, 0x7fff = any), 1
+ * equal (ARNA..ARND, LOID).  The upper three bits give the value form:
+ * 1 = two words, 2 = text of 16 bytes, else one word. */
+static int criterion_ok(gcs_snap *s, room *r, gc_u32 name, int op, gc_u32 v, gc_u32 mask, const gc_u8 *text)
+{
+    gc_u32 have;
+    int cmp = op & 0x1f;
+    if ((op >> 5) == 2) {
+        rattr *a = room_attr(r, name, 0);
+        char want[17], got[17];
+        get_name(want, sizeof(want), text, 16);
+        if (name == A_NAME && !a) {
+            snprintf(got, sizeof(got), "%s", r->name);
+        } else {
+            get_name(got, sizeof(got), a ? a->v : (const gc_u8 *)"", a ? a->len : 0);
+        }
+        return !want[0] || ((cmp == 2) ? !ieq(want, got) : ieq(want, got));
+    }
+    if (name == A_STAT) {
+        have = r->status;
+    } else if (name == A_USER) {
+        have = (gc_u32)room_members(s, r->id);
+    } else if (name == A_MAXI) {
+        have = r->max;
+    } else if (name == A_LOID) {
+        have = r->lobby;
+    } else {
+        have = room_attr_u32(r, name);
+    }
+    if ((op >> 5) == 1) {
+        return (have & mask) == (v & mask);
+    }
+    switch (cmp) {
+    case 1:
+        return have == v;
+    case 2:
+        return have != v;
+    case 3:
+        return have > v;
+    case 4:
+        return have >= v;
+    case 5:
+        return have <= v;
+    case 6:
+        return have < v;
+    default:
+        return 1;
+    }
+}
+
+/* op 72 (0xb000): room search with criteria (snapcomm.dll 0x7fb4, used by
+ * ArenaFramework's SelectGameRooms and the Play Now "Find Game").
+ * Payload {u32 value, u8 count, 3 bytes}, then count criteria {u32
+ * attribute, u8 operator, value}.  The answer is a room list like op 11:
+ * {lobby, total, count} and 36 byte room entries (parser 0x3bf0), open
+ * rooms of the user's lobby (or of every lobby of the game class when
+ * he is in none) that are not full. */
+static void h_select_rooms(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t n)
+{
+    struct
+    {
+        gc_u32 name, v, mask;
+        int op;
+        gc_u8 text[16];
+    } cr[32];
+    gc_u8 out[12 + 20 * 36];
+    size_t pos = 8;
+    int nc = 0, want = n >= 5 ? p[4] : 0, i, k, total = 0, sent = 0;
+    while (nc < want && nc < 32 && pos + 5 <= n) {
+        int op = p[pos + 4];
+        int form = op >> 5;
+        size_t vl = form == 1 ? 8 : form == 2 ? 16
+                                              : 4;
+        if (pos + 5 + vl > n) {
+            break;
+        }
+        memset(&cr[nc], 0, sizeof(cr[nc]));
+        cr[nc].name = be32(p + pos);
+        cr[nc].op = op;
+        if (form == 2) {
+            memcpy(cr[nc].text, p + pos + 5, 16);
+        } else {
+            cr[nc].v = be32(p + pos + 5);
+            cr[nc].mask = form == 1 ? be32(p + pos + 9) : 0xffffffffu;
+        }
+        LOG_D("user %08x: room criterion %c%c%c%c op %02x value %08x mask %08x", c->uid, p[pos], p[pos + 1],
+              p[pos + 2], p[pos + 3], op, cr[nc].v, cr[nc].mask);
+        pos += 5 + vl;
+        nc++;
+    }
+    for (i = 0; i < GCSS_MAX_ROOMS; i++) {
+        room *r = &s->rooms[i];
+        int ok;
+        if (!r->used) {
+            continue;
+        }
+        if (c->lobby ? r->lobby != c->lobby : r->game_class != c->game_class) {
+            continue;
+        }
+        ok = !r->max || (gc_u32)room_members(s, r->id) < r->max;
+        for (k = 0; k < nc && ok; k++) {
+            ok = criterion_ok(s, r, cr[k].name, cr[k].op, cr[k].v, cr[k].mask, cr[k].text);
+        }
+        if (ok) {
+            total++;
+            if (sent < 20) {
+                room_entry(s, out + 12 + 36 * sent++, r);
+            }
+        }
+    }
+    put32(out, c->lobby);
+    put32(out + 4, (gc_u32)total);
+    put32(out + 8, (gc_u32)sent);
+    LOG_I("user %08x: room search with %d criteria in lobby %08x: %d", c->uid, nc, c->lobby, total);
+    send_msg(s, c, F_REL | (be16(h) & F_LOBBY), h[2], GCSS_OP_SELECT_ROOMS, out, 12 + 36 * (size_t)sent);
+}
+
 /* game data from a user to the other members of its room */
 static void h_data(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t n)
 {
@@ -875,15 +1141,21 @@ static void dispatch(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_
     case GCSS_OP_GAME_LOBBIES:
         h_game_lobbies(s, c, h);
         break;
-    case GCSS_OP_REMOVED:
     case GCSS_OP_ATTR:
+        h_attr(s, c, h, p, n);
+        break;
     case GCSS_OP_ATTR2:
+        h_get_attr(s, c, h, p, n);
+        break;
+    case GCSS_OP_SELECT_ROOMS:
+        h_select_rooms(s, c, h, p, n);
+        break;
+    case GCSS_OP_REMOVED:
     case 12:
     case 13:
     case 37:
     case 67:
     case 70:
-    case 72:
     case 73:
     case 74:
     case 75:

@@ -27,7 +27,7 @@ _LIT8(KHostsTag, " # PhantomLink Arena");
 /* the Arena back ends named in the games' arena.amr (read only on the
  * cartridge): Pocket Kingdom, then Rifts: Promise of Power; then, not
  * Arena, the Habbo Console locator of Habbo Islands (SULAKEUI.DLL, port
- * 8080; docs/HABBO.md) */
+ * 8080; docs/HABBO.md); Ashen; Worms World Party (SegaChat, SNAP) */
 static const char *const KArenaHosts[] = {
     "arena.n-gage.com",
     "im.prod.pk.nokia.sf.yav4.com",
@@ -37,10 +37,13 @@ static const char *const KArenaHosts[] = {
     "ngage-auth",
     "builder.sulake.com",
     "im01.ashen.torus.sf.yav4.com",
+    "im01.worms.paragon5.sf.yav4.com",
+    "snap01.worms.paragon5.sf.yav4.com",
 };
 const TInt KArenaHostCount = sizeof(KArenaHosts) / sizeof(KArenaHosts[0]);
 /* room for our own lines ("address name # PhantomLink Arena", about
- * 60 bytes each; 8 hosts need 484): TDes8::Append panics on overflow */
+ * 60 bytes each; 10 hosts need about 610): TDes8::Append panics on
+ * overflow */
 const TInt KHostsReserve = 1024;
 
 static void Report(TDes &aLog, const TDesC &aText, TInt aErr)
