@@ -22,6 +22,7 @@ static const gcs_snap_game wwp_game = {
     NULL,
     NULL,
     NULL,
+    NULL,
 };
 
 const gcs_snap_game *gcs_wwp_game(void)

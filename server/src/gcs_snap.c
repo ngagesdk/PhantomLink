@@ -100,6 +100,7 @@ typedef struct
     gc_u32 max;
     gc_u32 status;
     gc_u32 game_class;
+    int permanent; /* a game's fixed room: kept when empty */
     int n_attrs;
     rattr attrs[GCSS_MAX_ATTRS];
 } room;
@@ -493,7 +494,7 @@ static void room_leave(gcs_snap *s, sess *c)
     }
     LOG_I("user %08x '%s' left room %08x", c->uid, c->name, c->room);
     c->room = 0;
-    if (r && room_members(s, r->id) == 0) {
+    if (r && !r->permanent && room_members(s, r->id) == 0) {
         LOG_I("room %08x '%s' closed", r->id, r->name);
         memset(r, 0, sizeof(*r));
     }
@@ -617,33 +618,89 @@ static void h_lobby_info(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, s
     result(s, c, be16(h), h[2], GCSS_OP_LOBBY_INFO, 1, (gc_u32)count);
 }
 
-/* Creates the lobbies a game asks for (comma separated list). */
+/* next name of a comma separated list (at most 16 characters); returns
+ * the rest of the list, NULL at its end */
+static const char *next_name(const char *p, char name[17])
+{
+    size_t k = 0;
+    while (p && (*p == ',' || *p == ' ')) {
+        p++;
+    }
+    if (!p || !*p) {
+        name[0] = 0;
+        return NULL;
+    }
+    while (*p && *p != ',' && k < 16) {
+        name[k++] = *p++;
+    }
+    while (*p && *p != ',') {
+        p++;
+    }
+    while (k && name[k - 1] == ' ') {
+        k--;
+    }
+    name[k] = 0;
+    return p;
+}
+
+/* Creates the lobbies a game asks for (comma separated list), and its
+ * fixed rooms in the first of them. */
 static void game_lobbies(gcs_snap *s, const gcs_snap_game *g)
 {
     const char *p = g->lobby;
-    while (p && *p) {
-        char name[17];
-        size_t k = 0;
-        while (*p == ',' || *p == ' ') {
-            p++;
-        }
-        while (*p && *p != ',' && k + 1 < sizeof(name)) {
-            name[k++] = *p++;
-        }
-        while (*p && *p != ',') {
-            p++;
-        }
-        while (k && name[k - 1] == ' ') {
-            k--;
-        }
-        name[k] = 0;
-        if (k) {
+    char name[17];
+    lobby *first = NULL;
+    while ((p = next_name(p, name)) != NULL) {
+        if (name[0]) {
             lobby *l = lobby_by_name(s, name, 1);
             if (l && !l->game_class) {
                 l->game_class = g->game_class;
             }
+            if (!first) {
+                first = l;
+            }
         }
     }
+    p = g->rooms;
+    while (first && (p = next_name(p, name)) != NULL) {
+        int i, free_slot = -1, found = 0;
+        if (!name[0]) {
+            continue;
+        }
+        for (i = 0; i < GCSS_MAX_ROOMS; i++) {
+            room *r = &s->rooms[i];
+            if (r->used && r->lobby == first->id && ieq(r->name, name)) {
+                r->permanent = 1;
+                found = 1;
+                break;
+            }
+            if (!r->used && free_slot < 0) {
+                free_slot = i;
+            }
+        }
+        if (!found && free_slot >= 0) {
+            room *r = &s->rooms[free_slot];
+            memset(r, 0, sizeof(*r));
+            r->used = 1;
+            r->permanent = 1;
+            r->id = s->next_room++;
+            r->lobby = first->id;
+            r->game_class = g->game_class;
+            snprintf(r->name, sizeof(r->name), "%s", name);
+            r->max = GCSS_MAX_SESSIONS;
+            r->status = 0x00000001u; /* KK_GAME_SERVER_START */
+            LOG_I("room %08x '%s' in lobby %08x '%s' created (fixed room of %s)", r->id, r->name, first->id,
+                  first->name, g->name ? g->name : "a game");
+        }
+    }
+}
+
+/* the game of the lobby (or, outside lobbies, of the login) */
+static const gcs_snap_game *game_of_lobby(gcs_snap *s, gc_u32 lobby_id, gc_u32 fallback_class)
+{
+    lobby *l = lobby_by_id(s, lobby_id);
+    const gcs_snap_game *g = l && l->game_class ? game_of(s, l->game_class) : NULL;
+    return g ? g : game_of(s, fallback_class);
 }
 
 static void h_lobbies(gcs_snap *s, sess *c, const gc_u8 *h)
@@ -729,6 +786,12 @@ static void h_join(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t 
         room_leave(s, c);
         c->lobby = l->id;
         LOG_I("user %08x '%s' entered lobby %08x '%s'", c->uid, c->name, l->id, l->name);
+        {
+            const gcs_snap_game *g = game_of_lobby(s, l->id, c->game_class);
+            if (g && g->lobby) {
+                game_lobbies(s, g); /* its fixed rooms */
+            }
+        }
         result(s, c, fl, h[2], GCSS_OP_JOIN, 1, l->id);
     } else {
         room *r = room_by_id(s, id);
@@ -800,8 +863,12 @@ static void h_rooms(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t
     gc_u8 out[12 + 20 * 36];
     int i, k = 0, total = 0;
     gc_u32 lid = c->lobby;
+    const gcs_snap_game *g = game_of_lobby(s, lid, c->game_class);
     (void)p;
     (void)n;
+    if (g && g->lobby) {
+        game_lobbies(s, g);
+    }
     for (i = 0; i < GCSS_MAX_ROOMS; i++) {
         room *r = &s->rooms[i];
         if (r->used && r->lobby == lid) {

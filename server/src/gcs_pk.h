@@ -45,6 +45,10 @@ extern "C" {
  * hardware; the SNAP login is expected to carry the same value */
 #define GCS_PK_GAME_CLASS 1
 #define GCS_PK_LOBBY      "Scrimmage" /* LobbyToJoin in game.rsc */
+/* RoomToJoin in game.rsc (the Play Now screens go back to the mode
+ * selection if the lobby has no room of that name; the game never
+ * creates it), and the room the game enters for the Global Auction */
+#define GCS_PK_ROOMS "Scrimmage,Auction"
 
 typedef struct gcs_pk gcs_pk;
 

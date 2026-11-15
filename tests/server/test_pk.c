@@ -643,6 +643,8 @@ static struct
     gc_u32 okval[64];
     int nok;
     gc_u32 lobby;
+    gc_u8 rooms[12 + 20 * 36];
+    size_t nrooms;
 } N;
 
 static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc_u16 peer_port, const gc_u8 *d,
@@ -669,6 +671,10 @@ static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc
             memcpy(a + 12, d + pos + 8, 4);
             put32(a + 16, 0xBA476611u);
             gcs_snap_input(S, &N.key, SRV, GCSS_PORT, 5000, a, 20, 1000);
+        }
+        if (d[pos + 3] == GCSS_OP_ROOMS && len - 16 <= sizeof(N.rooms)) {
+            memcpy(N.rooms, d + pos + 16, len - 16);
+            N.nrooms = len - 16;
         }
         if (d[pos + 3] == GCSS_OP_LOBBY_INFO && len >= 36) {
             N.lobby = be32(d + pos + 32);
@@ -716,7 +722,7 @@ static void test_snap(void)
     gcs_snap_io io;
     gcs_pk *pk;
     gc_u8 p[132];
-    int i, found = 0;
+    int i, k, found = 0;
     memset(&io, 0, sizeof(io));
     memset(&N, 0, sizeof(N));
     io.send = snap_send;
@@ -749,14 +755,50 @@ static void test_snap(void)
     CHECK(N.lobby != 0);
     put32(p, N.lobby);
     snap_msg(0x9000, 2, GCSS_OP_JOIN, p, 4);
-    memset(p, 0, sizeof(p));
-    strcpy((char *)p, "Auction");
-    put32(p + 16, 1);
-    snap_msg(0x9000, 3, GCSS_OP_CREATE_ROOM, p, 44);
-    for (i = 0; i < N.nok; i++) {
-        found |= N.okops[i] == GCSS_OP_OK && N.okval[i] == GCSS_OP_CREATE_ROOM;
+
+    /* the Play Now screens look for the room "Scrimmage" (RoomToJoin)
+     * in the room list and go back to the mode selection without it; the
+     * game itself never creates it */
+    for (k = 0; k < 2; k++) {
+        gc_u32 scrim = 0;
+        N.nrooms = 0;
+        put32(p, N.lobby);
+        snap_msg(0x9000, (gc_u8)(4 + k), GCSS_OP_ROOMS, p, 4);
+        CHECK(N.nrooms >= 12);
+        if (N.nrooms >= 12) {
+            gc_u32 j, cnt = be32(N.rooms + 8);
+            int auction = 0;
+            CHECK_EQ(N.nrooms, 12 + 36 * cnt);
+            for (j = 0; j < cnt && 12 + 36 * (j + 1) <= N.nrooms; j++) {
+                const gc_u8 *e = N.rooms + 12 + 36 * j;
+                if (!strcmp((const char *)e, "Scrimmage")) {
+                    scrim = be32(e + 16);
+                    CHECK(be32(e + 24) > 2); /* room for many players */
+                    CHECK_EQ(be32(e + 32), N.lobby);
+                }
+                auction |= !strcmp((const char *)e, "Auction");
+            }
+            CHECK(scrim != 0);
+            CHECK(auction);
+        }
+        if (k == 0) {
+            /* enter it, leave it again: it stays */
+            put32(p, scrim);
+            N.nok = 0;
+            snap_msg(0x8000, 6, GCSS_OP_JOIN, p, 4);
+            found = 0;
+            for (i = 0; i < N.nok; i++) {
+                found |= N.okops[i] == GCSS_OP_OK && N.okval[i] == GCSS_OP_JOIN;
+            }
+            CHECK(found);
+            {
+                gcs_pk_stats st;
+                gcs_pk_get_stats(pk, &st);
+                CHECK_EQ(st.online, 1);
+            }
+            snap_msg(0x8000, 7, GCSS_OP_LEAVE, p, 4);
+        }
     }
-    CHECK(found);
 
     /* keep alive: 2 -> 130, through SendGameDataToServer */
     memset(p, 0, sizeof(p));
