@@ -87,7 +87,7 @@ PhantomLink app points the game to it.
 
 | Game          | Online feature                                   | Status |
 | ------------- | ------------------------------------------------ | :----: |
-| Habbo Islands | Habbo Console: friends, messages, friend requests | ![Untested](https://img.shields.io/badge/Untested-grey) |
+| Habbo Islands | Habbo Console: friends, messages, friend requests | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 
 Habbo Islands is tested against the server only, not yet on a real N-Gage;
 see [docs/HABBO.md](docs/HABBO.md).
