@@ -12,6 +12,7 @@
 #include "gcs_native.h"
 #include "gc_link.h"
 #include "gcs_accounts.h"
+#include "gcs_habbo.h"
 #include "gcs_rifts.h"
 #include "gcs_snap.h"
 
@@ -115,6 +116,7 @@ struct gcs_native
     gcs_accounts *acc;
     gcs_snap *snap;   /* SNAP game server (UDP) */
     gcs_rifts *rifts; /* Rifts: Promise of Power game server */
+    gcs_habbo *habbo; /* Habbo Console (Habbo Islands, port 8080) */
     char www[256];    /* device pages folder, "" none */
     gc_u32 now;
     gcs_native_stats st;
@@ -649,6 +651,35 @@ static void http_answer(gcs_native *n, conn *c, const char *body, const char *ct
     http_answer_n(n, c, body, body ? strlen(body) : 0, ctype, cookie);
 }
 
+/* Habbo Console (port 8080): the request goes to gcs_habbo */
+static void habbo_answer(gcs_native *n, conn *c, const char *path, const char *host, const char *sid,
+                         const char *body, size_t blen)
+{
+    gcs_habbo_reply hr;
+    sbuf r;
+    memset(&r, 0, sizeof(r));
+    if (gcs_habbo_http(n->habbo, c->key, path, host, sid, body, blen, (long)time(NULL), &hr) != 0) {
+        sb_str(&r, "HTTP/1.1 500 Internal Server Error\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    } else if (hr.status != 200) {
+        sb_str(&r, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+    } else {
+        sb_fmt(&r, "HTTP/1.1 200 OK\r\nContent-Type: %s\r\n", hr.ctype);
+        if (hr.cookie[0]) {
+            sb_fmt(&r, "Set-Cookie: JSESSIONID=%s; Path=/\r\n", hr.cookie);
+        }
+        sb_fmt(&r, "Content-Length: %u\r\nConnection: close\r\n\r\n", (unsigned)hr.len);
+        if (hr.len) {
+            sb_add(&r, (const char *)hr.body, hr.len);
+        }
+    }
+    free(hr.body);
+    if (!r.oom && r.d) {
+        tcp_write(n, c, r.d, r.len);
+    }
+    free(r.d);
+    tcp_close(n, c, GCN_CLOSE_FIN);
+}
+
 /* Returns 1 for a username, 0 when absent, and -1 for an invalid value. */
 static int profile_query_user(const char *path, char out[GCSA_MAX_NAME + 1])
 {
@@ -887,7 +918,7 @@ static int http_input(gcs_native *n, conn *c)
     const char *hend = find_n(c->buf, c->len, "\r\n\r\n");
     const char *p, *body;
     size_t hlen, clen = 0, blen;
-    char first[512], path[512], cookie[160], user[MAX_NAME], op[64], sid[100];
+    char first[512], path[512], cookie[160], host[128], user[MAX_NAME], op[64], sid[100];
     size_t k;
 
     if (!hend) {
@@ -898,11 +929,21 @@ static int http_input(gcs_native *n, conn *c)
     }
     hlen = (size_t)(hend - c->buf);
     cookie[0] = 0;
+    host[0] = 0;
     for (p = c->buf; p < hend;) {
         const char *eol = find_n(p, (size_t)(hend - p) + 2, "\r\n");
         size_t ll = eol ? (size_t)(eol - p) : (size_t)(hend - p);
         if (ieq_prefix(p, "content-length:")) {
             clen = (size_t)strtoul(p + 15, NULL, 10);
+        } else if (ieq_prefix(p, "host:")) {
+            const char *v = p + 5;
+            while (v < p + ll && *v == ' ') {
+                v++;
+            }
+            for (k = 0; v + k < p + ll && k + 1 < sizeof(host); k++) {
+                host[k] = v[k];
+            }
+            host[k] = 0;
         } else if (ieq_prefix(p, "cookie:")) {
             const char *j = find_n(p, ll, "JSESSIONID=");
             if (j) {
@@ -942,6 +983,10 @@ static int http_input(gcs_native *n, conn *c)
     }
     LOG_I("http: %s", first);
 
+    if (c->port == GCSH_PORT) {
+        habbo_answer(n, c, path, host, cookie, body, blen);
+        return 1;
+    }
     if (strstr(path, "/services/Community")) {
         sbuf b;
         const char *o = find_n(body, blen, "<ns1:");
@@ -1196,7 +1241,7 @@ static void tcp_open(gcs_native *n, void *key, const gcn_msg *m)
     }
     for (i = 0; i < GCSN_MAX_CONNS && n->conns[i].used; i++) {
     }
-    if (i == GCSN_MAX_CONNS || (m->port != 80 && m->port != 5222)) {
+    if (i == GCSN_MAX_CONNS || (m->port != 80 && m->port != 5222 && m->port != GCSH_PORT)) {
         LOG_W("tcp %u.%u.%u.%u:%u refused", m->addr[0], m->addr[1], m->addr[2], m->addr[3], m->port);
         memset(&r, 0, sizeof(r));
         r.type = GCN_MT_TCP_CLOSE;
@@ -1211,7 +1256,7 @@ static void tcp_open(gcs_native *n, void *key, const gcn_msg *m)
     c->key = key;
     c->id = m->id;
     c->port = m->port;
-    c->kind = m->port == 80 ? K_HTTP : K_XMPP;
+    c->kind = m->port == 5222 ? K_XMPP : K_HTTP;
     LOG_D("tcp %04x open to port %u", m->id, m->port);
 }
 
@@ -1355,6 +1400,7 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
 {
     int i;
     gcs_snap_peer_gone(n->snap, key);
+    gcs_habbo_peer_gone(n->habbo, key);
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         if (n->conns[i].used && n->conns[i].key == key) {
             conn_free(&n->conns[i]);
@@ -1367,7 +1413,8 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
     }
 }
 
-gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file)
+gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file,
+                              const char *habbo_file)
 {
     gcs_native *n = (gcs_native *)calloc(1, sizeof(*n));
     gcs_snap_io sio;
@@ -1383,7 +1430,9 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     sio.auth = snap_auth;
     n->snap = gcs_snap_create(&sio, n);
     n->rifts = gcs_rifts_create(rifts_file, snap_log, n);
-    if (!n->acc || !n->snap || !n->rifts) {
+    n->habbo = n->acc ? gcs_habbo_create(n->acc, habbo_file, acc_log, n) : NULL;
+    if (!n->acc || !n->snap || !n->rifts || !n->habbo) {
+        gcs_habbo_destroy(n->habbo);
         gcs_accounts_destroy(n->acc);
         gcs_snap_destroy(n->snap);
         gcs_rifts_destroy(n->rifts);
@@ -1405,6 +1454,7 @@ void gcs_native_destroy(gcs_native *n)
     }
     gcs_snap_destroy(n->snap);
     gcs_rifts_destroy(n->rifts);
+    gcs_habbo_destroy(n->habbo);
     gcs_accounts_destroy(n->acc);
     free(n);
 }
@@ -1412,6 +1462,11 @@ void gcs_native_destroy(gcs_native *n)
 struct gcs_snap *gcs_native_snap(gcs_native *n)
 {
     return n ? n->snap : NULL;
+}
+
+struct gcs_habbo *gcs_native_habbo(gcs_native *n)
+{
+    return n ? n->habbo : NULL;
 }
 
 struct gcs_rifts *gcs_native_rifts(gcs_native *n)

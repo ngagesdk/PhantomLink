@@ -30,7 +30,7 @@ target_include_directories(gc_protocol PUBLIC ${ROOT}/protocol/include)
 
 add_library(gc_server_core STATIC ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
     ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
-    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c)
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c)
 target_include_directories(gc_server_core PUBLIC ${ROOT}/server/src)
 target_link_libraries(gc_server_core PUBLIC gc_protocol)
 
@@ -57,6 +57,10 @@ add_executable(test_direct server/test_direct.c)
 target_link_libraries(test_direct gc_server_core)
 target_include_directories(test_direct PRIVATE ${ROOT}/protocol/tests)
 add_test(NAME server_direct COMMAND test_direct)
+add_executable(test_habbo server/test_habbo.c)
+target_link_libraries(test_habbo gc_server_core)
+target_include_directories(test_habbo PRIVATE ${ROOT}/protocol/tests)
+add_test(NAME server_habbo COMMAND test_habbo)
 
 add_library(gc_bridge_core STATIC ${ROOT}/firmware/src/bridge_core.c)
 target_include_directories(gc_bridge_core PUBLIC ${ROOT}/firmware/src)
@@ -107,7 +111,7 @@ add_executable(test_ppp_e2e_small ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmw
     ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
     ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
     ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
-    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c)
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c)
 target_include_directories(test_ppp_e2e_small PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
     ${ROOT}/firmware/src ${ROOT}/server/src)
 target_compile_definitions(test_ppp_e2e_small PRIVATE GC_TCP_TXBUF=512 GC_TCP_CONNS=4)
@@ -119,7 +123,7 @@ add_executable(test_ppp_e2e_esp32 ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmw
     ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
     ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
     ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
-    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c)
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c)
 target_include_directories(test_ppp_e2e_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
     ${ROOT}/firmware/src ${ROOT}/server/src)
 target_compile_definitions(test_ppp_e2e_esp32 PRIVATE GC_TCP_TXBUF=1536 GC_TCP_CONNS=4 GC_PPP_MRU=1100

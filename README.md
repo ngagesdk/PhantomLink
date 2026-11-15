@@ -17,7 +17,8 @@ connects you with other players of the same game. The bridge can be an
 Android phone, a Linux PC or Raspberry Pi, a Windows PC or an ESP32 board.
 
 PhantomLink also brings back **N-Gage Arena**, Nokia's online service for
-the N-Gage, which was shut down in 2010.
+the N-Gage, which was shut down in 2010, and the online features of other
+games that had their own servers.
 
 ## Features
 
@@ -26,6 +27,7 @@ the N-Gage, which was shut down in 2010.
 - Up to four players per game, just like the original.
 - An N-Gage app that installs everything a game needs with a few clicks.
 - N-Gage Arena: accounts, chat login and game services for selected games.
+- Other online services, such as the Habbo Console of Habbo Islands.
 
 ## Compatibility
 
@@ -76,6 +78,20 @@ standard GameComms library, so PhantomLink cannot support them.
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage.
 
+### Other online games
+
+These games had their own online service instead of N-Gage Arena.
+PhantomLink's server provides it with the same accounts as the Arena
+games, and the same **Arena over BT** / **Arena over GPRS** setup in the
+PhantomLink app points the game to it.
+
+| Game          | Online feature                                   | Status |
+| ------------- | ------------------------------------------------ | :----: |
+| Habbo Islands | Habbo Console: friends, messages, friend requests | ![Untested](https://img.shields.io/badge/Untested-grey) |
+
+Habbo Islands is tested against the server only, not yet on a real N-Gage;
+see [docs/HABBO.md](docs/HABBO.md).
+
 ### Bridges
 
 | Bridge                     | Status                                                               |
@@ -123,6 +139,7 @@ For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 - [docs/BUILD.md](docs/BUILD.md) - building, installing and configuring every part
 - [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) - games, DLL variants, checksums, known problems
 - [docs/ARENA.md](docs/ARENA.md) - N-Gage Arena setup, accounts and protocols
+- [docs/HABBO.md](docs/HABBO.md) - Habbo Islands' Habbo Console
 - [docs/DESIGN.md](docs/DESIGN.md) - architecture and implementation status
 - [docs/PROTOCOL.md](docs/PROTOCOL.md) - wire protocol
 - [docs/REVERSE_ENGINEERING.md](docs/REVERSE_ENGINEERING.md) - analysis of the original DLLs

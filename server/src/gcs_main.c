@@ -766,6 +766,7 @@ typedef struct
     int direct_http_port; /* 0: off */
     int direct_xmpp_port;
     int direct_snap_port;
+    int direct_habbo_port; /* Habbo Islands' Habbo Console */
 } app_cfg;
 
 static void trim(char *s)
@@ -843,6 +844,9 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "rifts_data")) {
         return set_str(a->core.rifts_data, sizeof(a->core.rifts_data), val) ? 1 : -1;
     }
+    if (!strcmp(key, "habbo_data")) {
+        return set_str(a->core.habbo_data, sizeof(a->core.habbo_data), val) ? 1 : -1;
+    }
     if (!strcmp(key, "direct_bind")) {
         return set_str(a->direct_bind, sizeof(a->direct_bind), val) ? 1 : -1;
     }
@@ -870,6 +874,7 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     NUM("direct_http_port", 0, 65535, a->direct_http_port)
     NUM("direct_xmpp_port", 0, 65535, a->direct_xmpp_port)
     NUM("direct_snap_port", 0, 65535, a->direct_snap_port)
+    NUM("direct_habbo_port", 0, 65535, a->direct_habbo_port)
     NUM("direct_idle_ms", 10000, 3600000L, g_direct_idle_ms)
 #undef NUM
     return 0;
@@ -935,6 +940,7 @@ static void usage(const char *argv0)
            "  --board_file=PATH    persistent message board file\n"
            "  --arena_accounts=PATH Arena accounts, shared by all Arena games (empty: not kept)\n"
            "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
+           "  --habbo_data=PATH    Habbo Islands: Habbo Console friends and messages (empty: not kept)\n"
            "  --www_root=DIR       Arena device pages: news, support, lists (empty: placeholders)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
@@ -952,6 +958,7 @@ static void usage(const char *argv0)
            "  --direct_http_port=N --direct_xmpp_port=N --direct_snap_port=N\n"
            "                       listening ports for the game's ports 80, 5222 and UDP 9090\n"
            "                       (defaults 80, 5222, 9090; 0 = off)\n"
+           "  --direct_habbo_port=N listening port for Habbo Islands' port 8080 (default 8080; 0 = off)\n"
            "  --direct_idle_ms=N   close silent direct TCP connections (default 120000)\n",
            GCS_VERSION, argv0, GCS_DEFAULT_PORT);
 }
@@ -961,7 +968,7 @@ int main(int argc, char *argv[])
     app_cfg a;
     gcs_io io;
     sock_t lfd, ufd = SOCK_INVALID;
-    sock_t dhttp = SOCK_INVALID, dxmpp = SOCK_INVALID;
+    sock_t dhttp = SOCK_INVALID, dxmpp = SOCK_INVALID, dhabbo = SOCK_INVALID;
     int i;
     gc_u32 last_status;
 #ifdef _WIN32
@@ -978,6 +985,7 @@ int main(int argc, char *argv[])
     a.direct_http_port = GCSD_HTTP;
     a.direct_xmpp_port = GCSD_XMPP;
     a.direct_snap_port = GCSD_SNAP;
+    a.direct_habbo_port = GCSD_HABBO;
     gcs_default_config(&a.core);
 
     for (i = 1; i < argc; i++) {
@@ -1089,14 +1097,17 @@ int main(int argc, char *argv[])
         if (a.direct_snap_port) {
             g_dudp = open_listener(a.direct_bind, a.direct_snap_port, SOCK_DGRAM);
         }
+        if (a.direct_habbo_port) {
+            dhabbo = open_listener(a.direct_bind, a.direct_habbo_port, SOCK_STREAM);
+        }
         if ((a.direct_http_port && dhttp == SOCK_INVALID) || (a.direct_xmpp_port && dxmpp == SOCK_INVALID) ||
-            (a.direct_snap_port && g_dudp == SOCK_INVALID)) {
-            logmsg(0, "cannot listen for direct Arena clients on %s (ports %d, %d, UDP %d)", a.direct_bind,
-                   a.direct_http_port, a.direct_xmpp_port, a.direct_snap_port);
+            (a.direct_snap_port && g_dudp == SOCK_INVALID) || (a.direct_habbo_port && dhabbo == SOCK_INVALID)) {
+            logmsg(0, "cannot listen for direct clients on %s (ports %d, %d, UDP %d, Habbo %d)", a.direct_bind,
+                   a.direct_http_port, a.direct_xmpp_port, a.direct_snap_port, a.direct_habbo_port);
             return 1;
         }
-        logmsg(2, "direct Arena clients on %s: HTTP %d, Jabber %d, SNAP UDP %d", a.direct_bind, a.direct_http_port,
-               a.direct_xmpp_port, a.direct_snap_port);
+        logmsg(2, "direct clients on %s: HTTP %d, Jabber %d, SNAP UDP %d, Habbo Console %d", a.direct_bind,
+               a.direct_http_port, a.direct_xmpp_port, a.direct_snap_port, a.direct_habbo_port);
     }
 #ifndef _WIN32
     {
@@ -1119,9 +1130,9 @@ int main(int argc, char *argv[])
     last_status = now_ms();
 
     while (!g_stop) {
-        static struct pollfd pfd[MAX_CONNS + GCSD_MAX_CONNS + 5];
-        static net_conn *map[MAX_CONNS + GCSD_MAX_CONNS + 5];
-        static direct_conn *dmap[MAX_CONNS + GCSD_MAX_CONNS + 5];
+        static struct pollfd pfd[MAX_CONNS + GCSD_MAX_CONNS + 6];
+        static net_conn *map[MAX_CONNS + GCSD_MAX_CONNS + 6];
+        static direct_conn *dmap[MAX_CONNS + GCSD_MAX_CONNS + 6];
         int n = 0, r;
         gc_u32 now;
 
@@ -1143,6 +1154,12 @@ int main(int argc, char *argv[])
         }
         if (dxmpp != SOCK_INVALID) {
             pfd[n].fd = dxmpp;
+            pfd[n].events = POLLIN;
+            dmap[n] = NULL;
+            map[n++] = NULL;
+        }
+        if (dhabbo != SOCK_INVALID) {
+            pfd[n].fd = dhabbo;
             pfd[n].events = POLLIN;
             dmap[n] = NULL;
             map[n++] = NULL;
@@ -1197,6 +1214,10 @@ int main(int argc, char *argv[])
                 }
                 if (pfd[i].fd == dxmpp) {
                     direct_accept(dxmpp, GCSD_XMPP, now);
+                    continue;
+                }
+                if (pfd[i].fd == dhabbo) {
+                    direct_accept(dhabbo, GCSD_HABBO, now);
                     continue;
                 }
                 if (pfd[i].fd == g_dudp) {
@@ -1274,6 +1295,9 @@ int main(int argc, char *argv[])
     }
     if (dxmpp != SOCK_INVALID) {
         sock_close(dxmpp);
+    }
+    if (dhabbo != SOCK_INVALID) {
+        sock_close(dhabbo);
     }
     if (g_dudp != SOCK_INVALID) {
         sock_close(g_dudp);

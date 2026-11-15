@@ -189,13 +189,15 @@ line. Symbian's FAQ-1282 (written for 6.1 to 8.1) says to restart the
 phone after changing it. The file is on C:, so it works with retail
 cards. The PhantomLink app maps `arena.n-gage.com`,
 `im.prod.pk.nokia.sf.yav4.com`, `snap.prod.pk.nokia.sf.yav4.com` (Pocket
-Kingdom), `im01.rifts.bb.sf.yav4.com`, `bs01.rifts.bb.sf.yav4.com` (Rifts)
-and `ngage-auth` to 10.64.0.1 (Bluetooth) or to the server's public address
+Kingdom), `im01.rifts.bb.sf.yav4.com`, `bs01.rifts.bb.sf.yav4.com` (Rifts),
+`ngage-auth` and, not Arena, `builder.sulake.com` (Habbo Islands'
+Habbo Console, docs/HABBO.md) to 10.64.0.1 (Bluetooth) or to the server's public address
 (GPRS) and keeps all other lines (its own lines carry the tag
 `# PhantomLink Arena`). Because it is unverified whether the N-Gage
 resolver uses the file for these names, the bridge also offers its own
-DNS server through IPCP and answers it. Either path is enough on its own
-over Bluetooth; over GPRS the hosts file is the only one (see below).
+DNS server through IPCP and answers it for the Arena names. Either path
+is enough on its own over Bluetooth; over GPRS, and for
+`builder.sulake.com`, the hosts file is the only one (see below).
 
 ## Retail games: Arena over GPRS (direct, no bridge)
 
@@ -224,7 +226,7 @@ Steps:
    IPv4 address (or a router that forwards TCP 80, TCP 5222 and UDP 9090
    to it). The game always uses these three ports; `direct_http_port`,
    `direct_xmpp_port` and `direct_snap_port` only change where the server
-   listens, for a port forward such as 80 → 8080 (ports below 1024 need
+   listens, for a port forward such as 80 → 8000 (ports below 1024 need
    privileges, see `server/deploy/gamecommsd.service`). `direct_bind`
    (default `0.0.0.0`) limits it to one interface. These listeners speak
    only the Arena protocols in plain text, like the original Arena; the

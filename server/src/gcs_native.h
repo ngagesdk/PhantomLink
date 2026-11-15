@@ -17,7 +17,9 @@
  *     in,
  *   - UDP 9090: the SNAP lobby and game room service (gcs_snap.h) with
  *     the game servers behind it (Rifts: Promise of Power, gcs_rifts.h);
- *     other datagrams are logged.
+ *     other datagrams are logged,
+ *   - TCP 8080: not Arena, the Habbo Console of Habbo Islands
+ *     (gcs_habbo.h), with the same accounts.
  *
  *  It replaces tools/arena/arena_native.py.  Transport independent like
  *  gcs_core and gcs_arena: the core passes GCN messages in and sends the
@@ -52,8 +54,10 @@ typedef struct
 
 /** accounts_file: where the shared Arena accounts and their profile data
  *  are kept (gcs_accounts.h); rifts_file: the Rifts game server's data
- *  (gcs_rifts.h).  NULL or "": memory only. */
-gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file);
+ *  (gcs_rifts.h); habbo_file: Habbo Console friends and messages
+ *  (gcs_habbo.h).  NULL or "": memory only. */
+gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file,
+                              const char *habbo_file);
 void gcs_native_destroy(gcs_native *n);
 /** Folder of the Arena device pages (news, support, lists): a request for
  *  /n-gage/... is answered with DIR/<game class>/n-gage/... when it exists
@@ -83,6 +87,8 @@ struct gcs_accounts *gcs_native_accounts(gcs_native *n);
 /** The SNAP game server (gcs_snap.h) and the Rifts game server (gcs_rifts.h). */
 struct gcs_snap *gcs_native_snap(gcs_native *n);
 struct gcs_rifts *gcs_native_rifts(gcs_native *n);
+/** The Habbo Console back end (gcs_habbo.h). */
+struct gcs_habbo *gcs_native_habbo(gcs_native *n);
 
 #ifdef __cplusplus
 }
