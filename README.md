@@ -72,17 +72,16 @@ standard GameComms library, so PhantomLink cannot support them.
 | Game                          | Status |
 | ----------------------------- | :----: |
 | Pocket Kingdom: Own the World | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
-| Rifts: Promise of Power       | ![Untested](https://img.shields.io/badge/Untested-grey) |
+| Rifts: Promise of Power       | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
 
-Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage. Rifts
-is only tested against simulated games so far.
+Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage.
 
 ### Bridges
 
 | Bridge                     | Status                                                               |
 | -------------------------- | -------------------------------------------------------------------- |
-| Android phone (Android 8+) | Tested with simulated N-Gages; real N-Gage test pending              |
-| Linux PC / Raspberry Pi    | Tested with simulated N-Gages; real N-Gage test pending              |
+| Android phone (Android 8+) | Tested with simulated N-Gages                                        |
+| Linux PC / Raspberry Pi    | Tested with simulated N-Gages                                        |
 | ESP32 board                | Supported (one ESP32 per N-Gage)                                     |
 | Windows PC                 | Limited: may not work, depending on the Bluetooth adapter            |
 
