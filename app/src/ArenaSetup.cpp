@@ -36,8 +36,12 @@ static const char *const KArenaHosts[] = {
     "bs01.rifts.bb.sf.yav4.com",
     "ngage-auth",
     "builder.sulake.com",
+    "im01.ashen.torus.sf.yav4.com",
 };
 const TInt KArenaHostCount = sizeof(KArenaHosts) / sizeof(KArenaHosts[0]);
+/* room for our own lines ("address name # PhantomLink Arena", about
+ * 60 bytes each; 8 hosts need 484): TDes8::Append panics on overflow */
+const TInt KHostsReserve = 1024;
 
 static void Report(TDes &aLog, const TDesC &aText, TInt aErr)
 {
@@ -236,7 +240,7 @@ static void ReadForeignHostsL(RFs &aFs, HBufC8 *&aOut)
     TInt size = 0;
     aOut = NULL;
     if (f.Open(aFs, KHostsFile, EFileRead) != KErrNone) {
-        aOut = HBufC8::NewL(512);
+        aOut = HBufC8::NewL(KHostsReserve);
         return;
     }
     CleanupClosePushL(f);
@@ -244,7 +248,7 @@ static void ReadForeignHostsL(RFs &aFs, HBufC8 *&aOut)
     HBufC8 *in = HBufC8::NewLC(size);
     TPtr8 ip = in->Des();
     User::LeaveIfError(f.Read(ip));
-    aOut = HBufC8::NewL(size + 512);
+    aOut = HBufC8::NewL(size + KHostsReserve);
     TPtr8 out = aOut->Des();
     TPtrC8 rest(ip);
     while (rest.Length()) {

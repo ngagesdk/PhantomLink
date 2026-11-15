@@ -75,8 +75,11 @@ standard GameComms library, so PhantomLink cannot support them.
 | ----------------------------- | ----------------------------------------------------------- | :----: |
 | Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"               | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
+| Ashen                         | Online leaderboards for every level and the whole game      | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage.
+Ashen's leaderboards are tested against the server only, not yet on a
+real N-Gage.
 
 ### Other online games
 

@@ -1,8 +1,8 @@
 # N-Gage Arena support (work in progress)
 
-Some N-Gage games, such as Pocket Kingdom: Own the World (UID 0x101fd3dd) and
-Rifts: Promise of Power (game class 8053), do not use GameComms for their
-online modes. They ship the N-Gage Arena client stack (Nokia's
+Some N-Gage games, such as Pocket Kingdom: Own the World (UID 0x101fd3dd),
+Rifts: Promise of Power (game class 8053) and Ashen (game class 42318,
+online leaderboards), do not use GameComms for their online modes. They ship the N-Gage Arena client stack (Nokia's
 version of SEGA's SNAP middleware) in their own `E:\System\Libs` and went
 online over GPRS. PhantomLink replaces the three network clients of that
 stack with plug-ins that use the PhantomLink Bluetooth bridge. The server
@@ -34,8 +34,8 @@ run, directly:
    It answers the Arena host names with its own address and passes the
    game's connections and datagrams to the server.
 3. The server answers in the Arena's own protocols: the Community web service
-   (SOAP), SegaChat (Jabber), SNAP (lobbies, game rooms) and the game servers
-   of the individual games.
+   (SOAP), SegaChat (Jabber, including its score service for leaderboards),
+   SNAP (lobbies, game rooms) and the game servers of the individual games.
 
 One Arena account works for all games. The first login with a new user name
 creates the account and binds the user name, the password and the N-Gage
@@ -49,11 +49,14 @@ and one N-Gage can have one account. The server keeps the accounts in
 | ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ | :------------------------------------------------------------------: |
 | Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login; game server open | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Ashen                         | Online leaderboards: best score of every level and of the whole game               | SegaChat login, score reports and top lists (gcs_scores.c)         | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage. The Rifts
 game server is tested against simulated games, but has not run with a real N-Gage
 yet. Rifts' Bluetooth multiplayer works with the GameComms replacement
-(see COMPATIBILITY.md), independently of Arena.
+(see COMPATIBILITY.md), independently of Arena. Ashen's leaderboards are
+tested against its decoder rebuilt from the game, not yet on a real
+N-Gage; its Bluetooth multiplayer works as well.
 
 ## Retail games: PPP over Bluetooth (no DLLs replaced)
 
@@ -160,8 +163,12 @@ All Arena games and back ends use one account store
 - Later logins need the same password and the same N-Gage. One N-Gage can
   own only one account. A refused login answers `false`.
 - SegaChat logins send the SHA-1 of the password (40 hex digits, seen on
-  hardware); they are checked against the same account and never create
-  one. A wrong password gets `<error code='401'>`.
+  hardware; the plain password is accepted too); they are checked against
+  the same account. A wrong password gets `<error code='401'>`. Games
+  that log in to SegaChat only, without a Community login (Ashen), create
+  the account with their first login, like the Habbo Console: without an
+  IMEI, so the account is not bound to an N-Gage until a Community login
+  of another game binds it.
 - A SNAP login is accepted when the account exists and the same N-Gage
   (bridge peer) has logged in to the Community service with that name;
   the SNAP login itself carries no password the server could check.
@@ -190,7 +197,7 @@ phone after changing it. The file is on C:, so it works with retail
 cards. The PhantomLink app maps `arena.n-gage.com`,
 `im.prod.pk.nokia.sf.yav4.com`, `snap.prod.pk.nokia.sf.yav4.com` (Pocket
 Kingdom), `im01.rifts.bb.sf.yav4.com`, `bs01.rifts.bb.sf.yav4.com` (Rifts),
-`ngage-auth` and, not Arena, `builder.sulake.com` (Habbo Islands'
+`im01.ashen.torus.sf.yav4.com` (Ashen), `ngage-auth` and, not Arena, `builder.sulake.com` (Habbo Islands'
 Habbo Console, docs/HABBO.md) to 10.64.0.1 (Bluetooth) or to the server's public address
 (GPRS) and keeps all other lines (its own lines carry the tag
 `# PhantomLink Arena`). Because it is unverified whether the N-Gage
@@ -284,6 +291,7 @@ sockets).
 | Retail: shared accounts | `server/src/gcs_accounts.c` | done, tested |
 | Retail: SNAP lobby/room service | `server/src/gcs_snap.c` | written from the client DLLs, tested against simulated games, **not yet on hardware** |
 | Retail: Rifts game server | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c` | written, tested against simulated games, **not yet on hardware** |
+| Retail: SegaChat score service (Ashen) | `server/src/gcs_scores.c` | written from sc_lib.dll and the game, tested against the game's decoder, **not yet on hardware** |
 
 The DLLs build only with `-DGC_BUILD_ARENA=ON` (off by default until the
 build has been verified with the N-Gage toolchain). Copy `plarena.dll`,
@@ -476,6 +484,104 @@ Battle states: 0 waiting for players, 1 challenge deleted, 2 in progress,
 (host: challenge deleted, other players: withdrawn, running game: marked
 as dropped).
 
+## Ashen: online leaderboards
+
+Ashen (6R21.APP, UID 0x101fd3e9) ships an older, smaller Arena stack than
+Pocket Kingdom and Rifts: `arenafoundation.dll` (no ArenaFramework, no
+arenabase, no HTTP DLL), `sc_lib.dll`, `scxmlparser.dll`, `snapcomm.dll`
+and `sustandard.dll`. Its only Arena feature is a set of online
+leaderboards, and it uses neither SNAP nor the Community web service for
+them: everything goes through SegaChat. The server side is
+`server/src/gcs_scores.c` (generic: any game that reports scores this way
+gets leaderboards keyed by its game class id).
+
+### Flow
+
+1. The game opens a data connection (arenafoundation, RGenericAgent; no
+   access point name is passed, so the phone asks or uses its default,
+   e.g. `PhantomLink`).
+2. It resolves `im01.ashen.torus.sf.yav4.com` and sends one UDP datagram
+   `WAKE UP NETWORK!!! WAKE UP!!` to its port 40000 (nothing answers it;
+   the server logs it).
+3. SegaChat on TCP 5222: stream to `ngage-auth`, `jabber:iq:auth` with the
+   user name and password typed into the game. Game class id: `42318`.
+4. After a game, a score report; on the leaderboard screen, one query per
+   board. The game shows at most 7 rows: `rank. name score` (score with 7
+   digits).
+
+### Messages (sc_lib.dll)
+
+sc_lib builds both with jabberd's `jutil_msgnew` (no type attribute) and
+puts the request kind into the id:
+
+```
+<message to='reporter@ngage-auth' id='segachat_send_event' event_type='submit'
+         game_class_id='42318' match_id='' snap_name='USER' client_time='SECONDS'>
+  <item name='level_1'><value>N</value></item> ... level_8, game_total
+</message>
+
+<message to='retrieval@ngage-auth' id='segachat_retrieve_req' event_type='topn'
+         game_class_id='42318' snap_name='USER'>
+  <retrieve><request>ITEMLIST (XML escaped)</request></retrieve>
+</message>
+```
+
+The report carries nine items: `level_1` .. `level_8` and `game_total`,
+values as decimal text, 0 for levels not played. No answer is expected.
+ITEMLIST is
+
+```
+<itemlist><item name="queryid" value="3dabc" /><item name="board" value="HIGHSCORES" />
+<item name="stat" value="level_N or game_total" /><item name="offset" value="0" />
+<item name="limit" value="7" /><item name="periodicity" value="alltime" />
+<item name="ordering" value="natural" /><item name="format" value="csv" /></itemlist>
+```
+
+The answer is a message without a type attribute (sc_lib drops typed
+ones) with id `segachat_retrieve_resp`, the request's `event_type` and
+`game_class_id`, and `<retrieve><response>CSV</response></retrieve>`.
+
+### Answer (CSV)
+
+Lines end with `\n`, fields are separated by `|` (6R21 0x9bf20 and the
+line splitter at 0x9c354):
+
+| Line | Fields | Read by the game |
+|---|---|---|
+| 1 | 1 | status as a number; anything but 0 shows line 2 as an error |
+| 2 | 1 | message |
+| 3 | 7 | field 3: the number of rows that follow |
+| 4.. | 4 | name (up to 31 characters), rank, score; field 4 unused |
+
+Numbers are read from their digits up to the end or a `.`; other
+characters are skipped. Each line must have exactly that number of
+fields, or the game reports an error. The game copies at most 1023 bytes
+of the answer and keeps at most 10 rows on its stack without checking,
+so the server never sends more than 10 rows (`GCSS_MAX_ROWS`). The
+server's header is `queryid|board|stat|rows|offset|total|periodicity`
+and its rows `name|rank|score|yyyy-mm-dd`; equal scores share a rank.
+
+### Server rules
+
+- The account name of the SegaChat login is used, not the `snap_name`
+  the message claims (a different one is logged).
+- Every player keeps the best (highest) value per statistic; 0 and
+  negative values are not kept. `natural` lists the highest first,
+  `reverse` / `ascending` the lowest. Only all-time lists exist; other
+  periodicities get the all-time list.
+- Data file `scores_data` (default `gamecomms-scores.dat`), lines
+  `S <class> <stat> <user> <value> <time>`.
+
+Unverified on hardware: the whole flow. In particular whether the game
+needs anything after the login before it reports (it ignores everything
+but the retrieve answer), and whether the CSV header fields other than
+the row count meant something to the original server.
+
+Tests: `tests/server/test_scores.c` decodes every answer the way the game
+does (same splitter, number reader, field counts and limits) and runs a
+SegaChat session through gcs_direct with the messages as sc_lib writes
+them.
+
 ## Reverse engineering notes (Pocket Kingdom retail, SnapComm "Client Ver 2.1 Build: Oct 20 2004")
 
 All Arena DLLs are Thumb code; `tools/re/e32dis.py` disassembles ARM only.
@@ -541,7 +647,9 @@ From the binaries:
   answer), `checkImei` (?IMEI=). gcs_arena answers all three with
   `true`; the real return types are unverified.
 - Rankings: boards `player_skills`, `highscores`, periodicity
-  daily..alltime, through the Jabber retrieval/reporter services.
+  daily..alltime, through the Jabber retrieval/reporter services (the
+  same services as Ashen's leaderboards, see above; gcs_scores.c answers
+  them, but Pocket Kingdom's own items and boards are not known yet).
 - SNAP: lobbies ("Scrimmage" is in game.rsc), rooms, matchmaking modes
   freestyle/ranked/filtered/challenge. The game enters a room named
   "Auction" by name.
@@ -568,6 +676,13 @@ From the manual:
 - Ranking: the All-Time Owner Board.
 
 ## Next steps
+
+Ashen (retail card, PPP or GPRS route):
+
+1. Run the leaderboards with the server at log level 3: the log shows the
+   SegaChat login, the score report items and every query and answer.
+2. If the game reports an error, compare the answer with "Answer (CSV)"
+   above.
 
 Rifts (retail card, PPP route):
 

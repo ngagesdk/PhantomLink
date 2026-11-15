@@ -462,8 +462,9 @@ The N-Gage Arena back ends (docs/ARENA.md) keep their data next to it:
 Arena games, passwords as SHA-1), `gamecomms-rifts.dat` (`rifts_data`:
 the battles, characters and turns of Rifts: Promise of Power), and
 `gamecomms-habbo.dat` (`habbo_data`: friends, friend requests and unread
-messages of Habbo Islands' Habbo Console, docs/HABBO.md). Back them up
-too. The pages the Arena menus show (news, support) come from the folder
+messages of Habbo Islands' Habbo Console, docs/HABBO.md) and
+`gamecomms-scores.dat` (`scores_data`: the online leaderboards of Ashen,
+docs/ARENA.md). Back them up too. The pages the Arena menus show (news, support) come from the folder
 set as `www_root`; copy `server/deploy/www` there to start with (see its
 README).
 

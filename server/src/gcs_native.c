@@ -14,6 +14,7 @@
 #include "gcs_accounts.h"
 #include "gcs_habbo.h"
 #include "gcs_rifts.h"
+#include "gcs_scores.h"
 #include "gcs_snap.h"
 
 #include <stdarg.h>
@@ -114,10 +115,11 @@ struct gcs_native
     gc_u32 token_ctr;
     gc_u32 login_ctr;
     gcs_accounts *acc;
-    gcs_snap *snap;   /* SNAP game server (UDP) */
-    gcs_rifts *rifts; /* Rifts: Promise of Power game server */
-    gcs_habbo *habbo; /* Habbo Console (Habbo Islands, port 8080) */
-    char www[256];    /* device pages folder, "" none */
+    gcs_snap *snap;     /* SNAP game server (UDP) */
+    gcs_rifts *rifts;   /* Rifts: Promise of Power game server */
+    gcs_habbo *habbo;   /* Habbo Console (Habbo Islands, port 8080) */
+    gcs_scores *scores; /* SegaChat leaderboards (Ashen) */
+    char www[256];      /* device pages folder, "" none */
     gc_u32 now;
     gcs_native_stats st;
 };
@@ -1078,11 +1080,108 @@ static void attr(const char *tag, size_t len, const char *name, char *out, size_
     }
 }
 
+/* "node@domain[/resource]" or "node" */
+static int jid_node_is(const char *jid, const char *node)
+{
+    size_t k = strlen(node);
+    return ieq_prefix(jid, node) && (jid[k] == '@' || jid[k] == 0);
+}
+
+/* Score reports and leaderboard queries (gcs_scores.h).  sc_lib sends
+ * them as messages without a type attribute; the kind is in the id. */
+static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size_t taglen)
+{
+    char to[96], id[48], ev[32], gcid[GCSS_MAX_CLASS + 1], snap[MAX_NAME];
+    const char *end = s + len;
+    attr(s + 1, taglen, "to", to, sizeof(to));
+    attr(s + 1, taglen, "id", id, sizeof(id));
+    attr(s + 1, taglen, "event_type", ev, sizeof(ev));
+    attr(s + 1, taglen, "game_class_id", gcid, sizeof(gcid));
+    attr(s + 1, taglen, "snap_name", snap, sizeof(snap));
+    xml_unescape(to);
+    xml_unescape(ev);
+    xml_unescape(gcid);
+    xml_unescape(snap);
+    if (!strcmp(id, "segachat_send_event") && jid_node_is(to, GCSS_REPORTER)) {
+        const char *p = s + taglen + 2;
+        int items = 0, best = 0;
+        if (!c->xmpp_user[0]) {
+            LOG_W("xmpp: score report before the login ignored");
+            return;
+        }
+        n->st.score_reports++;
+        if (snap[0] && !(ieq_prefix(snap, c->xmpp_user) && strlen(snap) == strlen(c->xmpp_user))) {
+            LOG_W("xmpp: '%s' reports scores as '%s'; kept for '%s'", c->xmpp_user, snap, c->xmpp_user);
+        }
+        LOG_I("xmpp: score report of '%s' (game class %s, %s)", c->xmpp_user, gcid, ev);
+        while (p < end) {
+            const char *it = find_n(p, (size_t)(end - p), "<item");
+            const char *gt, *ie;
+            char name[GCSS_MAX_STAT + 8], value[32];
+            if (!it) {
+                break;
+            }
+            gt = (const char *)memchr(it, '>', (size_t)(end - it));
+            if (!gt) {
+                break;
+            }
+            ie = find_n(gt, (size_t)(end - gt), "</item>");
+            ie = ie ? ie : gt + 1;
+            attr(it + 1, (size_t)(gt - it - 1), "name", name, sizeof(name));
+            xml_unescape(name);
+            if (!xml_field(it, (size_t)(ie - it), "value", value, sizeof(value))) {
+                value[0] = 0;
+            }
+            if (gcs_scores_submit(n->scores, gcid, c->xmpp_user, name, value, (long)time(NULL)) > 0) {
+                best++;
+            }
+            items++;
+            p = ie + 1;
+        }
+        gcs_scores_commit(n->scores);
+        LOG_D("xmpp: %d items, %d new best values", items, best);
+    } else if (!strcmp(id, "segachat_retrieve_req") && jid_node_is(to, GCSS_RETRIEVAL)) {
+        char req[2048], csv[GCSS_MAX_CSV + 24];
+        sbuf b;
+        int rows;
+        if (!c->xmpp_user[0]) {
+            LOG_W("xmpp: leaderboard query before the login ignored");
+            return;
+        }
+        n->st.score_queries++;
+        if (!xml_field(s, len, "request", req, sizeof(req))) {
+            req[0] = 0;
+        }
+        rows = gcs_scores_query(n->scores, gcid, req, csv, sizeof(csv));
+        LOG_I("xmpp: leaderboard query of '%s' (game class %s, %s): %d rows", c->xmpp_user, gcid, ev, rows);
+        memset(&b, 0, sizeof(b));
+        sb_str(&b, "<message from='retrieval@ngage-auth' to='");
+        sb_xml(&b, c->xmpp_user);
+        sb_str(&b, "@ngage-auth' id='segachat_retrieve_resp' event_type='");
+        sb_xml(&b, ev);
+        sb_str(&b, "' game_class_id='");
+        sb_xml(&b, gcid);
+        sb_str(&b, "'><retrieve><response>");
+        sb_xml(&b, csv);
+        sb_str(&b, "</response></retrieve></message>");
+        if (!b.oom && b.d) {
+            xmpp_send(n, c, b.d);
+        }
+        free(b.d);
+    } else {
+        LOG_D("xmpp: message to '%s' (id '%s') ignored", to, id);
+    }
+}
+
 static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_t taglen)
 {
     char id[64], type[16], idattr[80], user[MAX_NAME], ns[96], out[400];
+    if (len >= 8 && !strncmp(s, "<message", 8) && (s[8] == ' ' || s[8] == '>')) {
+        xmpp_message(n, c, s, len, taglen);
+        return;
+    }
     if (len < 3 || strncmp(s, "<iq", 3)) {
-        return; /* presence and messages: nobody else is online yet */
+        return; /* presence: nobody else is online yet */
     }
     attr(s + 1, taglen, "id", id, sizeof(id));
     attr(s + 1, taglen, "type", type, sizeof(type));
@@ -1104,10 +1203,19 @@ static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_
             pw[0] = 0;
         }
         /* SegaChat sends the SHA-1 of the Arena password (hex); accept the
-         * plain password too.  Never creates an account: the Community
-         * login comes first. */
+         * plain password too.  Games with a Community login (Pocket
+         * Kingdom, Rifts) have created the account there; games that log
+         * in to SegaChat only (Ashen) create it here, like the Habbo
+         * Console: without an IMEI, so without the N-Gage binding. */
         if (!gcs_accounts_exists(n->acc, user, NULL)) {
-            r = GCSA_UNKNOWN_USER;
+            r = strlen(pw) == 40 ? gcs_accounts_login_sha1(n->acc, user, pw, NULL) : GCSA_NO_PASSWORD;
+            if (r == GCSA_NO_PASSWORD) { /* not 40 hex digits: the plain password */
+                r = gcs_accounts_login(n->acc, user, pw, NULL);
+            }
+            if (r == GCSA_CREATED) {
+                LOG_I("xmpp: account '%s' created by its first SegaChat login", user);
+                r = GCSA_OK;
+            }
         } else if (strlen(pw) == 40 && gcs_accounts_login_sha1(n->acc, user, pw, NULL) >= 0) {
             r = GCSA_OK;
         } else {
@@ -1414,7 +1522,7 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
 }
 
 gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file,
-                              const char *habbo_file)
+                              const char *habbo_file, const char *scores_file)
 {
     gcs_native *n = (gcs_native *)calloc(1, sizeof(*n));
     gcs_snap_io sio;
@@ -1431,7 +1539,9 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     n->snap = gcs_snap_create(&sio, n);
     n->rifts = gcs_rifts_create(rifts_file, snap_log, n);
     n->habbo = n->acc ? gcs_habbo_create(n->acc, habbo_file, acc_log, n) : NULL;
-    if (!n->acc || !n->snap || !n->rifts || !n->habbo) {
+    n->scores = gcs_scores_create(scores_file, acc_log, n);
+    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores) {
+        gcs_scores_destroy(n->scores);
         gcs_habbo_destroy(n->habbo);
         gcs_accounts_destroy(n->acc);
         gcs_snap_destroy(n->snap);
@@ -1455,8 +1565,14 @@ void gcs_native_destroy(gcs_native *n)
     gcs_snap_destroy(n->snap);
     gcs_rifts_destroy(n->rifts);
     gcs_habbo_destroy(n->habbo);
+    gcs_scores_destroy(n->scores);
     gcs_accounts_destroy(n->acc);
     free(n);
+}
+
+struct gcs_scores *gcs_native_scores(gcs_native *n)
+{
+    return n ? n->scores : NULL;
 }
 
 struct gcs_snap *gcs_native_snap(gcs_native *n)
