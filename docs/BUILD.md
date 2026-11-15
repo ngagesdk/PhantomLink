@@ -464,7 +464,7 @@ the battles, characters and turns of Rifts: Promise of Power), and
 `gamecomms-habbo.dat` (`habbo_data`: friends, friend requests and unread
 messages of Habbo Islands' Habbo Console, docs/HABBO.md) and
 `gamecomms-scores.dat` (`scores_data`: the online leaderboards of Ashen,
-docs/ARENA.md) and `gamecomms-pk.dat` (`pk_data`: Pocket Kingdom's
+match ids and skill points of Worms World Party, docs/ARENA.md) and `gamecomms-pk.dat` (`pk_data`: Pocket Kingdom's
 kingdoms, Global Auction and waiting chat messages). Back them up too. The pages the Arena menus show (news, support) come from the folder
 set as `www_root`; copy `server/deploy/www` there to start with (see its
 README).
@@ -554,6 +554,7 @@ ctest --test-dir build/tests --output-on-failure
 | `server_core` | Registration, matchmaking, slots, isolation by game, routing, timeouts, rejoin, kick |
 | `server_accounts` | Shared Arena accounts: SHA-1, creation on the first login, password and IMEI binding, one account per N-Gage, restart, conversion of old account files |
 | `server_habbo` | Habbo Islands' Habbo Console: locator, login with the shared accounts, find, friend requests, accept/decline/remove, messages with UTF-8 cut at 255 bytes, mark read, logout, restart; answers decoded like the game, and requests over TCP through the direct service |
+| `server_wwp` | Worms World Party: lobbies of the game class, room creation, room attributes and their notifications (op 8), reading them (op 9), room search with criteria (op 72), joining, game data between the players; SegaChat match ids, results and skill points of ranked matches (counted once per match), playerskills / highscores / hsfilter lists, all answers decoded like arenabase.dll, and a session to reporter1104 / retrieval1104 through the direct service |
 | `server_rifts_codec` | Rifts stream codec: Blowfish test vectors, CBC, CRC-32, Adler-32, inflate of real zlib data, stored blocks, packing round trips, damaged data and wrong keys |
 | `server_rifts` | SNAP game server and Rifts game server against simulated games: login (refused and repeated), lobby, room search, room creation and entry, retransmission, logout; a whole battle of two players (server config, name check, create, find, accept, status, turns, characters, upkeep, end, friends), flow control, persistence across a restart, given up save slots, and random input |
 | `e2e_ppp`, `e2e_ppp_small_buffers` | Bridge core and server in one process with a simulated N-Gage in PPP mode: DNS, Community SOAP with account creation and refused logins, profile data, device pages, SegaChat login with the SHA-1 password, a SNAP login over UDP 9090, connections closed and reset |

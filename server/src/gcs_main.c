@@ -947,7 +947,7 @@ static void usage(const char *argv0)
            "  --arena_accounts=PATH Arena accounts, shared by all Arena games (empty: not kept)\n"
            "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
            "  --habbo_data=PATH    Habbo Islands: Habbo Console friends and messages (empty: not kept)\n"
-           "  --scores_data=PATH   Arena leaderboards over SegaChat, e.g. Ashen (empty: not kept)\n"
+           "  --scores_data=PATH   Arena leaderboards and skill points over SegaChat (Ashen, Worms World Party; empty: not kept)\n"
            "  --pk_data=PATH       Pocket Kingdom kingdoms and Global Auction (empty: not kept)\n"
            "  --www_root=DIR       Arena device pages: news, support, lists (empty: placeholders)\n"
            "  --max_peers=N --max_sessions=N\n"

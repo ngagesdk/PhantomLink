@@ -49,6 +49,7 @@ typedef struct gcs_snap gcs_snap;
 #define GCSS_MAX_SESSIONS 64
 #define GCSS_MAX_LOBBIES  16
 #define GCSS_MAX_ROOMS    64
+#define GCSS_MAX_ATTRS    16 /* attributes per room (op 8)        */
 #define GCSS_MAX_NAME     32
 #define GCSS_RESEND_MS    1000
 #define GCSS_MAX_TRIES    15
@@ -73,7 +74,8 @@ typedef struct
     gc_u32 game_class;
     const char *name;
     /** the lobby the game looks for (LobbyToJoin in its game.rsc), listed
-     *  by op 71 even before anybody entered it; may be NULL */
+     *  by op 71 even before anybody entered it; may be NULL.  Several
+     *  lobbies are separated by commas ("Freestyle,Ranked"). */
     const char *lobby;
     void *ctx;
     /** a user entered a room of this game (the server learns its name) */
@@ -142,6 +144,7 @@ void gcs_snap_get_stats(const gcs_snap *s, gcs_snap_stats *st);
 #define GCSS_OP_OK           40 /* result: success {cmd, value, ...}     */
 #define GCSS_OP_LOGIN_OK     41 /* login result {port, -, user id}        */
 #define GCSS_OP_GAME_LOBBIES 71 /* lobbies of the login's game class   */
+#define GCSS_OP_SELECT_ROOMS 72 /* room search with criteria          */
 #define GCSS_OP_LOGIN        44
 
 #ifdef __cplusplus
