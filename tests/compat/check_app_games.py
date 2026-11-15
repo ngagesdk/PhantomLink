@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Check that the game list of the Symbian app matches the README table.
+"""Check that the game list of the Symbian app matches the compatibility table.
 
-Every game marked Working in "Which DLL for which game" in README.md must
+Every game marked Working in "Games" in docs/COMPATIBILITY.md must
 be listed in app/src/GameList.cpp with the same variant, and the other way
 round. Untested and nonworking games are intentionally excluded from the app.
 """
@@ -13,9 +13,9 @@ import sys
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 
 
-def readme_games():
+def table_games():
     games = {}
-    with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "docs", "COMPATIBILITY.md"), encoding="utf-8") as f:
         for line in f:
             cells = [c.strip() for c in line.strip().strip("|").split("|")]
             if (
@@ -37,15 +37,15 @@ def app_games():
 
 
 def main():
-    readme, app = readme_games(), app_games()
+    readme, app = table_games(), app_games()
     errors = []
     for name, variant in sorted(readme.items()):
         if name not in app:
             errors.append("missing in app: %s (v%d)" % (name, variant))
         elif app[name] != variant:
-            errors.append("%s: README v%d, app v%d" % (name, variant, app[name]))
+            errors.append("%s: table v%d, app v%d" % (name, variant, app[name]))
     for name in sorted(set(app) - set(readme)):
-        errors.append("not in README: %s" % name)
+        errors.append("not in table: %s" % name)
     for e in errors:
         print("ERROR:", e)
     print("%d games checked, %d problems" % (len(readme), len(errors)))

@@ -143,3 +143,20 @@ clients can only send to their host, resource limits cap the number of
 peers, sessions and queued data, and slow peers are dropped. An optional
 access key restricts who can register. Traffic is not encrypted, because
 the N-Gage cannot do TLS. Use a VPN on the bridge's network if needed.
+
+## Implementation status
+
+- Protocol, server, bridge and DLL logic: implemented and covered by
+  automated tests.
+- ESP32 firmware: implemented, built in CI.
+- PC bridge: implemented and tested with simulated devices (Linux: against
+  a simulated BlueZ). Linux still has to be tested with a real N-Gage. On
+  Windows the first real test failed inside the Windows Bluetooth stack
+  (see docs/BUILD.md, "Windows: known problem").
+- Android bridge: implemented; its engine is tested on a PC against the real
+  server and simulated N-Gages. Still has to be tested with a real N-Gage.
+- Symbian DLLs: implemented. They need the Windows N-Gage toolchain to
+  build and still have to be tested on real hardware.
+- N-Gage Arena: PPP route, Community service, SegaChat login and shared
+  accounts work with Pocket Kingdom on a real N-Gage. SNAP and the Rifts game
+  server are tested against simulated games only.

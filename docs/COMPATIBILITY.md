@@ -18,10 +18,57 @@ Status:
 - Full: implemented over the network with the original behaviour
 - Inert: present and safe to call, but without function (see below)
 
-## Variants
+## Games
 
-The list of games and which DLL each one needs is in the
-[README](../README.md#which-dll-for-which-game).
+The PhantomLink app installs the right DLL when you pick a game. To
+replace a game's `gamecomms.dll` by hand, use the build from the "Use"
+column (`build/dll/out/vN/gamecomms.dll`, see BUILD.md, "Installing on
+the N-Gage"). You can check the original with its
+md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
+
+| Game                                     | Use      | md5sum of the original           | Ordinals |                              Status                              |
+| ---------------------------------------- | -------- | -------------------------------- | -------- | :--------------------------------------------------------------: |
+| Marcel Desailly Pro Soccer               | v1       | 79c25cdd1972c287712475ee544c7bf3 | 33       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Puyo Pop                                 | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Tony Hawk's Pro Skater                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Asphalt Urban GT                         | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| FIFA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| NCAA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Rayman 3                                 | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Tom Clancy's Ghost Recon: Jungle Storm   | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Catan                                    | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Mile High Pinball                        | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Requiem of Hell                          | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| The King of Fighters Extreme             | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Tom Clancy's Splinter Cell: Chaos Theory | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Call of Duty                             | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| FIFA Football 2005                       | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| SSX Out of Bounds                        | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| WWE Aftershock                           | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Xanadu Next                              | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
+| Ashen                                    | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Bomberman                                | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Crash Nitro Kart                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Operation Shadow                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Tiger Woods PGA Tour 2004                | v9       | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Glimmerati                               | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| ONE                                      | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| The Roots: Gates of Chaos                | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Asphalt: Urban GT 2                      | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+
+Always use the matching version. v1 and v2 to v11 have different APIs and
+cannot be mixed. Other combinations are not tested. Games not listed are
+unsupported because they use their own custom Bluetooth stack or
+implementation (see "Why games fail" below).
+
+The app's game list (`app/src/GameList.cpp`) must contain exactly the
+games marked Working here, with the same variant;
+`python tests/compat/check_app_games.py` checks this.
+
+## Variants
 
 | Variant | md5sum of the original | Version tag | API | Ordinals |
 |---|---|---|---|---|
