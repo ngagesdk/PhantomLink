@@ -17,7 +17,7 @@ android {
         targetSdk = 36
         // versionCode: whole number, +1 for every upload to Google Play.
         // versionName: the version users see.
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0.0"
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
