@@ -303,7 +303,7 @@ static void enter_room(game *g)
         CHECK(m->h[0] & 0x20); /* single packet */
         CHECK_EQ(m->n, 12 + 36 * n);
         for (i = 0; i < n; i++) {
-            CHECK_EQ(be32(m->p + 12 + 36 * i + 32), g->lobby);
+            CHECK_EQ(be32(m->p + 12 + 36 * i + 20), g->lobby); /* lobby at 20, id at 32 */
         }
     }
 
