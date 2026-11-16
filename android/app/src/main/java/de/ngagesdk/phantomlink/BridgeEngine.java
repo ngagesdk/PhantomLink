@@ -165,7 +165,11 @@ public final class BridgeEngine
 
     public static String version()
     {
-        return NativeBridge.nativeVersion();
+        try {
+            return NativeBridge.nativeVersion();
+        } catch (LinkageError e) { /* native library missing or stale */
+            return "unavailable";
+        }
     }
 
     /* ------------------------------------------------------------------ */
