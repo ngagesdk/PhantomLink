@@ -838,6 +838,15 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "arena_accounts")) {
         return set_str(a->core.arena_accounts, sizeof(a->core.arena_accounts), val) ? 1 : -1;
     }
+    if (!strcmp(key, "tournaments")) {
+        return set_str(a->core.tournaments, sizeof(a->core.tournaments), val) ? 1 : -1;
+    }
+    if (!strcmp(key, "tournament_data")) {
+        return set_str(a->core.tournament_data, sizeof(a->core.tournament_data), val) ? 1 : -1;
+    }
+    if (!strcmp(key, "roster_data")) {
+        return set_str(a->core.roster_data, sizeof(a->core.roster_data), val) ? 1 : -1;
+    }
     if (!strcmp(key, "www_root")) {
         return set_str(a->core.www_root, sizeof(a->core.www_root), val) ? 1 : -1;
     }
@@ -950,6 +959,9 @@ static void usage(const char *argv0)
            "  --scores_data=PATH   Arena leaderboards and skill points over SegaChat (Ashen, Worms World Party; empty: not kept)\n"
            "  --pk_data=PATH       Pocket Kingdom kingdoms and Global Auction (empty: not kept)\n"
            "  --www_root=DIR       Arena device pages: news, support, lists (empty: placeholders)\n"
+           "  --roster_data=PATH   SegaChat friends, friend requests and offline messages (empty: not kept)\n"
+           "  --tournaments=PATH   tournament list for the Arena Play menu (see docs/ARENA.md)\n"
+           "  --tournament_data=PATH tournament standings and activities (empty: not kept)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
            "  --reserve_ms=N       keep slots of lost players (default 180000)\n"

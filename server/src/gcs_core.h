@@ -45,12 +45,15 @@ typedef struct
     char server_name[GC_MAX_NAME + 1];
     char access_key[GC_MAX_NAME + 1]; /* empty: no key required */
     char board_file[256];
-    char arena_accounts[256]; /* shared accounts of retail Arena games (PPP mode); empty: memory only */
-    char rifts_data[256];     /* Rifts: Promise of Power game server data; empty: memory only */
-    char habbo_data[256];     /* Habbo Console friends and messages (Habbo Islands); empty: memory only */
-    char pk_data[256];        /* Pocket Kingdom: kingdoms, Global Auction, waiting chat; empty: memory only */
-    char scores_data[256];    /* SegaChat leaderboards (Ashen), skill points (Worms World Party); empty: memory only */
-    char www_root[256];       /* Arena device pages (news, support, lists); empty: built-in placeholders */
+    char arena_accounts[256];  /* shared accounts of retail Arena games (PPP mode); empty: memory only */
+    char rifts_data[256];      /* Rifts: Promise of Power game server data; empty: memory only */
+    char habbo_data[256];      /* Habbo Console friends and messages (Habbo Islands); empty: memory only */
+    char pk_data[256];         /* Pocket Kingdom: kingdoms, Global Auction, waiting chat; empty: memory only */
+    char scores_data[256];     /* SegaChat leaderboards (Ashen), skill points (Worms World Party); empty: memory only */
+    char www_root[256];        /* Arena device pages (news, support, lists); empty: built-in placeholders */
+    char roster_data[256];     /* SegaChat friends, friend requests, offline messages; empty: memory only */
+    char tournaments[256];     /* the operator's tournament list (gcs_tourney.h); empty or missing: none */
+    char tournament_data[256]; /* tournament standings and activities; empty: memory only */
     int max_peers;
     int max_sessions;
     gc_u32 link_grace_ms;    /* keep a silent peer's link for resumption */

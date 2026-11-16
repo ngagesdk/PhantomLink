@@ -11,11 +11,13 @@
  *     the shared accounts (gcs_accounts.h: created on the first login,
  *     bound to the N-Gage's IMEI, the same for every game), the account
  *     and alert operations with per user profile data, the device pages
- *     (profile view generated, *_x.jsp lists empty, other pages a stub),
- *   - TCP 5222: SegaChat, just enough Jabber (jabber:iq:auth checked
- *     against the same accounts, roster, presence) for the client to log
- *     in, and the score service of games with online leaderboards
- *     (reporter@ / retrieval@ngage-auth, gcs_scores.h),
+ *     (profile view, rankings, tournaments, activities and games generated
+ *     by gcs_pages.h, other *_x.jsp lists empty, other pages a stub),
+ *   - TCP 5222: SegaChat (Jabber): jabber:iq:auth checked against the
+ *     same accounts, friends (roster, friend requests, presence with the
+ *     Play Now ext_pres data, gcs_roster.h), messages between users (kept
+ *     while the receiver is offline) and the score service of games with
+ *     online leaderboards (reporter@ / retrieval@ngage-auth, gcs_scores.h),
  *   - UDP 9090: the SNAP lobby and game room service (gcs_snap.h) with
  *     the game servers behind it (Rifts: Promise of Power, gcs_rifts.h);
  *     other datagrams are logged,
@@ -84,6 +86,7 @@ typedef struct
     gc_u32 udp_datagrams;
     gc_u32 score_reports; /* SegaChat score reports (gcs_scores.h) */
     gc_u32 score_queries; /* SegaChat leaderboard queries */
+    gc_u32 chat_messages; /* SegaChat messages between users */
 } gcs_native_stats;
 void gcs_native_get_stats(const gcs_native *n, gcs_native_stats *st);
 
@@ -96,6 +99,18 @@ struct gcs_rifts *gcs_native_rifts(gcs_native *n);
 struct gcs_habbo *gcs_native_habbo(gcs_native *n);
 /** The Pocket Kingdom game server (gcs_pk.h). */
 struct gcs_pk *gcs_native_pk(gcs_native *n);
+
+/** SegaChat friends, requests and offline messages (gcs_roster.h):
+ *  file NULL or "" keeps them in memory only.  Call before the first
+ *  client; returns -1 when out of memory. */
+int gcs_native_set_roster_file(gcs_native *n, const char *file);
+struct gcs_roster *gcs_native_roster(gcs_native *n);
+
+/** Tournaments (gcs_tourney.h): the operator's list and the standings
+ *  file (NULL or "": none / memory only).  Call before the first client;
+ *  returns -1 when out of memory. */
+int gcs_native_set_tournament_files(gcs_native *n, const char *defs_file, const char *data_file);
+struct gcs_tourney *gcs_native_tourney(gcs_native *n);
 
 /** The SegaChat leaderboards (gcs_scores.h). */
 struct gcs_scores *gcs_native_scores(gcs_native *n);

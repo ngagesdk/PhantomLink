@@ -30,7 +30,7 @@ target_include_directories(gc_protocol PUBLIC ${ROOT}/protocol/include)
 
 add_library(gc_server_core STATIC ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
     ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
-    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c ${ROOT}/server/src/gcs_scores.c ${ROOT}/server/src/gcs_pk.c ${ROOT}/server/src/gcs_wwp.c)
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c ${ROOT}/server/src/gcs_scores.c ${ROOT}/server/src/gcs_pk.c ${ROOT}/server/src/gcs_wwp.c ${ROOT}/server/src/gcs_roster.c ${ROOT}/server/src/gcs_tourney.c ${ROOT}/server/src/gcs_pages.c)
 target_include_directories(gc_server_core PUBLIC ${ROOT}/server/src)
 target_link_libraries(gc_server_core PUBLIC gc_protocol)
 
@@ -76,6 +76,16 @@ add_executable(test_scores server/test_scores.c)
 target_link_libraries(test_scores gc_server_core)
 target_include_directories(test_scores PRIVATE ${ROOT}/protocol/tests)
 add_test(NAME server_scores COMMAND test_scores)
+
+add_executable(test_roster server/test_roster.c)
+target_link_libraries(test_roster gc_server_core)
+target_include_directories(test_roster PRIVATE ${ROOT}/protocol/tests)
+add_test(NAME server_roster COMMAND test_roster)
+
+add_executable(test_pages server/test_pages.c)
+target_link_libraries(test_pages gc_server_core)
+target_include_directories(test_pages PRIVATE ${ROOT}/protocol/tests)
+add_test(NAME server_pages COMMAND test_pages)
 
 add_library(gc_bridge_core STATIC ${ROOT}/firmware/src/bridge_core.c)
 target_include_directories(gc_bridge_core PUBLIC ${ROOT}/firmware/src)
@@ -126,7 +136,7 @@ add_executable(test_ppp_e2e_small ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmw
     ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
     ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
     ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
-    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c ${ROOT}/server/src/gcs_scores.c ${ROOT}/server/src/gcs_pk.c ${ROOT}/server/src/gcs_wwp.c)
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c ${ROOT}/server/src/gcs_scores.c ${ROOT}/server/src/gcs_pk.c ${ROOT}/server/src/gcs_wwp.c ${ROOT}/server/src/gcs_roster.c ${ROOT}/server/src/gcs_tourney.c ${ROOT}/server/src/gcs_pages.c)
 target_include_directories(test_ppp_e2e_small PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
     ${ROOT}/firmware/src ${ROOT}/server/src)
 target_compile_definitions(test_ppp_e2e_small PRIVATE GC_TCP_TXBUF=512 GC_TCP_CONNS=4)
@@ -138,7 +148,7 @@ add_executable(test_ppp_e2e_esp32 ${ROOT}/tests/sim/test_ppp_e2e.c ${ROOT}/firmw
     ${ROOT}/protocol/src/gc_arena.c ${ROOT}/protocol/src/gc_ppp.c ${ROOT}/protocol/src/gc_ip.c
     ${ROOT}/protocol/src/gc_net.c ${ROOT}/server/src/gcs_core.c ${ROOT}/server/src/gcs_arena.c
     ${ROOT}/server/src/gcs_native.c ${ROOT}/server/src/gcs_accounts.c
-    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c ${ROOT}/server/src/gcs_scores.c ${ROOT}/server/src/gcs_pk.c ${ROOT}/server/src/gcs_wwp.c)
+    ${ROOT}/server/src/gcs_snap.c ${ROOT}/server/src/gcs_rifts.c ${ROOT}/server/src/gcs_rcodec.c ${ROOT}/server/src/gcs_direct.c ${ROOT}/server/src/gcs_habbo.c ${ROOT}/server/src/gcs_scores.c ${ROOT}/server/src/gcs_pk.c ${ROOT}/server/src/gcs_wwp.c ${ROOT}/server/src/gcs_roster.c ${ROOT}/server/src/gcs_tourney.c ${ROOT}/server/src/gcs_pages.c)
 target_include_directories(test_ppp_e2e_esp32 PRIVATE ${ROOT}/protocol/include ${ROOT}/protocol/tests
     ${ROOT}/firmware/src ${ROOT}/server/src)
 target_compile_definitions(test_ppp_e2e_esp32 PRIVATE GC_TCP_TXBUF=1536 GC_TCP_CONNS=4 GC_PPP_MRU=1100

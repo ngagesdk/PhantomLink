@@ -93,6 +93,8 @@ const char *gcs_accounts_get(gcs_accounts *a, const char *user, const char *fiel
 int gcs_accounts_set(gcs_accounts *a, const char *user, const char *field, const char *value);
 
 int gcs_accounts_count(const gcs_accounts *a);
+/** Name of the i-th account (0 <= i < count), NULL when out of range. */
+const char *gcs_accounts_name_at(const gcs_accounts *a, int i);
 
 /** Short English description of a login result. */
 const char *gcs_accounts_result_str(int result);

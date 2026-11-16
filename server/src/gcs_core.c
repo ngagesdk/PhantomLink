@@ -210,6 +210,9 @@ void gcs_default_config(gcs_config *cfg)
     strcpy(cfg->habbo_data, "gamecomms-habbo.dat");
     strcpy(cfg->scores_data, "gamecomms-scores.dat");
     strcpy(cfg->pk_data, "gamecomms-pk.dat");
+    strcpy(cfg->roster_data, "gamecomms-roster.txt");
+    strcpy(cfg->tournaments, "gamecomms-tournaments.txt");
+    strcpy(cfg->tournament_data, "gamecomms-tournaments.dat");
     cfg->max_peers = 512;
     cfg->max_sessions = 256;
     cfg->link_grace_ms = 20000;
@@ -1453,6 +1456,9 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     c->cfg.scores_data[sizeof(c->cfg.scores_data) - 1] = '\0';
     c->cfg.pk_data[sizeof(c->cfg.pk_data) - 1] = '\0';
     c->cfg.www_root[sizeof(c->cfg.www_root) - 1] = '\0';
+    c->cfg.roster_data[sizeof(c->cfg.roster_data) - 1] = '\0';
+    c->cfg.tournaments[sizeof(c->cfg.tournaments) - 1] = '\0';
+    c->cfg.tournament_data[sizeof(c->cfg.tournament_data) - 1] = '\0';
     {
         gcs_native_io nio;
         nio.send = native_send;
@@ -1465,6 +1471,13 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
             return NULL;
         }
         gcs_native_set_www_root(c->native, c->cfg.www_root);
+        if (gcs_native_set_roster_file(c->native, c->cfg.roster_data) != 0 ||
+            gcs_native_set_tournament_files(c->native, c->cfg.tournaments, c->cfg.tournament_data) != 0) {
+            gcs_native_destroy(c->native);
+            gcs_arena_destroy(c->arena);
+            free(c);
+            return NULL;
+        }
     }
     /* never trust the caller's buffers to be terminated */
     c->cfg.server_name[GC_MAX_NAME] = '\0';

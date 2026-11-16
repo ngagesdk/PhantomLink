@@ -13,10 +13,13 @@
 #include "gc_link.h"
 #include "gcs_accounts.h"
 #include "gcs_habbo.h"
+#include "gcs_pages.h"
 #include "gcs_pk.h"
 #include "gcs_rifts.h"
+#include "gcs_roster.h"
 #include "gcs_scores.h"
 #include "gcs_snap.h"
+#include "gcs_tourney.h"
 #include "gcs_wwp.h"
 
 #include <stdarg.h>
@@ -86,6 +89,10 @@ typedef struct
     int peer_eof;
     int xmpp_started;
     char xmpp_user[MAX_NAME];
+    char xmpp_res[33]; /* resource of the SegaChat login */
+    int xmpp_online;   /* initial presence sent */
+    gc_u32 xmpp_since; /* order of the SegaChat logins */
+    char *xmpp_pres;   /* children of the last presence (ext_pres ...) */
 } conn;
 
 /* A Community login seen on a peer.  A bridge carries one N-Gage, but a
@@ -117,12 +124,17 @@ struct gcs_native
     gc_u32 token_ctr;
     gc_u32 login_ctr;
     gcs_accounts *acc;
-    gcs_snap *snap;     /* SNAP game server (UDP) */
-    gcs_rifts *rifts;   /* Rifts: Promise of Power game server */
-    gcs_pk *pk;         /* Pocket Kingdom game server */
-    gcs_habbo *habbo;   /* Habbo Console (Habbo Islands, port 8080) */
-    gcs_scores *scores; /* SegaChat leaderboards (Ashen) */
-    char www[256];      /* device pages folder, "" none */
+    gcs_snap *snap;       /* SNAP game server (UDP) */
+    gcs_rifts *rifts;     /* Rifts: Promise of Power game server */
+    gcs_pk *pk;           /* Pocket Kingdom game server */
+    gcs_habbo *habbo;     /* Habbo Console (Habbo Islands, port 8080) */
+    gcs_scores *scores;   /* SegaChat leaderboards (Ashen) */
+    gcs_roster *roster;   /* SegaChat friends, requests, offline messages */
+    gcs_tourney *tourney; /* tournaments and activities (device pages) */
+    void *dying_key;      /* peer being dropped: nothing is sent to it */
+    gc_u32 push_ctr;      /* ids of roster pushes */
+    gc_u32 xmpp_ctr;      /* SegaChat logins */
+    char www[256];        /* device pages folder, "" none */
     gc_u32 now;
     gcs_native_stats st;
 };
@@ -455,9 +467,15 @@ static void tcp_write(gcs_native *n, conn *c, const char *d, size_t len)
     }
 }
 
-static void conn_free(conn *c)
+static void xmpp_offline(gcs_native *n, conn *c);
+
+static void conn_free(gcs_native *n, conn *c)
 {
+    if (c->xmpp_online) {
+        xmpp_offline(n, c);
+    }
     free(c->buf);
+    free(c->xmpp_pres);
     memset(c, 0, sizeof(*c));
 }
 
@@ -470,7 +488,7 @@ static void tcp_close(gcs_native *n, conn *c, int how)
     m.how = (gc_u8)how;
     send_net(n, c->key, &m);
     if (how == GCN_CLOSE_RESET || c->peer_eof) {
-        conn_free(c);
+        conn_free(n, c);
     } else {
         c->kind = K_OTHER; /* half closed: ignore further input */
     }
@@ -1046,6 +1064,22 @@ static int http_input(gcs_native *n, conn *c)
         if (www_answer(n, c, base, user)) {
             return 1;
         }
+        {
+            gcs_pages pg;
+            const char *qs = strchr(path, '?'), *type = NULL;
+            size_t plen = 0;
+            char *page;
+            pg.scores = n->scores;
+            pg.tourney = n->tourney;
+            pg.accounts = n->acc;
+            page = gcs_pages_render(&pg, base, qs ? qs + 1 : NULL, user, (long)time(NULL), &plen, &type);
+            if (page) {
+                LOG_D("http: %s generated (%u bytes)", base, (unsigned)plen);
+                http_answer_n(n, c, page, plen, type, NULL);
+                free(page);
+                return 1;
+            }
+        }
         if (bl >= 6 && !strcmp(base + bl - 6, "_x.jsp")) {
             http_answer(n, c, LIST_XML, "text/xml; charset=utf-8", NULL);
         } else if ((bl >= 4 && !strcmp(base + bl - 4, ".jsp")) || strstr(base, "/servlets/")) {
@@ -1124,6 +1158,592 @@ static void xmpp_retrieve_resp(gcs_native *n, conn *c, const char *from, const c
     sb_str(&b, "</response></retrieve></message>");
     if (!b.oom && b.d) {
         xmpp_send(n, c, b.d);
+    }
+    free(b.d);
+}
+
+/* ---- SegaChat friends: roster, friend requests, presence, chat ----
+ *
+ * sc_lib.dll speaks plain Jabber for the Communicate menu and Play Now
+ * friends (gcs_roster.h).  Every user is name@ngage-auth; the server
+ * rewrites from/to of every routed stanza, so nobody can send as
+ * somebody else.  Friendship is mutual. */
+
+#define XMPP_DOMAIN    "ngage-auth"
+#define MAX_PRES_INNER 1024 /* children of a kept presence (ext_pres, show, status) */
+
+/* node part of a JID ("bob" of "bob@ngage-auth/N-Gage"), "" for none */
+static void jid_node(const char *jid, char *out, size_t cap)
+{
+    size_t k = 0;
+    while (jid[k] && jid[k] != '@' && jid[k] != '/' && k + 1 < cap) {
+        out[k] = jid[k];
+        k++;
+    }
+    out[k] = 0;
+    if (jid[k] != '@' && jid[k] != 0 && jid[k] != '/') {
+        out[0] = 0; /* too long */
+    }
+}
+
+/* the account a JID names: 1 and its spelling in canon */
+static int jid_user(gcs_native *n, const char *jid, char *canon)
+{
+    char node[MAX_NAME];
+    jid_node(jid, node, sizeof(node));
+    if (!node[0] || jid_service_is(node, GCSS_REPORTER) || jid_service_is(node, GCSS_RETRIEVAL)) {
+        return 0;
+    }
+    return gcs_accounts_exists(n->acc, node, canon) != 0;
+}
+
+/* the logged in SegaChat connection of user (the newest one) */
+static conn *xmpp_conn_of(gcs_native *n, const char *user)
+{
+    int i;
+    conn *best = NULL;
+    for (i = 0; i < GCSN_MAX_CONNS; i++) {
+        conn *o = &n->conns[i];
+        if (o->used && o->kind == K_XMPP && o->xmpp_user[0] && o->key != n->dying_key &&
+            ieq_prefix(o->xmpp_user, user) && strlen(o->xmpp_user) == strlen(user)) {
+            if (!best || o->xmpp_since > best->xmpp_since) {
+                best = o;
+            }
+        }
+    }
+    return best;
+}
+
+static void sb_jid(sbuf *b, const char *user, const char *res)
+{
+    sb_xml(b, user);
+    sb_str(b, "@" XMPP_DOMAIN);
+    if (res && res[0]) {
+        sb_str(b, "/");
+        sb_xml(b, res);
+    }
+}
+
+/* Copies stanza s (len bytes, start tag taglen bytes after '<') with
+ * new from and to attributes; the other attributes and the content stay
+ * as they are.  extra goes in front of the closing tag. */
+static void restamp(sbuf *b, const char *s, size_t len, size_t taglen, const char *from_user, const char *from_res,
+                    const char *to_user, const char *extra)
+{
+    const char *p = s + 1, *tagend = s + 1 + taglen;
+    const char *name = p;
+    int self_closing = taglen > 0 && s[taglen] == '/';
+    while (p < tagend && *p != ' ' && *p != '/' && *p != '>') {
+        p++;
+    }
+    sb_str(b, "<");
+    sb_add(b, name, (size_t)(p - name));
+    sb_str(b, " from='");
+    sb_jid(b, from_user, from_res);
+    sb_str(b, "' to='");
+    sb_jid(b, to_user, NULL);
+    sb_str(b, "'");
+    if (self_closing) {
+        tagend--;
+    }
+    while (p < tagend) {
+        const char *an, *eq;
+        char q;
+        while (p < tagend && (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n')) {
+            p++;
+        }
+        an = p;
+        eq = p;
+        while (eq < tagend && *eq != '=' && *eq != ' ') {
+            eq++;
+        }
+        if (eq >= tagend || *eq != '=' || eq + 1 >= tagend || (eq[1] != '\'' && eq[1] != '"')) {
+            break;
+        }
+        q = eq[1];
+        p = eq + 2;
+        while (p < tagend && *p != q) {
+            p++;
+        }
+        if (p >= tagend) {
+            break;
+        }
+        p++;
+        if (!((eq - an == 4 && !strncmp(an, "from", 4)) || (eq - an == 2 && !strncmp(an, "to", 2)))) {
+            sb_str(b, " ");
+            sb_add(b, an, (size_t)(p - an));
+        }
+    }
+    if (self_closing) {
+        if (extra && extra[0]) {
+            sb_str(b, ">");
+            sb_str(b, extra);
+            sb_str(b, "</");
+            sb_add(b, name, (size_t)(strcspn(name, " />")));
+            sb_str(b, ">");
+        } else {
+            sb_str(b, "/>");
+        }
+        return;
+    }
+    {
+        /* content and closing tag: "...</name>" */
+        const char *content = s + 1 + taglen + 1;
+        const char *close = s + len;
+        while (close > content && close[-1] != '<') {
+            close--;
+        }
+        if (close > content) {
+            close--; /* at '<' of the closing tag */
+        }
+        sb_str(b, ">");
+        sb_add(b, content, (size_t)(close - content));
+        if (extra) {
+            sb_str(b, extra);
+        }
+        sb_add(b, close, (size_t)(s + len - close));
+    }
+}
+
+static void xmpp_send_sb(gcs_native *n, conn *c, sbuf *b)
+{
+    if (c && !b->oom && b->d) {
+        xmpp_send(n, c, b->d);
+    }
+    free(b->d);
+    memset(b, 0, sizeof(*b));
+}
+
+/* roster push to every connection of user */
+static void roster_push(gcs_native *n, const char *user, const char *other, const char *sub, int ask)
+{
+    sbuf b;
+    conn *c = xmpp_conn_of(n, user);
+    if (!c) {
+        return;
+    }
+    memset(&b, 0, sizeof(b));
+    sb_str(&b, "<iq type='set' to='");
+    sb_jid(&b, c->xmpp_user, c->xmpp_res);
+    sb_fmt(&b, "' id='push%u'><query xmlns='jabber:iq:roster'><item jid='", ++n->push_ctr);
+    sb_jid(&b, other, NULL);
+    sb_str(&b, "' name='");
+    sb_xml(&b, other);
+    sb_str(&b, "' subscription='");
+    sb_str(&b, sub);
+    sb_str(&b, ask ? "' ask='subscribe'/>" : "'/>");
+    sb_str(&b, "</query></iq>");
+    xmpp_send_sb(n, c, &b);
+}
+
+/* a presence of from (inner: its children, or NULL; type: NULL for
+ * available) to the connection c */
+static void presence_to(gcs_native *n, conn *c, const char *from, const char *from_res, const char *type,
+                        const char *inner)
+{
+    sbuf b;
+    if (!c) {
+        return;
+    }
+    memset(&b, 0, sizeof(b));
+    sb_str(&b, "<presence from='");
+    sb_jid(&b, from, from_res);
+    sb_str(&b, "' to='");
+    sb_jid(&b, c->xmpp_user, NULL);
+    sb_str(&b, "'");
+    if (type) {
+        sb_str(&b, " type='");
+        sb_str(&b, type);
+        sb_str(&b, "'");
+    }
+    if (inner && inner[0]) {
+        sb_str(&b, ">");
+        sb_str(&b, inner);
+        sb_str(&b, "</presence>");
+    } else {
+        sb_str(&b, "/>");
+    }
+    xmpp_send_sb(n, c, &b);
+}
+
+typedef struct
+{
+    gcs_native *n;
+    conn *c; /* the user whose presence changes */
+    const char *type;
+    int send_back; /* also send the friend's presence to c */
+} pres_walk;
+
+static void pres_friend(void *ctx, const char *friend_name)
+{
+    pres_walk *w = (pres_walk *)ctx;
+    conn *o = xmpp_conn_of(w->n, friend_name);
+    if (!o) {
+        return;
+    }
+    presence_to(w->n, o, w->c->xmpp_user, w->c->xmpp_res, w->type, w->type ? NULL : w->c->xmpp_pres);
+    if (w->send_back && o->xmpp_online) {
+        presence_to(w->n, w->c, o->xmpp_user, o->xmpp_res, NULL, o->xmpp_pres);
+    }
+}
+
+static void pending_req(void *ctx, const char *other, const char *status)
+{
+    pres_walk *w = (pres_walk *)ctx;
+    char inner[GCSR_MAX_STATUS * 6 + 32];
+    sbuf b;
+    memset(&b, 0, sizeof(b));
+    if (status && status[0]) {
+        sb_str(&b, "<status>");
+        sb_xml(&b, status);
+        sb_str(&b, "</status>");
+    }
+    copy_str(inner, b.d ? b.d : "", sizeof(inner));
+    free(b.d);
+    presence_to(w->n, w->c, other, NULL, "subscribe", inner);
+}
+
+static void offline_msg(void *ctx, const char *from, long t, const char *stanza)
+{
+    pres_walk *w = (pres_walk *)ctx;
+    (void)from;
+    (void)t;
+    xmpp_send(w->n, w->c, stanza);
+}
+
+/* the user of c goes offline: tell the friends */
+static void xmpp_offline(gcs_native *n, conn *c)
+{
+    pres_walk w;
+    if (!c->xmpp_online || !n->roster) {
+        c->xmpp_online = 0;
+        return;
+    }
+    c->xmpp_online = 0;
+    memset(&w, 0, sizeof(w));
+    w.n = n;
+    w.c = c;
+    w.type = "unavailable";
+    {
+        conn *newest = xmpp_conn_of(n, c->xmpp_user);
+        if (!newest || newest == c) { /* no newer connection of the same user */
+            gcs_roster_friends(n->roster, c->xmpp_user, pres_friend, &w);
+        }
+    }
+    LOG_I("xmpp: '%s' offline", c->xmpp_user);
+}
+
+/* children of a presence stanza, kept for later presence answers */
+static void keep_presence(conn *c, const char *s, size_t len, size_t taglen)
+{
+    const char *content = s + 1 + taglen + 1;
+    const char *close = s + len;
+    size_t l;
+    free(c->xmpp_pres);
+    c->xmpp_pres = NULL;
+    if (taglen && s[taglen] == '/') {
+        return;
+    }
+    while (close > content && close[-1] != '<') {
+        close--;
+    }
+    if (close > content) {
+        close--;
+    }
+    l = (size_t)(close - content);
+    if (l == 0 || l > MAX_PRES_INNER) {
+        return;
+    }
+    c->xmpp_pres = (char *)malloc(l + 1);
+    if (c->xmpp_pres) {
+        memcpy(c->xmpp_pres, content, l);
+        c->xmpp_pres[l] = 0;
+    }
+}
+
+static void xmpp_presence(gcs_native *n, conn *c, const char *s, size_t len, size_t taglen)
+{
+    char to[96], type[24], target[GCSA_MAX_NAME + 1], status[GCSR_MAX_STATUS + 1];
+    const char *me = c->xmpp_user;
+    conn *o;
+    pres_walk w;
+    if (!me[0] || !n->roster) {
+        return;
+    }
+    attr(s + 1, taglen, "to", to, sizeof(to));
+    attr(s + 1, taglen, "type", type, sizeof(type));
+    xml_unescape(to);
+    memset(&w, 0, sizeof(w));
+    w.n = n;
+    w.c = c;
+    if (!to[0] || !strcmp(to, XMPP_DOMAIN)) {
+        if (!type[0] || !strcmp(type, "available")) {
+            int first = !c->xmpp_online;
+            keep_presence(c, s, len, taglen);
+            c->xmpp_online = 1;
+            w.send_back = first;
+            gcs_roster_friends(n->roster, me, pres_friend, &w);
+            if (first) {
+                LOG_I("xmpp: '%s' online (%d friends)", me, gcs_roster_friends(n->roster, me, NULL, NULL));
+                gcs_roster_requests(n->roster, me, 1, pending_req, &w);
+                gcs_roster_take_messages(n->roster, me, offline_msg, &w);
+            }
+        } else if (!strcmp(type, "unavailable")) {
+            xmpp_offline(n, c);
+        }
+        return;
+    }
+    if (!jid_user(n, to, target)) {
+        LOG_I("xmpp: '%s' sent presence %s to unknown '%s'", me, type[0] ? type : "available", to);
+        if (!strcmp(type, "subscribe")) {
+            char node[MAX_NAME];
+            jid_node(to, node, sizeof(node));
+            presence_to(n, c, node[0] ? node : "unknown", NULL, "unsubscribed", NULL);
+        }
+        return;
+    }
+    if (ieq_prefix(target, me) && strlen(target) == strlen(me)) {
+        return;
+    }
+    o = xmpp_conn_of(n, target);
+    if (!strcmp(type, "subscribe")) {
+        if (gcs_roster_are_friends(n->roster, me, target)) {
+            presence_to(n, c, target, NULL, "subscribed", NULL);
+            roster_push(n, me, target, "both", 0);
+            return;
+        }
+        if (gcs_roster_has_request(n->roster, target, me, NULL)) {
+            /* both asked: friends */
+            if (gcs_roster_add_friends(n->roster, me, target) >= 0) {
+                LOG_I("xmpp: '%s' and '%s' are friends", me, target);
+                roster_push(n, me, target, "both", 0);
+                roster_push(n, target, me, "both", 0);
+                presence_to(n, c, target, NULL, "subscribed", NULL);
+                presence_to(n, o, me, NULL, "subscribed", NULL);
+            }
+            return;
+        }
+        if (!xml_field(s, len, "status", status, sizeof(status))) {
+            status[0] = 0;
+        }
+        xml_unescape(status);
+        if (gcs_roster_request(n->roster, me, target, status) < 0) {
+            presence_to(n, c, target, NULL, "unsubscribed", NULL);
+            return;
+        }
+        LOG_I("xmpp: '%s' asks '%s' to be friends", me, target);
+        roster_push(n, me, target, "none", 1);
+        if (o) {
+            sbuf b;
+            memset(&b, 0, sizeof(b));
+            restamp(&b, s, len, taglen, me, NULL, target, NULL);
+            xmpp_send_sb(n, o, &b);
+        }
+    } else if (!strcmp(type, "subscribed")) {
+        if (!gcs_roster_has_request(n->roster, target, me, NULL)) {
+            if (gcs_roster_are_friends(n->roster, me, target)) {
+                roster_push(n, me, target, "both", 0);
+            }
+            return;
+        }
+        if (gcs_roster_add_friends(n->roster, me, target) < 0) {
+            presence_to(n, o, me, NULL, "unsubscribed", NULL);
+            return;
+        }
+        LOG_I("xmpp: '%s' accepted '%s': friends", me, target);
+        roster_push(n, me, target, "both", 0);
+        roster_push(n, target, me, "both", 0);
+        presence_to(n, o, me, NULL, "subscribed", NULL);
+        if (o && o->xmpp_online) {
+            presence_to(n, c, o->xmpp_user, o->xmpp_res, NULL, o->xmpp_pres);
+        }
+        if (o && c->xmpp_online) {
+            presence_to(n, o, me, c->xmpp_res, NULL, c->xmpp_pres);
+        }
+    } else if (!strcmp(type, "unsubscribed")) {
+        if (gcs_roster_drop_request(n->roster, target, me)) {
+            LOG_I("xmpp: '%s' refused '%s'", me, target);
+            roster_push(n, target, me, "remove", 0);
+            presence_to(n, o, me, NULL, "unsubscribed", NULL);
+        } else if (gcs_roster_are_friends(n->roster, me, target)) {
+            gcs_roster_remove(n->roster, me, target);
+            roster_push(n, me, target, "remove", 0);
+            roster_push(n, target, me, "remove", 0);
+            presence_to(n, o, me, NULL, "unsubscribed", NULL);
+            presence_to(n, o, me, NULL, "unavailable", NULL);
+        }
+    } else if (!strcmp(type, "unsubscribe")) {
+        if (gcs_roster_remove(n->roster, me, target)) {
+            LOG_I("xmpp: '%s' removed '%s'", me, target);
+            roster_push(n, me, target, "remove", 0);
+            roster_push(n, target, me, "remove", 0);
+            presence_to(n, o, me, NULL, "unsubscribe", NULL);
+            presence_to(n, o, me, NULL, "unavailable", NULL);
+            presence_to(n, c, target, NULL, "unavailable", NULL);
+        }
+    } else if (o) {
+        /* directed presence (available, unavailable, probe) */
+        if (!strcmp(type, "probe")) {
+            if (gcs_roster_are_friends(n->roster, me, target) && o->xmpp_online) {
+                presence_to(n, c, o->xmpp_user, o->xmpp_res, NULL, o->xmpp_pres);
+            }
+        } else {
+            sbuf b;
+            memset(&b, 0, sizeof(b));
+            restamp(&b, s, len, taglen, me, c->xmpp_res, target, NULL);
+            xmpp_send_sb(n, o, &b);
+        }
+    }
+}
+
+typedef struct
+{
+    sbuf *b;
+    const char *sub;
+    int ask;
+} roster_walk;
+
+static void roster_item(void *ctx, const char *other)
+{
+    roster_walk *w = (roster_walk *)ctx;
+    sb_str(w->b, "<item jid='");
+    sb_jid(w->b, other, NULL);
+    sb_str(w->b, "' name='");
+    sb_xml(w->b, other);
+    sb_str(w->b, "' subscription='");
+    sb_str(w->b, w->sub);
+    sb_str(w->b, w->ask ? "' ask='subscribe'/>" : "'/>");
+}
+
+static void roster_req_item(void *ctx, const char *other, const char *status)
+{
+    (void)status;
+    roster_item(ctx, other);
+}
+
+static void xmpp_roster_get(gcs_native *n, conn *c, const char *idattr)
+{
+    sbuf b, items;
+    roster_walk w;
+    memset(&b, 0, sizeof(b));
+    memset(&items, 0, sizeof(items));
+    if (c->xmpp_user[0] && n->roster) {
+        w.b = &items;
+        w.sub = "both";
+        w.ask = 0;
+        gcs_roster_friends(n->roster, c->xmpp_user, roster_item, &w);
+        w.sub = "none";
+        w.ask = 1;
+        gcs_roster_requests(n->roster, c->xmpp_user, 0, roster_req_item, &w);
+    }
+    if (items.d && !items.oom) {
+        sb_fmt(&b, "<iq type='result'%s><query xmlns='jabber:iq:roster'>", idattr);
+        sb_str(&b, items.d);
+        sb_str(&b, "</query></iq>");
+    } else {
+        sb_fmt(&b, "<iq type='result'%s><query xmlns='jabber:iq:roster'/></iq>", idattr);
+    }
+    free(items.d);
+    xmpp_send_sb(n, c, &b);
+}
+
+/* roster set: <item jid='x' subscription='remove'/> removes a friend;
+ * other items only add a name the client keeps by itself */
+static void xmpp_roster_set(gcs_native *n, conn *c, const char *s, size_t len, const char *idattr)
+{
+    const char *it = find_n(s, len, "<item");
+    char jid[96], sub[24], target[GCSA_MAX_NAME + 1], out[160];
+    snprintf(out, sizeof(out), "<iq type='result'%s/>", idattr);
+    if (it && c->xmpp_user[0] && n->roster) {
+        const char *gt = (const char *)memchr(it, '>', (size_t)(s + len - it));
+        size_t tl = gt ? (size_t)(gt - it - 1) : 0;
+        attr(it + 1, tl, "jid", jid, sizeof(jid));
+        attr(it + 1, tl, "subscription", sub, sizeof(sub));
+        xml_unescape(jid);
+        if (jid_user(n, jid, target)) {
+            if (!strcmp(sub, "remove")) {
+                conn *o = xmpp_conn_of(n, target);
+                int was_friend = gcs_roster_are_friends(n->roster, c->xmpp_user, target);
+                if (gcs_roster_remove(n->roster, c->xmpp_user, target)) {
+                    LOG_I("xmpp: '%s' removed '%s' from the friends", c->xmpp_user, target);
+                    roster_push(n, target, c->xmpp_user, "remove", 0);
+                    if (was_friend) {
+                        presence_to(n, o, c->xmpp_user, NULL, "unavailable", NULL);
+                        presence_to(n, c, target, NULL, "unavailable", NULL);
+                    }
+                }
+                xmpp_send(n, c, out);
+                roster_push(n, c->xmpp_user, target, "remove", 0);
+                return;
+            }
+            xmpp_send(n, c, out);
+            if (!gcs_roster_are_friends(n->roster, c->xmpp_user, target)) {
+                roster_push(n, c->xmpp_user, target, "none",
+                            gcs_roster_has_request(n->roster, c->xmpp_user, target, NULL));
+            }
+            return;
+        }
+    }
+    xmpp_send(n, c, out);
+}
+
+/* a message to another user: delivered now, or kept until he logs in */
+static void xmpp_route_message(gcs_native *n, conn *c, const char *s, size_t len, size_t taglen, const char *to)
+{
+    char target[GCSA_MAX_NAME + 1], type[24], id[64];
+    conn *o;
+    sbuf b;
+    attr(s + 1, taglen, "type", type, sizeof(type));
+    attr(s + 1, taglen, "id", id, sizeof(id));
+    if (!jid_user(n, to, target)) {
+        char node[MAX_NAME];
+        jid_node(to, node, sizeof(node));
+        LOG_I("xmpp: message from '%s' to unknown '%s'", c->xmpp_user, to);
+        if (strcmp(type, "error") && node[0]) {
+            memset(&b, 0, sizeof(b));
+            sb_str(&b, "<message type='error' from='");
+            sb_jid(&b, node, NULL);
+            sb_str(&b, "' to='");
+            sb_jid(&b, c->xmpp_user, c->xmpp_res);
+            sb_str(&b, "'");
+            if (id[0]) {
+                sb_str(&b, " id='");
+                sb_str(&b, id);
+                sb_str(&b, "'");
+            }
+            sb_str(&b, "><error code='404'>Not Found</error></message>");
+            xmpp_send_sb(n, c, &b);
+        }
+        return;
+    }
+    n->st.chat_messages++;
+    o = xmpp_conn_of(n, target);
+    memset(&b, 0, sizeof(b));
+    if (o) {
+        restamp(&b, s, len, taglen, c->xmpp_user, c->xmpp_res, target, NULL);
+        LOG_D("xmpp: message '%s' -> '%s'", c->xmpp_user, target);
+        xmpp_send_sb(n, o, &b);
+        return;
+    }
+    if (!strcmp(type, "error") || !strcmp(type, "groupchat") || !strcmp(type, "headline") ||
+        !find_n(s, len, "<body")) {
+        LOG_D("xmpp: message '%s' -> '%s' dropped (offline, no text)", c->xmpp_user, target);
+        return;
+    }
+    {
+        char stamp[96];
+        time_t t = time(NULL);
+        struct tm *tm = gmtime(&t);
+        if (tm) {
+            snprintf(stamp, sizeof(stamp), "<x xmlns='jabber:x:delay' from='" XMPP_DOMAIN "' stamp='%04d%02d%02dT%02d:%02d:%02d'/>",
+                     tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
+        } else {
+            stamp[0] = 0;
+        }
+        restamp(&b, s, len, taglen, c->xmpp_user, c->xmpp_res, target, stamp);
+    }
+    if (!b.oom && b.d && gcs_roster_store_message(n->roster, target, c->xmpp_user, (long)time(NULL), b.d) == 0) {
+        LOG_I("xmpp: message '%s' -> '%s' kept until '%s' logs in", c->xmpp_user, target, target);
     }
     free(b.d);
 }
@@ -1220,6 +1840,8 @@ static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size
         }
         LOG_I("xmpp: leaderboard query of '%s' (game class %s, %s): %d rows", c->xmpp_user, gcid, ev, rows);
         xmpp_retrieve_resp(n, c, to, ev, gcid, csv);
+    } else if (c->xmpp_user[0] && to[0]) {
+        xmpp_route_message(n, c, s, len, taglen, to);
     } else {
         LOG_D("xmpp: message to '%s' (id '%s') ignored", to, id);
     }
@@ -1232,8 +1854,12 @@ static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_
         xmpp_message(n, c, s, len, taglen);
         return;
     }
+    if (len >= 9 && !strncmp(s, "<presence", 9) && (s[9] == ' ' || s[9] == '>' || s[9] == '/')) {
+        xmpp_presence(n, c, s, len, taglen);
+        return;
+    }
     if (len < 3 || strncmp(s, "<iq", 3)) {
-        return; /* presence: nobody else is online yet */
+        return;
     }
     attr(s + 1, taglen, "id", id, sizeof(id));
     attr(s + 1, taglen, "type", type, sizeof(type));
@@ -1275,7 +1901,15 @@ static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_
         }
         if (r == GCSA_OK) {
             gcs_accounts_exists(n->acc, user, user);
+            if (c->xmpp_online) {
+                xmpp_offline(n, c);
+            }
             copy_str(c->xmpp_user, user, sizeof(c->xmpp_user));
+            if (!xml_field(s, len, "resource", c->xmpp_res, sizeof(c->xmpp_res))) {
+                c->xmpp_res[0] = 0;
+            }
+            xml_unescape(c->xmpp_res);
+            c->xmpp_since = ++n->xmpp_ctr;
             n->st.xmpp_logins++;
             LOG_I("xmpp: login '%s'", c->xmpp_user);
             snprintf(out, sizeof(out), "<iq type='result'%s/>", idattr);
@@ -1285,8 +1919,9 @@ static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_
         }
         xmpp_send(n, c, out);
     } else if (find_n(s, len, "jabber:iq:roster") && !strcmp(type, "get")) {
-        snprintf(out, sizeof(out), "<iq type='result'%s><query xmlns='jabber:iq:roster'/></iq>", idattr);
-        xmpp_send(n, c, out);
+        xmpp_roster_get(n, c, idattr);
+    } else if (find_n(s, len, "jabber:iq:roster") && !strcmp(type, "set")) {
+        xmpp_roster_set(n, c, s, len, idattr);
     } else if (!strcmp(type, "get") || !strcmp(type, "set")) {
         const char *q = find_n(s, len, "<query xmlns=");
         ns[0] = 0;
@@ -1397,7 +2032,7 @@ static void tcp_open(gcs_native *n, void *key, const gcn_msg *m)
     conn *c = conn_find(n, key, m->id);
     gcn_msg r;
     if (c) {
-        conn_free(c); /* the bridge reused the id: the old one is gone */
+        conn_free(n, c); /* the bridge reused the id: the old one is gone */
     }
     for (i = 0; i < GCSN_MAX_CONNS && n->conns[i].used; i++) {
     }
@@ -1534,7 +2169,7 @@ void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len)
             break;
         }
         if (m.how == GCN_CLOSE_RESET || c->kind == K_OTHER) {
-            conn_free(c); /* reset, or we closed already */
+            conn_free(n, c); /* reset, or we closed already */
         } else {
             c->peer_eof = 1;
             if (c->kind == K_XMPP) {
@@ -1561,16 +2196,26 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
     int i;
     gcs_snap_peer_gone(n->snap, key);
     gcs_habbo_peer_gone(n->habbo, key);
+    n->dying_key = key;
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         if (n->conns[i].used && n->conns[i].key == key) {
-            conn_free(&n->conns[i]);
+            conn_free(n, &n->conns[i]);
         }
     }
+    n->dying_key = NULL;
     for (i = 0; i < MAX_PEERS; i++) {
         if (n->peers[i].key == key) {
             memset(&n->peers[i], 0, sizeof(n->peers[i]));
         }
     }
+}
+
+/* every accepted score report also counts for the tournaments */
+static void score_listener(void *ctx, const char *game_class, const char *user, const char *stat, long value,
+                           int delta, int new_best, long now)
+{
+    gcs_native *n = (gcs_native *)ctx;
+    gcs_tourney_report(n->tourney, game_class, user, stat, value, delta, new_best, now);
 }
 
 gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *accounts_file, const char *rifts_file,
@@ -1593,7 +2238,11 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     n->habbo = n->acc ? gcs_habbo_create(n->acc, habbo_file, acc_log, n) : NULL;
     n->scores = gcs_scores_create(scores_file, acc_log, n);
     n->pk = gcs_pk_create(pk_file, snap_log, n);
-    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk) {
+    n->roster = gcs_roster_create(NULL, acc_log, n);
+    n->tourney = gcs_tourney_create(NULL, NULL, acc_log, n);
+    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk || !n->roster || !n->tourney) {
+        gcs_tourney_destroy(n->tourney);
+        gcs_roster_destroy(n->roster);
         gcs_pk_destroy(n->pk);
         gcs_scores_destroy(n->scores);
         gcs_habbo_destroy(n->habbo);
@@ -1606,6 +2255,7 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     gcs_snap_add_game(n->snap, gcs_rifts_game(n->rifts));
     gcs_snap_add_game(n->snap, gcs_pk_game(n->pk));
     gcs_snap_add_game(n->snap, gcs_wwp_game());
+    gcs_scores_set_listener(n->scores, score_listener, n);
     return n;
 }
 
@@ -1617,7 +2267,10 @@ void gcs_native_destroy(gcs_native *n)
     }
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         free(n->conns[i].buf);
+        free(n->conns[i].xmpp_pres);
     }
+    gcs_roster_destroy(n->roster);
+    gcs_tourney_destroy(n->tourney);
     gcs_snap_destroy(n->snap);
     gcs_rifts_destroy(n->rifts);
     gcs_pk_destroy(n->pk);
@@ -1625,6 +2278,38 @@ void gcs_native_destroy(gcs_native *n)
     gcs_scores_destroy(n->scores);
     gcs_accounts_destroy(n->acc);
     free(n);
+}
+
+int gcs_native_set_roster_file(gcs_native *n, const char *file)
+{
+    gcs_roster *r = gcs_roster_create(file, acc_log, n);
+    if (!r) {
+        return -1;
+    }
+    gcs_roster_destroy(n->roster);
+    n->roster = r;
+    return 0;
+}
+
+int gcs_native_set_tournament_files(gcs_native *n, const char *defs_file, const char *data_file)
+{
+    gcs_tourney *t = gcs_tourney_create(defs_file, data_file, acc_log, n);
+    if (!t) {
+        return -1;
+    }
+    gcs_tourney_destroy(n->tourney);
+    n->tourney = t;
+    return 0;
+}
+
+struct gcs_tourney *gcs_native_tourney(gcs_native *n)
+{
+    return n ? n->tourney : NULL;
+}
+
+struct gcs_roster *gcs_native_roster(gcs_native *n)
+{
+    return n ? n->roster : NULL;
 }
 
 struct gcs_scores *gcs_native_scores(gcs_native *n)

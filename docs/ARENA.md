@@ -141,7 +141,9 @@ see the reverse engineering notes below):
 - Device pages (news, support, lists): served from the folder `www_root`
   when set, `www_root/<game class>/n-gage/...` before `www_root/n-gage/...`
   (game class of the user's SNAP login, e.g. 8053 for Rifts); without a
-  file `*_x.jsp` lists are empty lists, other `.jsp` pages and
+  file the pages of the Play menu (rankings, tournaments, activities,
+  games) are generated (see "Rankings, tournaments and activities"
+  below), other `*_x.jsp` lists are empty lists, other `.jsp` pages and
   `/servlets/*` a short black page. The profile view is generated from the
   requested account instead of a file: it shows the username, names enabled
   in display options, favourites and quote, but not email or credentials.
@@ -149,8 +151,9 @@ see the reverse engineering notes below):
   ArenaFramework's, the same in every game; example pages and the list of
   addresses in `server/deploy/www`.
 - SegaChat: stream, `jabber:iq:auth` get/set (the password is checked, see
-  below), empty roster, an empty result for every other iq; presence and
-  messages are not routed yet.
+  below), friends (roster, friend requests, presence), messages between
+  users (see "Friends and chat" below), the score service of games with
+  leaderboards, an empty result for every other iq.
 - SNAP (UDP 9090): login, lobbies, game rooms, data between room members
   and the game servers behind the rooms, see "SNAP" below. Datagrams
   without the SNAP trailer are logged as hex.
@@ -277,6 +280,89 @@ process: logins, two N-Gages behind one address, SNAP, unknown sources,
 idle addresses) and `tests/net/run_direct_test.py` (gamecommsd with real
 sockets).
 
+## Friends and chat (SegaChat, every Arena game)
+
+ArenaFramework's Communicate menu (Friends, Add friend, Authorise / Do
+not authorise, Remove, Chat) and the friends of Play Now (presence with
+lobby and room, "join friend's game", challenges) use sc_lib.dll, a plain
+libjabber client. The server (`gcs_native.c`, store `gcs_roster.c`, file
+`roster_data`, default `gamecomms-roster.txt`) answers as a Jabber server
+for the domain `ngage-auth`:
+
+| Client sends | Server |
+|---|---|
+| `<iq type='get'>` `jabber:iq:roster` (id `segachat_get_roster`) | the friends (`subscription='both'`) and the user's open requests (`'none'`, `ask='subscribe'`) |
+| `<presence to='x@ngage-auth' type='subscribe' id='segachat_buddy_req'>` (Add friend) | keeps the request, roster push to the sender, passes it on now or when x sends his first presence; unknown user: `type='unsubscribed'` back |
+| `type='subscribed'` (Authorise, id `segachat_buddy_accrej`) | both are friends: roster pushes `both` to both, `subscribed` to the asker, the current presences both ways |
+| `type='unsubscribed'` (Do not authorise) | request dropped, roster push `remove` and `unsubscribed` to the asker |
+| `type='unsubscribe'`, or roster set `<item jid='x' subscription='remove'/>` (Remove friend) | the friendship ends on both sides (pushes, `unavailable` both ways) |
+| `<presence>` (with `<ext_pres .../>`, `<status>`) | kept and sent to every online friend; the first one also brings the friends' presences, open requests and waiting messages |
+| `<presence type='unavailable'>`, end of stream, lost connection | `unavailable` to the friends |
+| `<message to='x@ngage-auth'>` | to x with `from` set to the sender (a forged `from` is replaced); x offline: kept with a `jabber:x:delay` stamp if it has a `<body>` (at most 100 per user), messages without text (game data, challenges) are dropped; unknown x: error 404 |
+
+Friendship is always mutual, as the Arena menus only know friends and
+open requests. Messages to reporter@ / retrieval@ go to the score service
+as before.
+
+## Rankings, tournaments and activities (Play menu)
+
+The Play menu's lists and pages (aamplayui.rsc) are device pages. Lists
+are XML that cafmplay.dll parses (0x36c0):
+
+```
+<list><currentStart value="0"/><listTotal value="2"/>
+  <itemNode index="0" contentId="1" gameId="42318" username="" mediaPath="">Ashen</itemNode>
+</list>
+```
+
+`index`, `contentId` and `gameId` are numbers, `username` and `mediaPath`
+text, the element text is the label. A chosen item opens the next page
+with `contentId=`, `gameId=` or `username=` added; lists get `start=` and
+`disp=` (paging), searches `cmd=search&username=`. `gcs_pages.c`
+generates (paths below `/n-gage/device/`; a file in `www_root` with the
+same path wins):
+
+| Page | Content |
+|---|---|
+| `community/ranking_list_x.jsp` | games with rankings (gameId = game class); with `cmd=search`: players whose name starts with `username` |
+| `global/play/rankings/post_game.jsp?gameId=` | every ranking of the game: skill points (with won-lost-drawn) and the statistics of the score reports, top 10 and the user's own rank |
+| `global/play/rankings/post_player.jsp?username=` | the player's ranks in every ranking ("View my rank": the user) |
+| `global/play/rankings/spotlight.jsp` | No. 1 of every ranking, latest activities |
+| `community/tournament_list_x.jsp` | tournaments: running, upcoming, finished (contentId = id) |
+| `global/play/tournaments/post_tournaments.jsp?contentId=` | game, statistic, time, text, standings (top 10, own rank) |
+| `global/play/tournaments/news.jsp` | running (with the leader) and upcoming tournaments |
+| `global/play/tournaments/winners.jsp`, `activities/winners.jsp` | finished tournaments with the first three |
+| `community/activity_list_x.jsp`, `activities/news.jsp`, `activities/post_activity.jsp?contentId=` | the latest 64 activities: new personal bests and won ranked games |
+| `community/game_list_x.jsp`, `global/play/games/post_game.jsp?gameId=` | the Arena games the server knows, with their leaders |
+
+The rankings come from the SegaChat score service (`gcs_scores.c`):
+Ashen's levels and total, the skill points and results of Worms World
+Party and any other game that reports scores. Pocket Kingdom's All-Time
+Owner Board shows up once its reports are known.
+
+### Tournaments
+
+The operator lists them in the file `tournaments` (default
+`gamecomms-tournaments.txt`, example in `server/deploy/`), read again
+whenever it changes:
+
+```
+# id|game class|statistic|mode|start|end|name|description
+1|42318|game_total|best|2026-12-01|2027-01-01|Ashen December Cup|Best total score of December.
+2|1104|$ps_points|sum|2026-12-01 18:00|2026-12-08 18:00|Worms week|Most skill points in ranked games.
+3|1104|$wins|sum|2026-12-01|2026-12-31|Worms winners|Most ranked games won.
+```
+
+Mode `best` counts the highest single value, `low` the lowest (times),
+`sum` adds up per match values (`$ps_points`, `$wins`). Times are UTC, the
+end is excluded. Every player who reports a matching score during the
+window takes part; there is no sign-up. Standings and activities are kept
+in `tournament_data` (default `gamecomms-tournaments.dat`).
+
+Not generated (still `www_root` or placeholders): downloads (wallpapers,
+movies, screenshots, skins, sounds), upcoming games, message boards,
+news (`/servlets/msg`).
+
 ## Parts
 
 | Part | Files | State |
@@ -296,6 +382,8 @@ sockets).
 | Retail: SNAP lobby/room service | `server/src/gcs_snap.c` | written from the client DLLs, tested against simulated games, **not yet on hardware** |
 | Retail: Rifts game server | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c` | written, tested against simulated games, **not yet on hardware** |
 | Retail: SegaChat score service (Ashen) | `server/src/gcs_scores.c` | written from sc_lib.dll and the game, tested against the game's decoder, **not yet on hardware** |
+| Retail: SegaChat friends, presence, chat | `server/src/gcs_roster.c`, `server/src/gcs_native.c` | written from sc_lib.dll's stanzas, tested against simulated clients, **not yet on hardware** |
+| Retail: rankings, tournaments, activities, games (device pages) | `server/src/gcs_pages.c`, `server/src/gcs_tourney.c` | list format from cafmplay.dll, tested with its decoding rules, **not yet on hardware** |
 
 The DLLs build only with `-DGC_BUILD_ARENA=ON` (off by default until the
 build has been verified with the N-Gage toolchain). Copy `plarena.dll`,
@@ -367,9 +455,9 @@ Requests (client → server):
 | 6 | 0xa000 | room id, password [16], word | enter game room |
 | 7 | 0xb000/0xa000 | - | leave lobby / room |
 | 8 | 0xa000 | attribute (four letters), value (4 bytes BE, text for NAME) | set an attribute of the user's room: the server keeps it (up to 16 per room) and tells the other members (op 8 below); STAT is the room status of the room lists, MAXI the room size |
-| 9 | 0xa000 | object id, attribute | read an attribute: op 9 {id, attribute, value}, then success |
-| 73 | 0xb000 | like op 72 | the same search over all lobbies of the game class (Pocket Kingdom's Ranked "Finding game room"); the server's fixed rooms are never a match |
-| 72 | 0xb000 | {value, count, 3 bytes}, count × {attribute, operator, value} | room search with criteria (ArenaFramework's SelectGameRooms, "Find Game"): open rooms of the user's lobby that are not full and match; the operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word); seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID) |
+| 9 | 0xa000/0xb000 | object id, attribute | read an attribute of a room or a lobby (0xb000; NAME as 16 byte text, USER, MAXI): op 9 {id, attribute, value}, then success. ArenaFramework's slot 0x6c reads the NAME of the current lobby this way |
+| 73 | 0xb000 | like op 72 | room search with criteria (snapcomm.dll 0x81f0, arenabase slot 0xf4; ArenaFramework's SelectGameRooms, Pocket Kingdom's Ranked "Finding game room" and slot 0x6c): open rooms of every lobby of the game class that are not full and match; 40 byte entries with the lobby (parser 0x3c24). Seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID) |
+| 72 | 0xb000 | {value, count, 3 bytes}, count × {attribute, operator, value} | **lobby** search with criteria (snapcomm.dll 0x7fb4, arenabase slot 0xf0; ArenaFramework's slot 0x6c sends NAME = "Auction"): lobbies of the game class that match, answered like op 71 (36 byte lobby entries, parser 0x3bf0 → 0x38a0). The operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word). Criteria on room attributes (STAT, ARNx) still get the old room search of the user's lobby (Worms World Party's "Find Game", unverified) |
 | 10, 12, 13, 67 | | | user lists, user properties (not identified in detail) |
 | 11 | 0xb000 | lobby id | search game rooms |
 | 71 | 0xb000 | - | lobbies of the login's game class (Rifts sends it when the player creates a challenge) |
@@ -741,18 +829,44 @@ each:
 | Lobby / room | Status | Used by |
 |---|---|---|
 | Scrimmage | 1 | Play Now "Scrimmage" (RoomToJoin) |
-| Auction | 1 | the Global Auction: the game switches with CArenaFramework slot 0x6c (lobby "Auction", room "Auction"), which searches the lobby and then the room by NAME (and LOID) |
+| Auction | 1 | the Global Auction: the game switches with CArenaFramework slot 0x6c (lobby "Auction", room "Auction"); see "Global Auction: the room switch" below |
 | Ranked | 0x30000001 | Play Now "Ranked": SelectGameRooms over all lobbies (op 73) with STAT & 0x30000000 = 0x30000000, USER < 0x7fff, ARNA..ARND = 0; the game may not create a room (ProhibitRoomCreation: "no room was found, and ProhibitRoomCreation is set!", back to the mode selection) |
 
 The room entries had the wrong layout at first (the room id where
 ArenaFramework expects the number of users, so every room looked full);
-see op 11 above. Not verified: that op 73 answers use the 40 byte entries
-(with the lobby), and that the Auction lobby search goes through the
-lobby list of op 71 rather than a request of its own (the hardware log
-showed no request after the keep alive). The game server only lets
+see op 11 above. The game server only lets
 kingdoms of the same room meet (search, scout, attack), so Scrimmage
 and Ranked stay apart; chat goes everywhere. Game data from a user who has not
 entered a room yet reaches the game server, too.
+
+### Global Auction: the room switch
+
+From arenaframework.dll 0xccc8 (slot 0x6c), arenabase.dll and
+snapcomm.dll (static analysis, 2026-11-16). The game calls slot 0x6c
+(lobby "Auction", room "Auction", 0) after its keep alive (2 -> 130) and
+then waits for observer slot 0x44 (0 = done). ArenaFramework keeps a
+state at +0x1304 and goes through these requests, each one started by
+the answer to the one before:
+
+1. op 9 (0xb000) {current lobby, NAME}: the name of the current lobby
+   (+0xa58). It is only known this way, so this request always comes
+   first. If it is the target lobby, step 2 is skipped.
+2. op 72 {0, 1, NAME 0x41 "Auction"}: lobby search. Exactly one entry is
+   needed; its id (+32) is the target lobby. No entry: error 0x2b09,
+   more than one: 0x2b0a.
+3. op 73 {0, 2, NAME 0x41 "Auction", LOID 1 lobby}: room search; the
+   room id is at +36 of the first 40 byte entry (none: 0x2b07, more than
+   one: 0x2b08).
+4. leave the room (op 7), leave the lobby (op 7, 0xb000), enter the
+   target lobby (op 6, 0xb000), enter the room (op 6), as far as needed.
+5. observer slot 0x44 with 0; any error code ends the switch, and the
+   game shows its connection error.
+
+The server used to answer op 72 as a room search in the user's lobby, so
+the lobby "Auction" was never found and the Global Auction failed after
+the keep alive. Error codes 0x2b01..0x2b05 come straight from slot 0x6c
+(no ArenaBase, no SNAP connection, name too long, not in a lobby, busy),
+0x2b06 is a failed answer.
 
 ### Messages
 
@@ -957,3 +1071,12 @@ Pocket Kingdom:
    class in the SNAP login, the area numbers, and whether the look bytes
    of the search answer come out in the right order.
 5. The All-Time Owner Board (retrieval board `player_skills`).
+
+Every ArenaFramework game (Communicate and Play menus):
+
+1. Friends: add a friend from a second N-Gage, authorise, chat, remove;
+   the server log shows every presence and roster push at level 3.
+2. Play > Rankings, Tournaments, Activities, Games: check that the lists
+   show their labels and that choosing an item opens the right page
+   (the parameter names come from cafmplay.dll; the screen that sends
+   `cmd=search` is assumed to be "Find players").
