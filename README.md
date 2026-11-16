@@ -71,12 +71,12 @@ standard GameComms library, so PhantomLink cannot support them.
 
 ### N-Gage Arena games
 
-| Game                          | Online feature                                              | Status |
-| ----------------------------- | ----------------------------------------------------------- | :----: |
-| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
-| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"               | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
-| Ashen                         | Online leaderboards for every chapter and the whole game    | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Worms World Party             | Play Now game rooms (Freestyle, Ranked), skill points, rankings | ![Untested](https://img.shields.io/badge/Untested-grey)         |
+| Game                          | Online feature                                                  | Status                                                              |
+| ----------------------------- | --------------------------------------------------------------- | :-----------------------------------------------------------------: |
+| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings     | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
+| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"                   | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
+| Ashen                         | Online leaderboards for every chapter and the whole game        | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Worms World Party             | Play Now game rooms (Freestyle, Ranked), skill points, rankings | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; the
 game server for the online map, battles, chat and the Global Auction is
@@ -93,8 +93,8 @@ PhantomLink's server provides it with the same accounts as the Arena
 games, and the same **Arena over BT** / **Arena over GPRS** setup in the
 PhantomLink app points the game to it.
 
-| Game          | Online feature                                   | Status |
-| ------------- | ------------------------------------------------ | :----: |
+| Game          | Online feature                                    | Status                                                       |
+| ------------- | ------------------------------------------------- | :----------------------------------------------------------: |
 | Habbo Islands | Habbo Console: friends, messages, friend requests | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 
 Habbo Islands is tested against the server only, not yet on a real N-Gage;
