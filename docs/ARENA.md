@@ -291,6 +291,7 @@ for the domain `ngage-auth`:
 
 | Client sends | Server |
 |---|---|
+| `<iq type='get' to='x@ngage-auth'>` `jabber:iq:browse` (id `segachat_browse_jid`, first step of Add friend) | `<user xmlns='jabber:iq:browse' jid='x@ngage-auth' name='x'/>`; sc_lib (0x356c) only goes on when the `user` child has a `name`, otherwise the menu stays in "Please wait"; unknown x: error 404 |
 | `<iq type='get'>` `jabber:iq:roster` (id `segachat_get_roster`) | the friends (`subscription='both'`) and the user's open requests (`'none'`, `ask='subscribe'`) |
 | `<presence to='x@ngage-auth' type='subscribe' id='segachat_buddy_req'>` (Add friend) | keeps the request, roster push to the sender, passes it on now or when x sends his first presence; unknown user: `type='unsubscribed'` back |
 | `type='subscribed'` (Authorise, id `segachat_buddy_accrej`) | both are friends: roster pushes `both` to both, `subscribed` to the asker, the current presences both ways |

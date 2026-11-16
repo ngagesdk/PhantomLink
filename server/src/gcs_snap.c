@@ -327,7 +327,12 @@ static int send_msg(gcs_snap *s, sess *c, gc_u16 flags, gc_u8 cmdseq, gc_u8 op, 
     } else {
         put32(m + 8, c->tx_unrel++);
     }
-    LOG_D("-> %08x op %u flags %04x seq %u len %u", c->uid, op, flags | F_ONE, be32(m + 8), (unsigned)plen);
+    {
+        char hx[3 * 32 + 4];
+        hex(hx, sizeof(hx), m + HDR, plen);
+        LOG_D("-> %08x op %u cmd %u flags %04x seq %u len %u%s%s", c->uid, op, cmdseq, flags | F_ONE, be32(m + 8),
+              (unsigned)plen, plen ? ": " : "", hx);
+    }
     send_raw(s, c, m, len);
     return 0;
 }
@@ -341,6 +346,7 @@ static void send_ack(gcs_snap *s, sess *c, gc_u32 seq)
     put32(m + 4, c->uid);
     put32(m + 8, c->tx_unrel ? c->tx_unrel - 1 : 0);
     put32(m + 12, seq);
+    LOG_D("-> %08x ack %u", c->uid, seq);
     send_raw(s, c, m, HDR);
 }
 
@@ -1583,8 +1589,9 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
             s->st.bad_datagrams++;
             break;
         }
-        LOG_D("<- %08x op %u flags %04x seq %u ack %u len %u", be32(m + 4), m[3], fl & 0xfc00, be32(m + 8),
-              be32(m + 12), (unsigned)(len - HDR));
+        hex(hx, sizeof(hx), m + HDR, len - HDR);
+        LOG_D("<- %08x op %u cmd %u flags %04x seq %u ack %u len %u%s%s", be32(m + 4), m[3], m[2], fl & 0xfc00,
+              be32(m + 8), be32(m + 12), (unsigned)(len - HDR), len > HDR ? ": " : "", hx);
         if (fl & F_ACK) {
             acked(c, be32(m + 12));
         }
@@ -1649,6 +1656,7 @@ void gcs_snap_poll(gcs_snap *s, gc_u32 now)
             o->tries++;
             o->t = now;
             s->st.resends++;
+            LOG_D("-> %08x resend seq %u op %u (try %d)", c->uid, o->seq, o->d[3], o->tries);
             send_raw(s, c, o->d, o->len);
         }
     }

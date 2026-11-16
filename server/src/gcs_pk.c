@@ -1045,6 +1045,16 @@ static void g_data(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
         return;
     }
     p->messages++;
+    {
+        char hx[3 * 40 + 4];
+        size_t i, o = 0;
+        hx[0] = 0;
+        for (i = 0; i < n && i < 40 && o + 4 < sizeof(hx); i++) {
+            o += (size_t)snprintf(hx + o, sizeof(hx) - o, "%02x ", d[i]);
+        }
+        LOG_D("'%s': message %u seq %u (%u bytes): %s%s", pl->name, d[0], n > 1 ? d[1] : 0, (unsigned)n, hx,
+              n > 40 ? "..." : "");
+    }
     for (k = 0; k < sizeof(RELAY) / sizeof(RELAY[0]); k++) {
         if (RELAY[k].type == d[0]) {
             if (n < RELAY[k].len) {
