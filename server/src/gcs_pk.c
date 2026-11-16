@@ -515,7 +515,7 @@ static void send_to(gcs_pk *p, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n
 {
     if (p->out) {
         p->out(p->out_ctx, uid, d, n);
-    } else if (s && gcs_snap_send_game_data(s, uid, d, n) != 0) {
+    } else if (s && gcs_snap_send_user_data(s, uid, d, n) != 0) {
         LOG_W("user %08x: cannot send message %u", uid, d[0]);
     }
 }

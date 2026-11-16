@@ -804,7 +804,15 @@ Arena menus. Observer slot 0x38 is GameDataReceived (the parser at
 0x67eb8), slot 0x08 the events 23, 27 and 28 (28: connection lost).
 
 So Pocket Kingdom has a real game server behind the SNAP room
-(op 17 in, op 15 out, gcs_snap.c). Battles are **not** played against
+(op 17 in, op 16 out, gcs_snap.c). Answers must be op 16 (private data:
+u32 count, count × u32 recipient uid, then the game message); the server
+sends {1, uid}. Pocket Kingdom's snapcomm.dll (dispatch table 0x4338,
+index = op − 3) handles incoming op 16 at 0x49ec (reliable → observer
+event 0x13 → ArenaFramework 0xab3c → GameDataReceived) and silently drops
+op 15 and op 17. Until 2026-11-16 the server answered with op 15, so the
+game never saw 129/130/…; the Global Auction waits for the 130 and timed
+out with trigger039 before ArenaFramework was even asked to switch rooms.
+Battles are **not** played against
 stored kingdoms, as the manual suggested: the defender's game is online
 and answers scouting and attacks itself; the server passes the messages
 on. Server code: `server/src/gcs_pk.c`, tests: `tests/server/test_pk.c`.

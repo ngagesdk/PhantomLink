@@ -1687,6 +1687,19 @@ int gcs_snap_send_game_data(gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
     return send_msg(s, c, F_REL, 0, GCSS_OP_DATA, d, n);
 }
 
+int gcs_snap_send_user_data(gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
+{
+    gc_u8 m[MAX_MSG];
+    sess *c = sess_by_uid(s, uid);
+    if (!c || n > sizeof(m) - HDR - 8) {
+        return -1;
+    }
+    put32(m, 1);
+    put32(m + 4, uid);
+    memcpy(m + 8, d, n);
+    return send_msg(s, c, F_REL, 0, GCSS_OP_PDATA, m, 8 + n);
+}
+
 int gcs_snap_add_game(gcs_snap *s, const gcs_snap_game *g)
 {
     if (s->n_games >= (int)(sizeof(s->games) / sizeof(s->games[0]))) {
