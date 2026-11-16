@@ -234,6 +234,14 @@ static void test_friends(void)
     r = say(&b, "<presence/>");
     CHECK(!strstr(a.rx, "<presence")); /* not friends yet */
 
+    /* Add friend first browses the user: a <user> with a name, or 404 */
+    r = say(&a, "<iq type='get' id='segachat_browse_jid' to='bob@ngage-auth'><query xmlns='jabber:iq:browse'/></iq>");
+    CHECK(strstr(r, "<iq type='result' from='Bob@ngage-auth' id='segachat_browse_jid'><user xmlns='jabber:iq:browse' "
+                    "jid='Bob@ngage-auth' name='Bob' type='client'/></iq>") != NULL);
+    r = say(&a, "<iq type='get' id='segachat_browse_jid' to='nobody@ngage-auth'><query xmlns='jabber:iq:browse'/></iq>");
+    CHECK(strstr(r, "<iq type='error' from='nobody@ngage-auth' id='segachat_browse_jid'>") != NULL);
+    CHECK(strstr(r, "<error code='404'>Not Found</error>") != NULL);
+
     /* Alice asks Bob (Add friend) */
     clear(&b);
     r = say(&a, "<presence to='bob@ngage-auth' type='subscribe' id='segachat_buddy_req'><status>hi</status></presence>");

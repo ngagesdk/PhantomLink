@@ -1687,6 +1687,39 @@ static void xmpp_roster_set(gcs_native *n, conn *c, const char *s, size_t len, c
     xmpp_send(n, c, out);
 }
 
+/* Add friend first browses the user (id segachat_browse_jid, to
+ * 'x@ngage-auth'): sc_lib takes the name attribute of a <user> child as
+ * "exists" (sc_lib 0x356c) and does nothing at all without it, which
+ * leaves the menu in "Please wait"; an unknown user gets error 404. */
+static void xmpp_browse(gcs_native *n, conn *c, const char *s, size_t taglen, const char *idattr)
+{
+    char to[96], target[GCSA_MAX_NAME + 1], node[MAX_NAME];
+    sbuf b;
+    attr(s + 1, taglen, "to", to, sizeof(to));
+    xml_unescape(to);
+    jid_node(to, node, sizeof(node));
+    memset(&b, 0, sizeof(b));
+    if (node[0] && jid_user(n, to, target)) {
+        sb_str(&b, "<iq type='result' from='");
+        sb_jid(&b, target, NULL);
+        sb_fmt(&b, "'%s><user xmlns='jabber:iq:browse' jid='", idattr);
+        sb_jid(&b, target, NULL);
+        sb_str(&b, "' name='");
+        sb_xml(&b, target);
+        sb_str(&b, "' type='client'/></iq>");
+    } else if (node[0]) {
+        LOG_I("xmpp: '%s' looked for unknown user '%s'", c->xmpp_user, to);
+        sb_str(&b, "<iq type='error' from='");
+        sb_xml(&b, to);
+        sb_fmt(&b, "'%s><query xmlns='jabber:iq:browse'/><error code='404'>Not Found</error></iq>", idattr);
+    } else {
+        /* the server itself */
+        sb_fmt(&b, "<iq type='result' from='" XMPP_DOMAIN "'%s><service xmlns='jabber:iq:browse' jid='" XMPP_DOMAIN "' name='SegaChat' type='jabber'/></iq>",
+               idattr);
+    }
+    xmpp_send_sb(n, c, &b);
+}
+
 /* a message to another user: delivered now, or kept until he logs in */
 static void xmpp_route_message(gcs_native *n, conn *c, const char *s, size_t len, size_t taglen, const char *to)
 {
@@ -1850,6 +1883,25 @@ static void xmpp_message(gcs_native *n, conn *c, const char *s, size_t len, size
 static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_t taglen)
 {
     char id[64], type[16], idattr[80], user[MAX_NAME], ns[96], out[400];
+    if (n->io.log) {
+        /* the stanza as it came, without the password of an auth request */
+        char line[512];
+        size_t k = len < sizeof(line) - 1 ? len : sizeof(line) - 1;
+        const char *pw;
+        memcpy(line, s, k);
+        line[k] = 0;
+        pw = strstr(line, "<password>");
+        if (pw) {
+            char *e = strstr((char *)pw, "</password>");
+            size_t from = (size_t)(pw - line) + 10;
+            if (e) {
+                memmove(line + from, e, strlen(e) + 1);
+            } else {
+                line[from] = 0;
+            }
+        }
+        LOG_D("xmpp <- '%s': %s%s", c->xmpp_user, line, len > k ? "..." : "");
+    }
     if (len >= 8 && !strncmp(s, "<message", 8) && (s[8] == ' ' || s[8] == '>')) {
         xmpp_message(n, c, s, len, taglen);
         return;
@@ -1918,6 +1970,8 @@ static void xmpp_stanza(gcs_native *n, conn *c, const char *s, size_t len, size_
             snprintf(out, sizeof(out), "<iq type='error'%s><error code='401'>Unauthorized</error></iq>", idattr);
         }
         xmpp_send(n, c, out);
+    } else if (find_n(s, len, "jabber:iq:browse") && !strcmp(type, "get")) {
+        xmpp_browse(n, c, s, taglen, idattr);
     } else if (find_n(s, len, "jabber:iq:roster") && !strcmp(type, "get")) {
         xmpp_roster_get(n, c, idattr);
     } else if (find_n(s, len, "jabber:iq:roster") && !strcmp(type, "set")) {
