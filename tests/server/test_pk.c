@@ -756,7 +756,7 @@ static void test_snap(void)
     /* lobby "Scrimmage" (game.rsc), then the room the game enters for
      * the Global Auction */
     memset(p, 0, sizeof(p));
-    strcpy((char *)p, GCS_PK_LOBBY);
+    strcpy((char *)p, "Scrimmage");
     snap_msg(0x9000, 1, GCSS_OP_LOBBY_INFO, p, 16);
     CHECK(N.lobby != 0);
     put32(p, N.lobby);
@@ -789,7 +789,7 @@ static void test_snap(void)
                 auction |= !strcmp((const char *)e, "Auction");
             }
             CHECK(scrim != 0);
-            CHECK(auction);
+            CHECK(!auction); /* in its own lobby "Auction" */
         }
         if (k == 0) {
             /* enter it, leave it again: it stays */
@@ -810,16 +810,15 @@ static void test_snap(void)
         }
     }
 
-    /* Ranked: SelectGameRooms over all lobbies (op 73, criteria STAT,
-     * USER, ARNA..ARND); the fixed rooms are no match rooms, so nothing
-     * is found and the game creates its room outside any lobby */
+    /* a room created outside any lobby (matchmaking "in any lobby") goes
+     * into the game's first lobby */
     snap_msg(0x9000, 8, GCSS_OP_LEAVE, p, 4); /* leave the lobby */
     {
         static const gc_u8 crit[] = { 0, 0, 0, 0, 2, 0, 0, 0, 'S', 'T', 'A', 'T', 0x21, 0x30, 0xff, 0xff, 0xf0,
                                       0x30, 0, 0, 0, 'U', 'S', 'E', 'R', 6, 0, 0, 0x7f, 0xff };
         N.nsel = 0;
         snap_msg(0x9000, 9, GCSS_OP_SELECT_ALL, crit, sizeof(crit));
-        CHECK(N.nsel == 12 && be32(N.sel + 4) == 0);
+        CHECK(N.nsel == 12 + 40 && be32(N.sel + 4) == 1); /* the fixed room "Ranked" */
         memset(p, 0, sizeof(p));
         strcpy((char *)p, "R mupf");
         put32(p + 16, 2);
@@ -832,10 +831,13 @@ static void test_snap(void)
         CHECK(found);
         N.nsel = 0;
         {
-            /* the room has no STAT bits set by its game here: ask for
-             * free places only */
-            static const gc_u8 crit2[] = { 0, 0, 0, 0, 1, 0, 0, 0, 'U', 'S', 'E', 'R', 6, 0, 0, 0x7f, 0xff };
-            snap_msg(0x9000, 11, GCSS_OP_SELECT_ALL, crit2, sizeof(crit2));
+            gc_u8 crit2[32];
+            memset(crit2, 0, sizeof(crit2));
+            crit2[4] = 1;
+            memcpy(crit2 + 8, "NAME", 4);
+            crit2[12] = 0x41;
+            strcpy((char *)crit2 + 13, "R mupf");
+            snap_msg(0x9000, 11, GCSS_OP_SELECT_ALL, crit2, 29);
         }
         CHECK(N.nsel == 12 + 40 && be32(N.sel + 8) == 1);
         if (N.nsel == 12 + 40) {
@@ -845,6 +847,63 @@ static void test_snap(void)
             CHECK_EQ(be32(e + 20), 1);       /* users */
             CHECK_EQ(be32(e + 32), 2);       /* max */
             CHECK(be32(e + 36) != 0);        /* id */
+        }
+    }
+
+    /* Ranked matchmaking (no room creation): the fixed room "Ranked" fits
+     * the game's criteria, Scrimmage and Auction do not */
+    {
+        static const gc_u8 rk[] = { 0, 0, 0, 0, 6, 0, 0, 0, 'S', 'T', 'A', 'T', 0x21, 0x30, 0xff, 0xff,
+                                    0xf0, 0x30, 0, 0, 0, 'U', 'S', 'E', 'R', 6, 0, 0, 0x7f, 0xff,
+                                    'A', 'R', 'N', 'A', 1, 0, 0, 0, 0, 'A', 'R', 'N', 'B', 1,
+                                    0, 0, 0, 0, 'A', 'R', 'N', 'C', 1, 0, 0, 0, 0, 'A', 'R', 'N',
+                                    'D', 1, 0, 0, 0, 0 };
+        CHECK_EQ(sizeof(rk), 66); /* as on hardware */
+        N.nsel = 0;
+        snap_msg(0x9000, 14, GCSS_OP_SELECT_ALL, rk, sizeof(rk));
+        CHECK(N.nsel >= 12);
+        if (N.nsel >= 12) {
+            gc_u32 j, cnt = be32(N.sel + 8);
+            int ranked = 0;
+            for (j = 0; j < cnt && 12 + 40 * (j + 1) <= N.nsel; j++) {
+                const gc_u8 *e = N.sel + 12 + 40 * j;
+                CHECK(strcmp((const char *)e, "Scrimmage") != 0 && strcmp((const char *)e, "Auction") != 0);
+                if (!strcmp((const char *)e, "Ranked")) {
+                    ranked = 1;
+                    CHECK_EQ(be32(e + 28) & 0x30000000u, 0x30000000u);
+                    CHECK(be32(e + 20) < be32(e + 32));
+                }
+            }
+            CHECK(ranked);
+        }
+    }
+
+    /* the Global Auction: CArenaFramework slot 0x6c switches to lobby
+     * "Auction", room "Auction" and finds the room by a criteria search
+     * (NAME, LOID); the fixed room is found by its name */
+    {
+        gc_u8 crit[64];
+        gc_u32 alobby = 0;
+        memset(p, 0, sizeof(p));
+        strcpy((char *)p, "Auction");
+        N.lobby = 0;
+        snap_msg(0x9000, 12, GCSS_OP_LOBBY_INFO, p, 16);
+        alobby = N.lobby;
+        CHECK(alobby != 0);
+        memset(crit, 0, sizeof(crit));
+        crit[4] = 2;
+        memcpy(crit + 8, "NAME", 4);
+        crit[12] = 0x41;
+        strcpy((char *)crit + 13, "Auction");
+        memcpy(crit + 29, "LOID", 4);
+        crit[33] = 1;
+        put32(crit + 34, alobby);
+        N.nsel = 0;
+        snap_msg(0x9000, 13, GCSS_OP_SELECT_ALL, crit, 38);
+        CHECK(N.nsel == 12 + 40 && be32(N.sel + 8) == 1);
+        if (N.nsel == 12 + 40) {
+            CHECK(!strcmp((const char *)N.sel + 12, "Auction"));
+            CHECK_EQ(be32(N.sel + 12 + 16), alobby);
         }
     }
 

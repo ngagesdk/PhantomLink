@@ -66,6 +66,19 @@ typedef struct
     char name[NAMESZ];
 } player;
 
+/* Scrimmage and Ranked are different rooms: kingdoms only meet kingdoms
+ * of their own room (0: unknown, e.g. without SNAP in tests) */
+static int same_room(gcs_snap *s, const player *a, const player *b)
+{
+    gc_u32 ra, rb;
+    if (!s) {
+        return 1;
+    }
+    ra = gcs_snap_room_of(s, a->uid);
+    rb = gcs_snap_room_of(s, b->uid);
+    return !ra || !rb || ra == rb;
+}
+
 struct gcs_pk
 {
     char file[260];
@@ -575,7 +588,7 @@ static void on_search(gcs_pk *p, gcs_snap *s, player *pl, const gc_u8 *d)
     }
     for (i = 0; i < GCSS_MAX_SESSIONS; i++) {
         kingdom *k;
-        if (!p->pl[i].uid || &p->pl[i] == pl || !alive(p, s, &p->pl[i])) {
+        if (!p->pl[i].uid || &p->pl[i] == pl || !alive(p, s, &p->pl[i]) || !same_room(s, pl, &p->pl[i])) {
             continue;
         }
         k = kingdom_by_name(p, p->pl[i].name);
@@ -681,7 +694,7 @@ static void on_relay(gcs_pk *p, gcs_snap *s, player *pl, const relay_fmt *f, con
 
     if (f->type == GCSP_SCOUT || f->type == GCSP_ATTACK) {
         /* the defender must be online in the attacker's area */
-        if (!dst || !src_k || !dst_k || src_k->area != dst_k->area || dst == pl) {
+        if (!dst || !src_k || !dst_k || src_k->area != dst_k->area || dst == pl || !same_room(s, pl, dst)) {
             LOG_I("%s '%s' -> '%s': not there", f->type == GCSP_SCOUT ? "scout" : "attack", pl->name, to);
             not_there(p, s, pl, d, to);
             return;
