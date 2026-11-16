@@ -44,11 +44,18 @@ extern "C" {
 /* GameClassId of Pocket Kingdom as its SegaChat presence carries it on
  * hardware; the SNAP login is expected to carry the same value */
 #define GCS_PK_GAME_CLASS 1
-#define GCS_PK_LOBBY      "Scrimmage" /* LobbyToJoin in game.rsc */
-/* RoomToJoin in game.rsc (the Play Now screens go back to the mode
- * selection if the lobby has no room of that name; the game never
- * creates it), and the room the game enters for the Global Auction */
-#define GCS_PK_ROOMS "Scrimmage,Auction"
+/* "Scrimmage": LobbyToJoin in game.rsc; "Auction": the lobby of the
+ * Global Auction (the game switches with CArenaFramework slot 0x6c,
+ * lobby "Auction", room "Auction") */
+#define GCS_PK_LOBBY "Scrimmage,Auction,Ranked"
+/* "Scrimmage": RoomToJoin in game.rsc (the Play Now screens go back to
+ * the mode selection if the lobby has no room of that name; the game
+ * never creates it); "Auction": the Global Auction's room; "Ranked": the
+ * room Ranked matchmaking finds (it may not create one,
+ * ProhibitRoomCreation, and asks for STAT & 0x30000000 == 0x30000000,
+ * fewer than 0x7fff users, ARNA..ARND == 0).  Kingdoms only meet kingdoms
+ * of the same room: Scrimmage is the mode without losses. */
+#define GCS_PK_ROOMS "Scrimmage@Scrimmage,Auction@Auction,Ranked@Ranked#30000001"
 
 typedef struct gcs_pk gcs_pk;
 

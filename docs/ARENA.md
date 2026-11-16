@@ -734,17 +734,24 @@ look for the room "Scrimmage" (RoomToJoin) in the room list and enter
 it. Without it they log "room not found or not available" and go back
 to the mode selection; Pocket Kingdom has no CreateRoomToJoin, so it never
 creates the room. The server therefore keeps fixed rooms for a game
-(`gcs_snap_game.rooms`, kept when empty, up to 64 users): "Scrimmage"
-and "Auction" (which the game enters by name) in the lobby "Scrimmage".
-The first hardware run with them still went back: the room entries had
-the wrong layout (the room id where ArenaFramework expects the number of
-users, so every room looked full). The layout is now name [16], users,
-lobby, status, max users, id (op 11 above).
+(`gcs_snap_game.rooms`, kept when empty, up to 64 users, entries
+`room[@lobby][#status]`). Pocket Kingdom has three lobbies with one room
+each:
 
-Ranked ("Finding game room") searches with criteria over all lobbies
-(op 73: STAT masked, USER, ARNA..ARND). Nothing matches at first; the
-game then creates its ranked room "in any lobby" without having entered
-one, which the server puts into the game's first lobby. Game data from a user who has not
+| Lobby / room | Status | Used by |
+|---|---|---|
+| Scrimmage | 1 | Play Now "Scrimmage" (RoomToJoin) |
+| Auction | 1 | the Global Auction: the game switches with CArenaFramework slot 0x6c (lobby "Auction", room "Auction"), which searches the lobby and then the room by NAME (and LOID) |
+| Ranked | 0x30000001 | Play Now "Ranked": SelectGameRooms over all lobbies (op 73) with STAT & 0x30000000 = 0x30000000, USER < 0x7fff, ARNA..ARND = 0; the game may not create a room (ProhibitRoomCreation: "no room was found, and ProhibitRoomCreation is set!", back to the mode selection) |
+
+The room entries had the wrong layout at first (the room id where
+ArenaFramework expects the number of users, so every room looked full);
+see op 11 above. Not verified: that op 73 answers use the 40 byte entries
+(with the lobby), and that the Auction lobby search goes through the
+lobby list of op 71 rather than a request of its own (the hardware log
+showed no request after the keep alive). The game server only lets
+kingdoms of the same room meet (search, scout, attack), so Scrimmage
+and Ranked stay apart; chat goes everywhere. Game data from a user who has not
 entered a room yet reaches the game server, too.
 
 ### Messages

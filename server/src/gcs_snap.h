@@ -86,9 +86,11 @@ typedef struct
     void (*data)(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n);
     /** called from gcs_snap_poll */
     void (*poll)(void *ctx, gcs_snap *s, gc_u32 now);
-    /** game rooms that always exist in the game's (first) lobby, also
-     *  when empty, for games that look for a room by name and do not
-     *  create it (RoomToJoin without CreateRoomToJoin); comma separated,
+    /** game rooms that always exist, also when empty, for games that
+     *  look for a room by name and do not create it (RoomToJoin without
+     *  CreateRoomToJoin, or matchmaking with ProhibitRoomCreation);
+     *  comma separated "room[@lobby][#status]": the lobby defaults to the
+     *  game's first, the status (hex, matched by STAT criteria) to 1;
      *  may be NULL */
     const char *rooms;
 } gcs_snap_game;
@@ -110,6 +112,9 @@ void gcs_snap_peer_gone(gcs_snap *s, void *key);
 
 /** Game class of user's SNAP session (the game he plays), 0 if none. */
 gc_u32 gcs_snap_game_class_of(const gcs_snap *s, const char *user);
+
+/** Room of the logged in user uid, 0 if none. */
+gc_u32 gcs_snap_room_of(const gcs_snap *s, gc_u32 uid);
 
 /** Name of the logged in user uid, NULL if none. */
 const char *gcs_snap_user_of(const gcs_snap *s, gc_u32 uid);
