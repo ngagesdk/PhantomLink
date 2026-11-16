@@ -699,9 +699,10 @@ static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc
         }
         if (d[pos + 3] == GCSS_OP_LOGIN_OK && len >= 28) {
             N.uid = be32(d + pos + 24);
-        } else if (d[pos + 3] == GCSS_OP_DATA && N.ngot < 64) {
-            memcpy(N.got[N.ngot], d + pos + 16, len - 16);
-            N.gotn[N.ngot++] = len - 16;
+        } else if (d[pos + 3] == GCSS_OP_PDATA && N.ngot < 64 && len >= 24 && be32(d + pos + 16) == 1 &&
+                   be32(d + pos + 20) == N.uid) {
+            memcpy(N.got[N.ngot], d + pos + 24, len - 24); /* after the recipient list {1, uid} */
+            N.gotn[N.ngot++] = len - 24;
         } else if ((d[pos + 3] == GCSS_OP_OK || d[pos + 3] == GCSS_OP_CREATE_ROOM) && N.nok < 64 && len >= 24) {
             N.okops[N.nok] = d[pos + 3];
             N.okval[N.nok++] = be32(d + pos + 16);

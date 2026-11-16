@@ -123,6 +123,12 @@ const char *gcs_snap_user_of(const gcs_snap *s, gc_u32 uid);
  *  0 ok, -1 unknown user or queue full. */
 int gcs_snap_send_game_data(gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n);
 
+/** Game server -> user as op 16 (private data, recipient list {1, uid}
+ *  in front of the data). Pocket Kingdom's snapcomm.dll only delivers
+ *  incoming op 16 to the game; it drops op 15 (dispatch table 0x4338).
+ *  0 ok, -1 unknown user, too long or queue full. */
+int gcs_snap_send_user_data(gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n);
+
 typedef struct
 {
     int sessions;
