@@ -617,6 +617,11 @@ int gcs_accounts_count(const gcs_accounts *a)
     return a->n;
 }
 
+const char *gcs_accounts_name_at(const gcs_accounts *a, int i)
+{
+    return (a && i >= 0 && i < a->n) ? a->acc[i].name : NULL;
+}
+
 const char *gcs_accounts_result_str(int r)
 {
     switch (r) {

@@ -58,6 +58,8 @@ struct gcs_scores
     int seen_next;
     long next_match;
     int dirty;
+    gcs_scores_listener listener;
+    void *listener_ctx;
     unsigned long submits, queries, matches;
 };
 
@@ -389,6 +391,9 @@ int gcs_scores_submit(gcs_scores *s, const char *game_class, const char *user, c
         return 0; /* not played (yet) */
     }
     r = find(s, game_class, stat, user);
+    if (s->listener) {
+        s->listener(s->listener_ctx, game_class, user, stat, v, 0, !r || r->value < v, now);
+    }
     if (r && r->value >= v) {
         return 0;
     }
@@ -759,6 +764,9 @@ int gcs_scores_af_submit(gcs_scores *s, const char *game_class, const char *user
                 k->points += v;
                 k->time = now;
                 s->dirty = 1;
+                if (s->listener) {
+                    s->listener(s->listener_ctx, game_class, user, GCSS_SKILL_POINTS, v, 1, 0, now);
+                }
                 slog(s, 2, "scores: %s: %+ld skill points in match %s (game class %s), total %ld", user, v,
                      match_id[0] ? match_id : "-", game_class, k->points);
             }
@@ -788,6 +796,9 @@ int gcs_scores_af_submit(gcs_scores *s, const char *game_class, const char *user
                     k->wins++;
                 } else {
                     k->losses++;
+                }
+                if (s->listener) {
+                    s->listener(s->listener_ctx, game_class, user, GCSS_WINS, (d <= 0 && w > 0) ? 1 : 0, 1, 0, now);
                 }
                 k->time = now;
                 s->dirty = 1;
@@ -1115,4 +1126,172 @@ int gcs_scores_af_query(gcs_scores *s, const char *game_class, const char *event
     slog(s, 2, "scores: %s %s of game class %s for %s: %d rows (header %d, rows %d fields)", event, bname[b],
          game_class, user ? user : "?", nrows, hdr, rowf);
     return nrows;
+}
+
+/* ---- reading the lists (device pages, tournaments) ---- */
+
+void gcs_scores_set_listener(gcs_scores *s, gcs_scores_listener fn, void *ctx)
+{
+    if (s) {
+        s->listener = fn;
+        s->listener_ctx = ctx;
+    }
+}
+
+int gcs_scores_boards(const gcs_scores *s, gcs_scores_board *out, int max)
+{
+    int i, j, n = 0;
+    if (!s || !out) {
+        return 0;
+    }
+    for (i = 0; i < s->nrecs; i++) {
+        const record *r = &s->recs[i];
+        for (j = 0; j < n; j++) {
+            if (!strcmp(out[j].game_class, r->gcid) && !strcmp(out[j].stat, r->stat)) {
+                break;
+            }
+        }
+        if (j == n) {
+            if (n >= max) {
+                continue;
+            }
+            memset(&out[n], 0, sizeof(out[n]));
+            copy_str(out[n].game_class, r->gcid, sizeof(out[n].game_class));
+            copy_str(out[n].stat, r->stat, sizeof(out[n].stat));
+            n++;
+        }
+        out[j].players++;
+    }
+    for (i = 0; i < s->nskills; i++) {
+        const skill *k = &s->skills[i];
+        for (j = 0; j < n; j++) {
+            if (!strcmp(out[j].game_class, k->gcid) && !strcmp(out[j].stat, GCSS_SKILL_POINTS)) {
+                break;
+            }
+        }
+        if (j == n) {
+            if (n >= max) {
+                continue;
+            }
+            memset(&out[n], 0, sizeof(out[n]));
+            copy_str(out[n].game_class, k->gcid, sizeof(out[n].game_class));
+            copy_str(out[n].stat, GCSS_SKILL_POINTS, sizeof(out[n].stat));
+            n++;
+        }
+        out[j].players++;
+    }
+    return n;
+}
+
+static int g_list_asc; /* qsort has no context argument */
+
+static int by_entry(const void *a, const void *b)
+{
+    const gcs_scores_entry *x = (const gcs_scores_entry *)a;
+    const gcs_scores_entry *y = (const gcs_scores_entry *)b;
+    if (x->value != y->value) {
+        return (x->value < y->value) == g_list_asc ? -1 : 1;
+    }
+    if (x->wins != y->wins) {
+        return x->wins > y->wins ? -1 : 1;
+    }
+    if (x->time != y->time) {
+        return x->time < y->time ? -1 : 1; /* first come first */
+    }
+    return strcmp(x->user, y->user);
+}
+
+/* every entry of one list, sorted; malloc'ed (NULL and 0 when empty) */
+static gcs_scores_entry *all_entries(const gcs_scores *s, const char *gc, const char *stat, int ascending, int *count)
+{
+    gcs_scores_entry *e;
+    int i, n = 0, skills = stat && !strcmp(stat, GCSS_SKILL_POINTS);
+    *count = 0;
+    e = (gcs_scores_entry *)malloc((size_t)(skills ? s->nskills : s->nrecs) * sizeof(*e) + 1);
+    if (!e) {
+        return NULL;
+    }
+    if (skills) {
+        for (i = 0; i < s->nskills; i++) {
+            const skill *k = &s->skills[i];
+            if (!strcmp(k->gcid, gc)) {
+                memset(&e[n], 0, sizeof(e[n]));
+                copy_str(e[n].user, k->user, sizeof(e[n].user));
+                e[n].value = k->points;
+                e[n].wins = k->wins;
+                e[n].losses = k->losses;
+                e[n].draws = k->draws;
+                e[n].games = k->games;
+                e[n].time = k->time;
+                n++;
+            }
+        }
+    } else {
+        for (i = 0; i < s->nrecs; i++) {
+            const record *r = &s->recs[i];
+            if (!strcmp(r->gcid, gc) && stat && !strcmp(r->stat, stat)) {
+                memset(&e[n], 0, sizeof(e[n]));
+                copy_str(e[n].user, r->user, sizeof(e[n].user));
+                e[n].value = r->value;
+                e[n].time = r->time;
+                n++;
+            }
+        }
+    }
+    g_list_asc = ascending ? 1 : 0;
+    qsort(e, (size_t)n, sizeof(*e), by_entry);
+    for (i = 0; i < n; i++) {
+        e[i].rank = i + 1;
+    }
+    *count = n;
+    return e;
+}
+
+int gcs_scores_top(const gcs_scores *s, const char *game_class, const char *stat, int ascending,
+                   gcs_scores_entry *out, int max, int *total)
+{
+    gcs_scores_entry *e;
+    int n, k;
+    if (total) {
+        *total = 0;
+    }
+    if (!s || !game_class || !stat || !out || max <= 0) {
+        return 0;
+    }
+    e = all_entries(s, game_class, stat, ascending, &n);
+    if (!e) {
+        return 0;
+    }
+    k = n < max ? n : max;
+    memcpy(out, e, (size_t)k * sizeof(*e));
+    free(e);
+    if (total) {
+        *total = n;
+    }
+    return k;
+}
+
+int gcs_scores_rank(const gcs_scores *s, const char *game_class, const char *stat, int ascending, const char *user,
+                    gcs_scores_entry *out)
+{
+    gcs_scores_entry *e;
+    int n, i, rank = 0;
+    if (!s || !game_class || !stat || !user) {
+        return 0;
+    }
+    e = all_entries(s, game_class, stat, ascending, &n);
+    if (!e) {
+        return 0;
+    }
+    for (i = 0; i < n; i++) {
+        if (ieq(e[i].user, user)) {
+            rank = i + 1;
+            if (out) {
+                *out = e[i];
+            }
+            break;
+        }
+    }
+    free(e);
+    return rank;
 }

@@ -135,28 +135,28 @@ typedef struct
 void gcs_snap_get_stats(const gcs_snap *s, gcs_snap_stats *st);
 
 /* opcodes found in snapcomm.dll (client side names in docs/ARENA.md) */
-#define GCSS_OP_ACK          0
-#define GCSS_OP_LOGOUT       2
-#define GCSS_OP_LOBBY_INFO   3 /* query lobby by name / lobby info     */
-#define GCSS_OP_CREATE_ROOM  4
-#define GCSS_OP_REMOVED      5 /* user/lobby gone (notification)       */
-#define GCSS_OP_JOIN         6 /* lobby (0x1000) or room               */
-#define GCSS_OP_LEAVE        7
-#define GCSS_OP_ATTR         8 /* change attributes                    */
-#define GCSS_OP_ATTR2        9
-#define GCSS_OP_USERS        10 /* query users                          */
-#define GCSS_OP_ROOMS        11 /* search game rooms                    */
-#define GCSS_OP_LOBBIES      14 /* lobby list                           */
-#define GCSS_OP_DATA         15 /* game data to the room (broadcast)    */
-#define GCSS_OP_PDATA        16 /* game data to some users (private)    */
-#define GCSS_OP_TO_SERVER    17 /* game data to the room's game server  */
-#define GCSS_OP_FAIL         39 /* result: failure {cmd, reason}         */
-#define GCSS_OP_OK           40 /* result: success {cmd, value, ...}     */
-#define GCSS_OP_LOGIN_OK     41 /* login result {port, -, user id}        */
-#define GCSS_OP_GAME_LOBBIES 71 /* lobbies of the login's game class   */
-#define GCSS_OP_SELECT_ROOMS 72 /* room search with criteria          */
-#define GCSS_OP_SELECT_ALL   73 /* the same over all lobbies (Ranked) */
-#define GCSS_OP_LOGIN        44
+#define GCSS_OP_ACK            0
+#define GCSS_OP_LOGOUT         2
+#define GCSS_OP_LOBBY_INFO     3 /* query lobby by name / lobby info     */
+#define GCSS_OP_CREATE_ROOM    4
+#define GCSS_OP_REMOVED        5 /* user/lobby gone (notification)       */
+#define GCSS_OP_JOIN           6 /* lobby (0x1000) or room               */
+#define GCSS_OP_LEAVE          7
+#define GCSS_OP_ATTR           8 /* change attributes                    */
+#define GCSS_OP_ATTR2          9
+#define GCSS_OP_USERS          10 /* query users                          */
+#define GCSS_OP_ROOMS          11 /* search game rooms                    */
+#define GCSS_OP_LOBBIES        14 /* lobby list                           */
+#define GCSS_OP_DATA           15 /* game data to the room (broadcast)    */
+#define GCSS_OP_PDATA          16 /* game data to some users (private)    */
+#define GCSS_OP_TO_SERVER      17 /* game data to the room's game server  */
+#define GCSS_OP_FAIL           39 /* result: failure {cmd, reason}         */
+#define GCSS_OP_OK             40 /* result: success {cmd, value, ...}     */
+#define GCSS_OP_LOGIN_OK       41 /* login result {port, -, user id}        */
+#define GCSS_OP_GAME_LOBBIES   71 /* lobbies of the login's game class   */
+#define GCSS_OP_SELECT_LOBBIES 72 /* lobby search with criteria       */
+#define GCSS_OP_SELECT_ALL     73 /* room search with criteria         */
+#define GCSS_OP_LOGIN          44
 
 #ifdef __cplusplus
 }

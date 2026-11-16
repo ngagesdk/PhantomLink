@@ -154,6 +154,51 @@ int gcs_scores_af_query(gcs_scores *s, const char *game_class, const char *event
 #define GCSS_AF_MAX_ROWS 20   /* rows per ArenaFramework answer       */
 #define GCSS_AF_MAX_CSV  2000 /* answer size                           */
 
+/* ---- reading the lists (device pages, tournaments) ---- */
+
+#define GCSS_SKILL_POINTS "$ps_points" /* board of the skill points          */
+#define GCSS_WINS         "$wins"      /* listener only: 1 won, 0 not won    */
+
+/** Called for every accepted reported value: stat and value of a best
+ *  value item (delta 0; new_best 1 when it beats the player's best), or
+ *  the skill points of one match (stat GCSS_SKILL_POINTS, delta 1: value
+ *  is the change) and the result of one match (GCSS_WINS, delta 1,
+ *  value 1 when won). */
+typedef void (*gcs_scores_listener)(void *ctx, const char *game_class, const char *user, const char *stat,
+                                    long value, int delta, int new_best, long now);
+void gcs_scores_set_listener(gcs_scores *s, gcs_scores_listener fn, void *ctx);
+
+typedef struct
+{
+    char game_class[GCSS_MAX_CLASS + 1];
+    char stat[GCSS_MAX_STAT + 1]; /* GCSS_SKILL_POINTS for the skill points */
+    int players;
+} gcs_scores_board;
+
+/** Every list with at least one player: (game class, statistic) of the
+ *  best values, and GCSS_SKILL_POINTS for games with skill points.
+ *  Returns the number written (at most max). */
+int gcs_scores_boards(const gcs_scores *s, gcs_scores_board *out, int max);
+
+typedef struct
+{
+    char user[GCSS_MAX_NAME + 1];
+    int rank;                        /* 1 = first */
+    long value;                      /* best value, or skill points */
+    long wins, losses, draws, games; /* skill points list only */
+    long time;                       /* when it was reported */
+} gcs_scores_entry;
+
+/** The first max entries of a list (stat: a statistic or
+ *  GCSS_SKILL_POINTS), highest first unless ascending; total gets the
+ *  length of the list.  Returns the number written. */
+int gcs_scores_top(const gcs_scores *s, const char *game_class, const char *stat, int ascending,
+                   gcs_scores_entry *out, int max, int *total);
+
+/** Rank of user in a list (0: not in it); out gets his entry. */
+int gcs_scores_rank(const gcs_scores *s, const char *game_class, const char *stat, int ascending, const char *user,
+                    gcs_scores_entry *out);
+
 typedef struct
 {
     int records; /* kept best values */

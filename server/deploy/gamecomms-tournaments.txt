@@ -1,0 +1,20 @@
+# PhantomLink tournaments (docs/ARENA.md "Tournaments")
+#
+# One tournament per line:
+#   id|game class|statistic|mode|start|end|name|description
+#
+# id:          a number > 0, unique (shown to the N-Gage as contentId)
+# game class:  Ashen 42318, Worms World Party 1104, Pocket Kingdom 1
+# statistic:   an item of the game's score reports (Ashen: game_total,
+#              level_1 .. level_8), $ps_points (skill points of ranked
+#              games) or $wins (won ranked games)
+# mode:        best (highest single value), low (lowest single value),
+#              sum (per match values add up: $ps_points, $wins)
+# start, end:  YYYY-MM-DD or YYYY-MM-DD HH:MM, UTC; the end is excluded
+#
+# The server reads this file again whenever it changes. Every player who
+# reports a matching score during the window takes part.
+
+1|42318|game_total|best|2026-12-01|2027-01-01|Ashen December Cup|The best total score of December wins.
+2|1104|$ps_points|sum|2026-12-01 18:00|2026-12-08 18:00|Worms Winter Week|Most skill points in ranked games in one week.
+3|1104|$wins|sum|2026-12-01|2027-01-01|Worms December Winners|Most ranked games won in December.

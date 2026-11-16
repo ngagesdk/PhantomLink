@@ -259,8 +259,8 @@ static int search(game *g, gc_u32 stat, gc_u32 mask, gc_u32 max_users, gc_u32 ar
     gc_u8 p[64];
     size_t n = criteria(p, stat, mask, max_users, arna);
     msg *m;
-    send_msg(g, 0xb000, 30, GCSS_OP_SELECT_ROOMS, p, n);
-    m = take(g, GCSS_OP_SELECT_ROOMS);
+    send_msg(g, 0xb000, 30, GCSS_OP_SELECT_LOBBIES, p, n);
+    m = take(g, GCSS_OP_SELECT_LOBBIES);
     CHECK(m != NULL);
     if (!m) {
         return -1;

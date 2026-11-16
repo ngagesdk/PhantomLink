@@ -647,6 +647,10 @@ static struct
     size_t nrooms;
     gc_u8 sel[12 + 20 * 40];
     size_t nsel;
+    gc_u8 lob[12 + 20 * 36];
+    size_t nlob;
+    gc_u8 attr[24];
+    size_t nattr;
 } N;
 
 static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc_u16 peer_port, const gc_u8 *d,
@@ -677,6 +681,14 @@ static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc
         if (d[pos + 3] == GCSS_OP_SELECT_ALL && len - 16 <= sizeof(N.sel)) {
             memcpy(N.sel, d + pos + 16, len - 16);
             N.nsel = len - 16;
+        }
+        if (d[pos + 3] == GCSS_OP_SELECT_LOBBIES && len - 16 <= sizeof(N.lob)) {
+            memcpy(N.lob, d + pos + 16, len - 16);
+            N.nlob = len - 16;
+        }
+        if (d[pos + 3] == GCSS_OP_ATTR2 && len - 16 <= sizeof(N.attr)) {
+            memcpy(N.attr, d + pos + 16, len - 16);
+            N.nattr = len - 16;
         }
         if (d[pos + 3] == GCSS_OP_ROOMS && len - 16 <= sizeof(N.rooms)) {
             memcpy(N.rooms, d + pos + 16, len - 16);
@@ -878,18 +890,48 @@ static void test_snap(void)
         }
     }
 
-    /* the Global Auction: CArenaFramework slot 0x6c switches to lobby
-     * "Auction", room "Auction" and finds the room by a criteria search
-     * (NAME, LOID); the fixed room is found by its name */
+    /* the Global Auction: CArenaFramework slot 0x6c reads the NAME of the
+     * current lobby (op 9), looks for the lobby "Auction" by a lobby
+     * search (op 72, exactly one entry, its id at +32), then for the room
+     * "Auction" in it (op 73: NAME, LOID); the fixed room is found by its
+     * name */
     {
         gc_u8 crit[64];
-        gc_u32 alobby = 0;
+        gc_u32 alobby = 0, slobby;
+        memset(p, 0, sizeof(p));
+        strcpy((char *)p, "Scrimmage");
+        N.lobby = 0;
+        snap_msg(0x9000, 12, GCSS_OP_LOBBY_INFO, p, 16);
+        slobby = N.lobby;
+        CHECK(slobby != 0);
+        put32(crit, slobby);
+        memcpy(crit + 4, "NAME", 4);
+        N.nattr = 0;
+        snap_msg(0xb000, 0, GCSS_OP_ATTR2, crit, 8);
+        CHECK(N.nattr >= 8 + 10);
+        if (N.nattr >= 8 + 10) {
+            CHECK_EQ(be32(N.attr), slobby);
+            CHECK(!memcmp(N.attr + 4, "NAME", 4));
+            CHECK(!strcmp((const char *)N.attr + 8, "Scrimmage"));
+        }
+        memset(crit, 0, sizeof(crit));
+        crit[4] = 1;
+        memcpy(crit + 8, "NAME", 4);
+        crit[12] = 0x41;
+        strcpy((char *)crit + 13, "Auction");
+        N.nlob = 0;
+        snap_msg(0xb000, 0, GCSS_OP_SELECT_LOBBIES, crit, 29);
+        CHECK(N.nlob == 12 + 36 && be32(N.lob + 4) == 1 && be32(N.lob + 8) == 1);
+        if (N.nlob == 12 + 36) {
+            CHECK(!strcmp((const char *)N.lob + 12, "Auction"));
+            alobby = be32(N.lob + 12 + 32);
+        }
+        CHECK(alobby != 0 && alobby != slobby);
         memset(p, 0, sizeof(p));
         strcpy((char *)p, "Auction");
         N.lobby = 0;
         snap_msg(0x9000, 12, GCSS_OP_LOBBY_INFO, p, 16);
-        alobby = N.lobby;
-        CHECK(alobby != 0);
+        CHECK_EQ(N.lobby, alobby);
         memset(crit, 0, sizeof(crit));
         crit[4] = 2;
         memcpy(crit + 8, "NAME", 4);
