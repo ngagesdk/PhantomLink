@@ -645,6 +645,8 @@ static struct
     gc_u32 lobby;
     gc_u8 rooms[12 + 20 * 36];
     size_t nrooms;
+    gc_u8 sel[12 + 20 * 40];
+    size_t nsel;
 } N;
 
 static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc_u16 peer_port, const gc_u8 *d,
@@ -671,6 +673,10 @@ static void snap_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc
             memcpy(a + 12, d + pos + 8, 4);
             put32(a + 16, 0xBA476611u);
             gcs_snap_input(S, &N.key, SRV, GCSS_PORT, 5000, a, 20, 1000);
+        }
+        if (d[pos + 3] == GCSS_OP_SELECT_ALL && len - 16 <= sizeof(N.sel)) {
+            memcpy(N.sel, d + pos + 16, len - 16);
+            N.nsel = len - 16;
         }
         if (d[pos + 3] == GCSS_OP_ROOMS && len - 16 <= sizeof(N.rooms)) {
             memcpy(N.rooms, d + pos + 16, len - 16);
@@ -772,9 +778,13 @@ static void test_snap(void)
             for (j = 0; j < cnt && 12 + 36 * (j + 1) <= N.nrooms; j++) {
                 const gc_u8 *e = N.rooms + 12 + 36 * j;
                 if (!strcmp((const char *)e, "Scrimmage")) {
-                    scrim = be32(e + 16);
-                    CHECK(be32(e + 24) > 2); /* room for many players */
-                    CHECK_EQ(be32(e + 32), N.lobby);
+                    /* as ArenaFramework 2.01.047 reads it: users at 16,
+                     * status at 24, max at 28, id at 32; IsFull is
+                     * users >= max */
+                    scrim = be32(e + 32);
+                    CHECK(be32(e + 16) < be32(e + 28));
+                    CHECK(be32(e + 28) > 2); /* room for many players */
+                    CHECK_EQ(be32(e + 24) & 2, 0);
                 }
                 auction |= !strcmp((const char *)e, "Auction");
             }
@@ -797,6 +807,44 @@ static void test_snap(void)
                 CHECK_EQ(st.online, 1);
             }
             snap_msg(0x8000, 7, GCSS_OP_LEAVE, p, 4);
+        }
+    }
+
+    /* Ranked: SelectGameRooms over all lobbies (op 73, criteria STAT,
+     * USER, ARNA..ARND); the fixed rooms are no match rooms, so nothing
+     * is found and the game creates its room outside any lobby */
+    snap_msg(0x9000, 8, GCSS_OP_LEAVE, p, 4); /* leave the lobby */
+    {
+        static const gc_u8 crit[] = { 0, 0, 0, 0, 2, 0, 0, 0, 'S', 'T', 'A', 'T', 0x21, 0x30, 0xff, 0xff, 0xf0,
+                                      0x30, 0, 0, 0, 'U', 'S', 'E', 'R', 6, 0, 0, 0x7f, 0xff };
+        N.nsel = 0;
+        snap_msg(0x9000, 9, GCSS_OP_SELECT_ALL, crit, sizeof(crit));
+        CHECK(N.nsel == 12 && be32(N.sel + 4) == 0);
+        memset(p, 0, sizeof(p));
+        strcpy((char *)p, "R mupf");
+        put32(p + 16, 2);
+        N.nok = 0;
+        snap_msg(0x9000, 10, GCSS_OP_CREATE_ROOM, p, 44);
+        found = 0;
+        for (i = 0; i < N.nok; i++) {
+            found |= N.okops[i] == GCSS_OP_OK && N.okval[i] == GCSS_OP_CREATE_ROOM;
+        }
+        CHECK(found);
+        N.nsel = 0;
+        {
+            /* the room has no STAT bits set by its game here: ask for
+             * free places only */
+            static const gc_u8 crit2[] = { 0, 0, 0, 0, 1, 0, 0, 0, 'U', 'S', 'E', 'R', 6, 0, 0, 0x7f, 0xff };
+            snap_msg(0x9000, 11, GCSS_OP_SELECT_ALL, crit2, sizeof(crit2));
+        }
+        CHECK(N.nsel == 12 + 40 && be32(N.sel + 8) == 1);
+        if (N.nsel == 12 + 40) {
+            const gc_u8 *e = N.sel + 12;
+            CHECK(!strcmp((const char *)e, "R mupf"));
+            CHECK_EQ(be32(e + 16), N.lobby); /* created in the game's lobby */
+            CHECK_EQ(be32(e + 20), 1);       /* users */
+            CHECK_EQ(be32(e + 32), 2);       /* max */
+            CHECK(be32(e + 36) != 0);        /* id */
         }
     }
 

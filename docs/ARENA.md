@@ -368,6 +368,7 @@ Requests (client → server):
 | 7 | 0xb000/0xa000 | - | leave lobby / room |
 | 8 | 0xa000 | attribute (four letters), value (4 bytes BE, text for NAME) | set an attribute of the user's room: the server keeps it (up to 16 per room) and tells the other members (op 8 below); STAT is the room status of the room lists, MAXI the room size |
 | 9 | 0xa000 | object id, attribute | read an attribute: op 9 {id, attribute, value}, then success |
+| 73 | 0xb000 | like op 72 | the same search over all lobbies of the game class (Pocket Kingdom's Ranked "Finding game room"); the server's fixed rooms are never a match |
 | 72 | 0xb000 | {value, count, 3 bytes}, count × {attribute, operator, value} | room search with criteria (ArenaFramework's SelectGameRooms, "Find Game"): open rooms of the user's lobby that are not full and match; the operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word); seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID) |
 | 10, 12, 13, 67 | | | user lists, user properties (not identified in detail) |
 | 11 | 0xb000 | lobby id | search game rooms |
@@ -386,11 +387,12 @@ Answers and notifications (server → client):
 | 40 | request op, value, ... | request succeeded; the 0x1000 flag tells lobby from room answers (op 6: "Entered lobby" / "Entered room", value = id) |
 | 3 | name [16], lobby id | a lobby (ArenaFramework builds its lobby list from these) |
 | 4 | room entry | the created room |
-| 11 | header {parent, total, count} + count × room entry (name [16], id, users, max, status, lobby) | room search result |
+| 11 | header {parent, total, count} + count × room entry (name [16], users, lobby, status, max users, id) | room search result; ArenaFramework 2.01.047 (parser 0x3954) keeps users, status, max and id and calls a room full when users >= max |
 | 14 | header + count × {name [16], id, members, max} | lobby list |
 | 71 | header {game class, total, count} + count × {name [16], users, -, max, status, lobby id} | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it) |
 | 8 | room id, attribute, value | an attribute of the room changed (snapcomm.dll parser 0x39a0) |
 | 72 | like op 11 | result of the room search with criteria (parser 0x3bf0) |
+| 73 | header {0, total, count} + count × 40 byte entries (name [16], lobby, users, -, status, max users, id) | result of the room search with criteria over all lobbies |
 | 10 | header + count × {name [16], user id, property size, properties padded to 4 bytes} | user list |
 | 6 | {name [16], user id, property size} | a user entered the room |
 | 7 | user id | a user left the room |
@@ -733,7 +735,16 @@ it. Without it they log "room not found or not available" and go back
 to the mode selection; Pocket Kingdom has no CreateRoomToJoin, so it never
 creates the room. The server therefore keeps fixed rooms for a game
 (`gcs_snap_game.rooms`, kept when empty, up to 64 users): "Scrimmage"
-and "Auction" (which the game enters by name) in the lobby "Scrimmage". Game data from a user who has not
+and "Auction" (which the game enters by name) in the lobby "Scrimmage".
+The first hardware run with them still went back: the room entries had
+the wrong layout (the room id where ArenaFramework expects the number of
+users, so every room looked full). The layout is now name [16], users,
+lobby, status, max users, id (op 11 above).
+
+Ranked ("Finding game room") searches with criteria over all lobbies
+(op 73: STAT masked, USER, ARNA..ARND). Nothing matches at first; the
+game then creates its ranked room "in any lobby" without having entered
+one, which the server puts into the game's first lobby. Game data from a user who has not
 entered a room yet reaches the game server, too.
 
 ### Messages

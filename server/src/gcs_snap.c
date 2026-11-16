@@ -451,15 +451,30 @@ static int room_members(gcs_snap *s, gc_u32 id)
     return n;
 }
 
-/* 36 byte room entry: name[16], id, users, max, status, lobby */
+/* 36 byte room entry (ops 4, 11, 72): name[16], users, lobby, status,
+ * max users, id.  ArenaFramework (2.01.047, parser 0x3954) keeps users,
+ * status, max and id (CArenaRoom +8, +0x10, +0xc, +4: IsFull, ordinal 109,
+ * is users >= max) and ignores the word at 20. */
 static void room_entry(gcs_snap *s, gc_u8 *p, const room *r)
 {
     put_name(p, r->name, 16);
-    put32(p + 16, r->id);
+    put32(p + 16, (gc_u32)room_members(s, r->id));
+    put32(p + 20, r->lobby);
+    put32(p + 24, r->status);
+    put32(p + 28, r->max);
+    put32(p + 32, r->id);
+}
+
+/* 40 byte room entry (op 73, rooms of every lobby): the lobby first */
+static void room_entry40(gcs_snap *s, gc_u8 *p, const room *r)
+{
+    put_name(p, r->name, 16);
+    put32(p + 16, r->lobby);
     put32(p + 20, (gc_u32)room_members(s, r->id));
-    put32(p + 24, r->max);
+    put32(p + 24, 0);
     put32(p + 28, r->status);
-    put32(p + 32, r->lobby);
+    put32(p + 32, r->max);
+    put32(p + 36, r->id);
 }
 
 /* KK_JOINUSER: name[16], user id, property size (0) */
@@ -830,6 +845,21 @@ static void h_create_room(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, 
     gc_u8 e[36];
     room *r;
     int i;
+    if (!c->lobby) {
+        /* Ranked matchmaking creates its room "in any lobby": use the
+         * game's first one */
+        const gcs_snap_game *g = game_of(s, c->game_class);
+        char name[17];
+        if (g && g->lobby && next_name(g->lobby, name) && name[0]) {
+            lobby *l = lobby_by_name(s, name, 1);
+            if (l) {
+                if (!l->game_class) {
+                    l->game_class = g->game_class;
+                }
+                c->lobby = l->id;
+            }
+        }
+    }
     for (i = 0; i < GCSS_MAX_ROOMS && s->rooms[i].used; i++) {
     }
     if (i == GCSS_MAX_ROOMS || !c->lobby) {
@@ -1048,9 +1078,11 @@ static void h_select_rooms(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p,
         int op;
         gc_u8 text[16];
     } cr[32];
-    gc_u8 out[12 + 20 * 36];
+    gc_u8 out[12 + 20 * 40];
     size_t pos = 8;
     int nc = 0, want = n >= 5 ? p[4] : 0, i, k, total = 0, sent = 0;
+    int all = h[3] == GCSS_OP_SELECT_ALL;
+    size_t esz = all ? 40 : 36;
     while (nc < want && nc < 32 && pos + 5 <= n) {
         int op = p[pos + 4];
         int form = op >> 5;
@@ -1076,10 +1108,10 @@ static void h_select_rooms(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p,
     for (i = 0; i < GCSS_MAX_ROOMS; i++) {
         room *r = &s->rooms[i];
         int ok;
-        if (!r->used) {
+        if (!r->used || r->permanent) { /* a game's fixed rooms are no match rooms */
             continue;
         }
-        if (c->lobby ? r->lobby != c->lobby : r->game_class != c->game_class) {
+        if ((c->lobby && !all) ? r->lobby != c->lobby : r->game_class != c->game_class) {
             continue;
         }
         ok = !r->max || (gc_u32)room_members(s, r->id) < r->max;
@@ -1089,15 +1121,24 @@ static void h_select_rooms(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p,
         if (ok) {
             total++;
             if (sent < 20) {
-                room_entry(s, out + 12 + 36 * sent++, r);
+                if (all) {
+                    room_entry40(s, out + 12 + esz * (size_t)sent++, r);
+                } else {
+                    room_entry(s, out + 12 + esz * (size_t)sent++, r);
+                }
             }
         }
     }
-    put32(out, c->lobby);
+    put32(out, all ? 0 : c->lobby);
     put32(out + 4, (gc_u32)total);
     put32(out + 8, (gc_u32)sent);
-    LOG_I("user %08x: room search with %d criteria in lobby %08x: %d", c->uid, nc, c->lobby, total);
-    send_msg(s, c, F_REL | (be16(h) & F_LOBBY), h[2], GCSS_OP_SELECT_ROOMS, out, 12 + 36 * (size_t)sent);
+    if (all) {
+        LOG_I("user %08x: room search with %d criteria in all lobbies of game class %u: %d", c->uid, nc,
+              c->game_class, total);
+    } else {
+        LOG_I("user %08x: room search with %d criteria in lobby %08x: %d", c->uid, nc, c->lobby, total);
+    }
+    send_msg(s, c, F_REL | (be16(h) & F_LOBBY), h[2], h[3], out, 12 + esz * (size_t)sent);
 }
 
 /* game data from a user to the other members of its room */
@@ -1215,6 +1256,7 @@ static void dispatch(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_
         h_get_attr(s, c, h, p, n);
         break;
     case GCSS_OP_SELECT_ROOMS:
+    case GCSS_OP_SELECT_ALL:
         h_select_rooms(s, c, h, p, n);
         break;
     case GCSS_OP_REMOVED:
@@ -1223,7 +1265,6 @@ static void dispatch(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_
     case 37:
     case 67:
     case 70:
-    case 73:
     case 74:
     case 75:
         hex(hx, sizeof(hx), p, n);

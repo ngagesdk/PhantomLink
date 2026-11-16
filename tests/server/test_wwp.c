@@ -269,7 +269,7 @@ static int search(game *g, gc_u32 stat, gc_u32 mask, gc_u32 max_users, gc_u32 ar
     CHECK_EQ(m->h[2], 30);
     CHECK_EQ(m->n, 12 + 36 * be32(m->p + 8));
     if (be32(m->p + 8) && room) {
-        *room = be32(m->p + 12 + 16);
+        *room = be32(m->p + 12 + 32);
     }
     return (int)be32(m->p + 8);
 }

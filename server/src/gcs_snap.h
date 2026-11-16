@@ -150,6 +150,7 @@ void gcs_snap_get_stats(const gcs_snap *s, gcs_snap_stats *st);
 #define GCSS_OP_LOGIN_OK     41 /* login result {port, -, user id}        */
 #define GCSS_OP_GAME_LOBBIES 71 /* lobbies of the login's game class   */
 #define GCSS_OP_SELECT_ROOMS 72 /* room search with criteria          */
+#define GCSS_OP_SELECT_ALL   73 /* the same over all lobbies (Ranked) */
 #define GCSS_OP_LOGIN        44
 
 #ifdef __cplusplus
