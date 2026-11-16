@@ -9,6 +9,7 @@
 
 #include "gcs_tourney.h"
 
+#include <limits.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -147,7 +148,14 @@ long gcs_tourney_parse_time(const char *s)
     if (y < 1970 || y > 9999 || mo < 1 || mo > 12 || d < 1 || d > 31 || h < 0 || h > 23 || mi < 0 || mi > 59) {
         return -1;
     }
-    return days_from_civil(y, mo, d) * 86400L + h * 3600L + mi * 60L;
+    {
+        /* long is 32 bits on Windows: dates after 2038-01-19 become "never" */
+        long days = days_from_civil(y, mo, d);
+        if (days > (LONG_MAX - 86399L) / 86400L) {
+            return LONG_MAX;
+        }
+        return days * 86400L + h * 3600L + mi * 60L;
+    }
 }
 
 /* ---- definitions ---- */
