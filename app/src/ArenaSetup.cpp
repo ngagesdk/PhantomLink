@@ -27,7 +27,9 @@ _LIT8(KHostsTag, " # PhantomLink Arena");
 /* the Arena back ends named in the games' arena.amr (read only on the
  * cartridge): Pocket Kingdom, then Rifts: Promise of Power; then, not
  * Arena, the Habbo Console locator of Habbo Islands (SULAKEUI.DLL, port
- * 8080; docs/HABBO.md); Ashen; Worms World Party (SegaChat, SNAP) */
+ * 8080; docs/HABBO.md); Ashen; Worms World Party (SegaChat, SNAP);
+ * Pathway to Glory: Ikusa Islands and Pathway to Glory (SegaChat, SNAP
+ * and game server) */
 static const char *const KArenaHosts[] = {
     "arena.n-gage.com",
     "im.prod.pk.nokia.sf.yav4.com",
@@ -39,10 +41,14 @@ static const char *const KArenaHosts[] = {
     "im01.ashen.torus.sf.yav4.com",
     "im01.worms.paragon5.sf.yav4.com",
     "snap01.worms.paragon5.sf.yav4.com",
+    "im.ptg2.redlynx.sf.yav4.com",
+    "bs01.ptg2.redlynx.sf.yav4.com",
+    "im.ptg.redlynx.sf.yav4.com",
+    "snap.ptg.redlynx.sf.yav4.com",
 };
 const TInt KArenaHostCount = sizeof(KArenaHosts) / sizeof(KArenaHosts[0]);
 /* room for our own lines ("address name # PhantomLink Arena", about
- * 60 bytes each; 10 hosts need about 610): TDes8::Append panics on
+ * 60 bytes each; 14 hosts need about 850): TDes8::Append panics on
  * overflow */
 const TInt KHostsReserve = 1024;
 

@@ -113,6 +113,7 @@ typedef struct
     gc_u32 status;
     gc_u32 game_class;
     int permanent; /* a game's fixed room: kept when empty */
+    gc_u32 owner;  /* user who created it (0: a fixed room) */
     int n_attrs;
     rattr attrs[GCSS_MAX_ATTRS];
 } room;
@@ -386,13 +387,22 @@ static lobby *lobby_by_id(gcs_snap *s, gc_u32 id)
     return NULL;
 }
 
-/* by name; created on first use so that any lobby a game asks for exists */
-static lobby *lobby_by_name(gcs_snap *s, const char *name, int create)
+/* by name, within one game class: several games use the same lobby
+ * names (Worms World Party and both Pathway to Glory games have
+ * "Freestyle" and "Ranked"); created on first use so that any lobby a
+ * game asks for exists.  gc 0: any game. */
+static lobby *lobby_by_name(gcs_snap *s, const char *name, gc_u32 gc, int create)
 {
-    int i;
-    for (i = 0; i < GCSS_MAX_LOBBIES; i++) {
-        if (s->lobbies[i].used && ieq(s->lobbies[i].name, name)) {
-            return &s->lobbies[i];
+    int i, pass;
+    for (pass = 0; pass < 2; pass++) {
+        for (i = 0; i < GCSS_MAX_LOBBIES; i++) {
+            lobby *l = &s->lobbies[i];
+            if (!l->used || !ieq(l->name, name)) {
+                continue;
+            }
+            if (pass == 0 ? (!gc || l->game_class == gc) : !l->game_class) {
+                return l;
+            }
         }
     }
     if (!create || !name[0]) {
@@ -406,8 +416,9 @@ static lobby *lobby_by_name(gcs_snap *s, const char *name, int create)
     s->lobbies[i].used = 1;
     s->lobbies[i].id = s->next_lobby++;
     s->lobbies[i].max = 200;
+    s->lobbies[i].game_class = gc;
     snprintf(s->lobbies[i].name, sizeof(s->lobbies[i].name), "%s", name);
-    LOG_I("lobby %08x '%s' created", s->lobbies[i].id, s->lobbies[i].name);
+    LOG_I("lobby %08x '%s' created (game class %u)", s->lobbies[i].id, s->lobbies[i].name, gc);
     return &s->lobbies[i];
 }
 
@@ -437,6 +448,7 @@ static room *room_by_id(gcs_snap *s, gc_u32 id)
 #define A_USER             FOURCC('U', 'S', 'E', 'R')
 #define A_LOID             FOURCC('L', 'O', 'I', 'D')
 #define A_NAME             FOURCC('N', 'A', 'M', 'E')
+#define A_HOST             FOURCC('H', 'O', 'S', 'T')
 
 static rattr *room_attr(room *r, gc_u32 name, int create)
 {
@@ -628,7 +640,7 @@ static void h_lobby_info(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, s
     int i, count = 0;
     get_name(name, sizeof(name), p, n < 16 ? n : 16);
     if (name[0]) {
-        lobby *l = lobby_by_name(s, name, 1);
+        lobby *l = lobby_by_name(s, name, c->game_class, 1);
         if (l && !l->game_class) {
             l->game_class = c->game_class;
         }
@@ -726,7 +738,7 @@ static void game_lobbies(gcs_snap *s, const gcs_snap_game *g)
     lobby *first = NULL;
     while ((p = next_name(p, name)) != NULL) {
         if (name[0]) {
-            lobby *l = lobby_by_name(s, name, 1);
+            lobby *l = lobby_by_name(s, name, g->game_class, 1);
             if (l && !l->game_class) {
                 l->game_class = g->game_class;
             }
@@ -743,7 +755,7 @@ static void game_lobbies(gcs_snap *s, const gcs_snap_game *g)
             continue;
         }
         if (lname[0]) {
-            in = lobby_by_name(s, lname, 1);
+            in = lobby_by_name(s, lname, g->game_class, 1);
             if (!in) {
                 continue;
             }
@@ -860,7 +872,7 @@ static void h_join(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, size_t 
         if (!l && n >= 20) { /* by name */
             char name[17];
             get_name(name, sizeof(name), p, 16);
-            l = lobby_by_name(s, name, 1);
+            l = lobby_by_name(s, name, c->game_class, 1);
             if (l && !l->game_class) {
                 l->game_class = c->game_class;
             }
@@ -926,7 +938,7 @@ static void h_create_room(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, 
         const gcs_snap_game *g = game_of(s, c->game_class);
         char name[17];
         if (g && g->lobby && next_name(g->lobby, name) && name[0]) {
-            lobby *l = lobby_by_name(s, name, 1);
+            lobby *l = lobby_by_name(s, name, g->game_class, 1);
             if (l) {
                 if (!l->game_class) {
                     l->game_class = g->game_class;
@@ -953,6 +965,7 @@ static void h_create_room(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, 
         r->max = 4;
     }
     r->status = 0x00000001u; /* KK_GAME_SERVER_START: a game server is attached */
+    r->owner = c->uid;
     LOG_I("user %08x '%s' created room %08x '%s' (max %u) in lobby %08x", c->uid, c->name, r->id, r->name, r->max,
           r->lobby);
     room_entry(s, e, r);
@@ -1078,6 +1091,11 @@ static void h_get_attr(gcs_snap *s, sess *c, const gc_u8 *h, const gc_u8 *p, siz
             put32(out + 8, r->max);
         } else if (name == A_USER) {
             put32(out + 8, (gc_u32)room_members(s, r->id));
+        } else if (name == A_HOST) {
+            /* the creator: ArenaFramework compares it with its own user
+             * id (CArenaFramework slot 0x58, IsHost; arenaframework.dll
+             * 2.01.080 0x10cb0) */
+            put32(out + 8, r->owner);
         }
     } else {
         /* a lobby (0xb000): ArenaFramework's slot 0x6c reads the NAME of
@@ -1790,6 +1808,17 @@ gc_u32 gcs_snap_room_of(const gcs_snap *s, gc_u32 uid)
     for (i = 0; uid && i < GCSS_MAX_SESSIONS; i++) {
         if (s->s[i].used && s->s[i].logged_in && s->s[i].uid == uid) {
             return s->s[i].room;
+        }
+    }
+    return 0;
+}
+
+gc_u32 gcs_snap_room_owner(const gcs_snap *s, gc_u32 room)
+{
+    int i;
+    for (i = 0; room && i < GCSS_MAX_ROOMS; i++) {
+        if (s->rooms[i].used && s->rooms[i].id == room) {
+            return s->rooms[i].owner;
         }
     }
     return 0;
