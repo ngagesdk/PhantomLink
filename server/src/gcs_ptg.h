@@ -40,6 +40,9 @@
  *     unchanged; the game makes the end marker itself,
  *   - the Field Radio (type 43, 260 bytes: player, chunk, chunk count,
  *     256 bytes of the recorded message) goes to the other players,
+ *   - start: after ArenaFramework's game start the game sends nothing
+ *     until the server sends something, so every phone of a room in
+ *     progress (STAT bit 31) gets pings (type 18) until it sends,
  *   - keep alive: the game sends type 19 (4 bytes) every 20 s and gives
  *     up after 30 s without type 19 back,
  *   - type 33 acknowledges every 23, 32 and 34,
