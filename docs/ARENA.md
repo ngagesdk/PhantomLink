@@ -270,7 +270,9 @@ login is accepted for any account that logged in to the Community service
 from the same address. Datagrams are only taken from addresses with a TCP
 connection open or one in the last 10 minutes (`GCSD_IDLE_MS`), so spoofed
 UDP sources are ignored. Silent TCP connections are closed after
-`direct_idle_ms` (default 2 minutes).
+`direct_idle_ms` (default 30 minutes; the SegaChat connection carries
+nothing while a player sits in an offline screen, see "SNAP sessions of
+idle players").
 
 Not verified on hardware: whether the N-Gage's resolver uses the hosts file
 for these names (the check in step 5 tells), and how carriers' NATs treat
@@ -506,6 +508,29 @@ entry (for example a room status notification) before `EGameStart`, and
 whether the login answer is enough without the encrypted challenge
 (op 64 → op 65, done with sustandard.dll) the client also understands.
 The server log at level 3 shows every message in both directions.
+
+### SNAP sessions of idle players
+
+snapcomm.dll has no thread or active object of its own: it reads its
+socket only when the game pumps ArenaFramework (slot 0x1c → arenabase
+slot 0x64 → snapcomm slot 0x90 → poll 0x32e4). Pocket Kingdom most
+likely stops pumping in its offline screens (castle, units, items; not
+confirmed on hardware, but players were dropped while upgrading units),
+and its keep alive (type 2, every ~165 frames) belongs to the online
+screens, so such a player sends and acknowledges nothing for minutes. The server
+used to end such a session after 15 unacknowledged resends (about 15 s,
+as soon as anything reliable was sent to the player, e.g. a room
+notification) or after 3 minutes of silence, and then ignored the
+player's datagrams, so the game lost the connection when it came back.
+
+Now (`gcs_snap.c`): resends back off (1, 2, 4, then every 8 s) and never
+end a logged-in session; the first datagram after a quiet spell makes the
+server resend everything still unacknowledged at once; a session ends on
+logout, on a lost bridge (`gcs_snap_peer_gone`) or after 30 minutes of
+silence (`GCSS_IDLE_MS`). The log shows `user … gone (silent)` for the
+last case and `no acknowledgement for N s, still waiting` (level 2) when a
+client stalls. Up to 32 reliable messages wait per session; more are
+dropped with `send queue full`.
 
 ## Rifts: Promise of Power
 

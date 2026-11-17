@@ -51,9 +51,16 @@ typedef struct gcs_snap gcs_snap;
 #define GCSS_MAX_ROOMS    64
 #define GCSS_MAX_ATTRS    16 /* attributes per room (op 8)        */
 #define GCSS_MAX_NAME     32
-#define GCSS_RESEND_MS    1000
-#define GCSS_MAX_TRIES    15
-#define GCSS_IDLE_MS      180000 /* drop a silent session          */
+#define GCSS_RESEND_MS    1000 /* first resend; doubles up to... */
+#define GCSS_RESEND_MAX   8000 /* ...this interval               */
+#define GCSS_MAX_TRIES    15   /* then warn once, keep resending */
+/* Drop a session after this much silence.  snapcomm.dll has no thread of
+ * its own: it only reads its socket when the game pumps ArenaFramework,
+ * and Pocket Kingdom most likely stops doing that in its offline screens
+ * (castle, units, ...), so a player who spends a few minutes there sends
+ * and acknowledges nothing.  A lost bridge is noticed separately
+ * (gcs_snap_peer_gone), and a proper logout ends the session at once. */
+#define GCSS_IDLE_MS 1800000 /* 30 minutes */
 
 typedef struct
 {

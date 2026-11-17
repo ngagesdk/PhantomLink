@@ -631,7 +631,7 @@ static void test_snap(void)
     gcs_snap_get_stats(S, &st);
     CHECK(st.resends >= 2);
     G[1].auto_ack = 1;
-    g_now += 1100;
+    g_now += 2100; /* the second resend comes 2 s after the first */
     gcs_snap_poll(S, g_now);
     gcs_snap_get_stats(S, &st);
     {
@@ -643,6 +643,64 @@ static void test_snap(void)
     }
     /* logout */
     send_msg(&G[1], 0x9000, 4, GCSS_OP_LOGOUT, p, 0);
+    gcs_snap_get_stats(S, &st);
+    CHECK_EQ(st.sessions, 0);
+    teardown();
+}
+
+/* A client that stops reading its socket (Pocket Kingdom in an offline
+ * screen) keeps its session: resends back off, everything still open is
+ * resent as soon as it is heard from again, and only long silence ends
+ * the session. */
+static void test_snap_stall(void)
+{
+    game *a = &G[0];
+    gc_u8 p[16];
+    gcs_snap_stats st;
+    gc_u32 before, t;
+    setup();
+    memset(G, 0, sizeof(G));
+    a->port = 3003;
+    a->name = "alice";
+    a->auto_ack = 1;
+    login(a);
+    a->n_in = 0;
+
+    /* stalled: nothing arrives, nothing is acknowledged */
+    a->auto_ack = 0;
+    a->dropped_datagrams = 100000;
+    memset(p, 0, sizeof(p));
+    strcpy((char *)p, "Scrimmage");
+    send_msg(a, 0x9000, 5, GCSS_OP_LOBBY_INFO, p, 16);
+    gcs_snap_get_stats(S, &st);
+    before = st.resends;
+    for (t = 0; t < 5u * 60u; t++) { /* five minutes in the castle */
+        g_now += 1000;
+        gcs_snap_poll(S, g_now);
+    }
+    gcs_snap_get_stats(S, &st);
+    CHECK_EQ(st.sessions, 1);
+    /* the lobby answer is two reliable messages; each resent at 1, 3, 7,
+     * 15 s and then every 8 s: 39 times in five minutes, not 300 */
+    CHECK_EQ(st.resends - before, 2 * 39);
+
+    /* back on the map: the first datagram brings the answer at once */
+    a->auto_ack = 1;
+    a->dropped_datagrams = 0;
+    a->n_in = 0;
+    send_msg(a, 0x2000, 0, 99, p, 0);
+    CHECK(take(a, GCSS_OP_LOBBY_INFO) != NULL);
+    gcs_snap_get_stats(S, &st);
+    before = st.resends;
+    g_now += 10000;
+    gcs_snap_poll(S, g_now);
+    gcs_snap_get_stats(S, &st);
+    CHECK_EQ(st.resends, before); /* acknowledged */
+    CHECK_EQ(st.sessions, 1);
+
+    /* silence for longer than GCSS_IDLE_MS ends it */
+    g_now += GCSS_IDLE_MS;
+    gcs_snap_poll(S, g_now);
     gcs_snap_get_stats(S, &st);
     CHECK_EQ(st.sessions, 0);
     teardown();
@@ -1078,6 +1136,7 @@ int main(int argc, char **argv)
 {
     g_verbose = argc > 1 && !strcmp(argv[1], "-v");
     RUN(test_snap);
+    RUN(test_snap_stall);
     RUN(test_battle);
     RUN(test_fuzz);
     TEST_MAIN_END();
