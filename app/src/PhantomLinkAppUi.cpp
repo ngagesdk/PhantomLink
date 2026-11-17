@@ -22,6 +22,8 @@
 #include <apparc.h>
 #include <eikapp.h>
 
+#include "gc_msg.h"
+
 /* TRAP_IGNORE does not exist in this SDK */
 #define PL_IGNORE(aStmt)        \
     do {                        \
