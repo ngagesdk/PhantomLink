@@ -76,9 +76,9 @@ standard GameComms library, so PhantomLink cannot support them.
 | Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings     | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"                   | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
 | Ashen                         | Online leaderboards for every chapter and the whole game        | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Worms World Party             | Play Now game rooms (Freestyle, Ranked), skill points, rankings | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Pathway to Glory              | GPRS battles for up to 6 players, Field Radio voice messages    | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages  | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Worms World Party             | Play Now game rooms (Freestyle, Ranked), skill points, rankings | ![In%20Progress](https://img.shields.io/badge/In%20Progress-yellow) |
+| Pathway to Glory              | GPRS battles for up to 6 players, Field Radio voice messages    | ![In%20Progress](https://img.shields.io/badge/In%20Progress-yellow) |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages  | ![In%20Progress](https://img.shields.io/badge/In%20Progress-yellow) |
 
 Pocket Kingdom and Rifts are tested on a real N-Gage.
 Ashen's leaderboards are tested against the server only, not yet on a
