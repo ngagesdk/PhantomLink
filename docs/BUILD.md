@@ -84,24 +84,10 @@ The same build also creates the N-Gage application `PhantomLink.sis`
   that one as described below);
 - choose Restore original behavior to remove the `gamecomms.dll` it
   wrote to `C:\System\Libs`;
-- configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration");
-- read and post short messages on the server's message board using either
-  the ESP32 or PC bridge. Select Message board, then use the options
-  menu to post, refresh, or move between older and newer messages. Select
-  an entry to read its full text. Names are chosen when posting. Scroll the
-  board list to see the author, date, time and message preview.
+- configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration").
 
 In the game list, Up and Down wrap at the ends; Left and Right move six
 entries at a time, stopping at the first or last entry.
-
-Messages are limited to 160 UTF-8 bytes (names to 32 bytes). Times are
-assigned by the server in UTC, not by the phone. The board is shared by
-all users of the server; names are not verified. The Bluetooth connection
-stays open while the board is displayed, including while composing; it closes
-when switching to Games or Bridge setup. If the bridge is still connecting to
-the server, registration is retried until the operation times out. If a
-connection fails, the draft is kept for retry. If a post times out, refresh
-before retrying: it may already have been saved.
 
 To save space on the phone, the SIS does not carry ten full DLLs. The
 variants are built from the same code and differ only in their export
@@ -450,14 +436,9 @@ sudo systemctl enable --now gamecommsd
 
 `kill -USR1 $(pidof gamecommsd)` writes the current sessions to the log.
 
-The board is saved in `gamecomms-board.dat` in the server's working directory
-(or the path set with `board_file` / `--board_file`). The directory must be
-writable by the server; storage errors are reported to the app and server log.
-The board retains up to 10,000 messages, then rejects new posts. Back up the
-file with the rest of the server's state. The supplied systemd service uses
-`/var/lib/gamecommsd` as its persistent working directory.
-
-The N-Gage Arena back ends (docs/ARENA.md) keep their data next to it:
+The server keeps its state in its working directory, which must be
+writable; the supplied systemd service uses `/var/lib/gamecommsd`.
+The N-Gage Arena back ends (docs/ARENA.md) keep their data there:
 `gamecomms-arena.txt` (`arena_accounts`: the Arena accounts, shared by all
 Arena games, passwords as SHA-1), `gamecomms-rifts.dat` (`rifts_data`:
 the battles, characters and turns of Rifts: Promise of Power), and
@@ -465,7 +446,7 @@ the battles, characters and turns of Rifts: Promise of Power), and
 messages of Habbo Islands' Habbo Console, docs/HABBO.md) and
 `gamecomms-scores.dat` (`scores_data`: the online leaderboards of Ashen,
 match ids and skill points of Worms World Party, docs/ARENA.md) and `gamecomms-pk.dat` (`pk_data`: Pocket Kingdom's
-kingdoms, Global Auction and waiting chat messages). Back them up too. The pages the Arena menus show (news, support) come from the folder
+kingdoms, Global Auction and waiting chat messages). Back them up. The pages the Arena menus show (news, support) come from the folder
 set as `www_root`; copy `server/deploy/www` there to start with (see its
 README).
 

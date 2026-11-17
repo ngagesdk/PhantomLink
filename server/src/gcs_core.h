@@ -44,7 +44,6 @@ typedef struct
 {
     char server_name[GC_MAX_NAME + 1];
     char access_key[GC_MAX_NAME + 1]; /* empty: no key required */
-    char board_file[256];
     char arena_accounts[256];  /* shared accounts of retail Arena games (PPP mode); empty: memory only */
     char rifts_data[256];      /* Rifts: Promise of Power game server data; empty: memory only */
     char habbo_data[256];      /* Habbo Console friends and messages (Habbo Islands); empty: memory only */

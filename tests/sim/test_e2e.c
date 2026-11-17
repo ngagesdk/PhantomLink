@@ -945,79 +945,48 @@ static void test_concurrent_sessions_isolated(void)
     sim_free(&W);
 }
 
-static gc_msg board_reply;
-static void board_capture(void *ctx, const gc_u8 *data, size_t len)
+static gc_msg dev_reply;
+static void reply_capture(void *ctx, const gc_u8 *data, size_t len)
 {
     (void)ctx;
-    gc_msg_decode(data, len, &board_reply);
+    gc_msg_decode(data, len, &dev_reply);
 }
 
-static void test_board_registration_replayed_after_server_connects(void)
+static void test_registration_replayed_after_server_connects(void)
 {
-    gc_msg m;
-    gc_u8 wire[GC_LINK_MAX_MSG];
-    size_t n;
     sim_init(&W, 1, GC_API_V1, UID);
     bridge_set_wifi(&W.n[0].br, 0, -50, W.now);
-    W.n[0].dev.link.ops.on_msg = board_capture;
-    memset(&board_reply, 0, sizeof(board_reply));
+    W.n[0].dev.link.ops.on_msg = reply_capture;
+    memset(&dev_reply, 0, sizeof(dev_reply));
     sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_REGISTERED);
-    CHECK_EQ(board_reply.u.registered.result, GC_R_UNAVAILABLE);
+    CHECK_EQ(dev_reply.type, GC_MT_REGISTERED);
+    CHECK_EQ(dev_reply.u.registered.result, GC_R_UNAVAILABLE);
 
-    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&dev_reply, 0, sizeof(dev_reply));
     bridge_set_wifi(&W.n[0].br, 1, -50, W.now);
     sim_run(&W, 1500);
-    CHECK_EQ(board_reply.type, GC_MT_REGISTERED);
-    CHECK_EQ(board_reply.u.registered.result, GC_R_OK);
-
-    memset(&board_reply, 0, sizeof(board_reply));
-    memset(&m, 0, sizeof(m));
-    m.type = GC_MT_BOARD_READ;
-    n = gc_msg_encode(&m, wire, sizeof(wire));
-    CHECK_EQ(gc_link_send(&W.n[0].dev.link, wire, n, W.now), GC_LINK_OK);
-    sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_BOARD_ENTRY);
+    CHECK_EQ(dev_reply.type, GC_MT_REGISTERED);
+    CHECK_EQ(dev_reply.u.registered.result, GC_R_OK);
     sim_free(&W);
 }
 
-static void test_board_through_bridge(void)
+static void test_idle_link_and_reregister(void)
 {
     gc_msg m;
     gc_u8 wire[GC_LINK_MAX_MSG];
     size_t n;
-    remove("sim-board-test.dat");
     sim_init(&W, 2, GC_API_V1, UID);
     sim_run(&W, 500);
     CHECK_EQ(W.n[0].dev.registered, 1);
     CHECK_EQ(W.n[1].dev.registered, 1);
-    W.n[0].dev.link.ops.on_msg = board_capture;
-    W.n[1].dev.link.ops.on_msg = board_capture;
-    memset(&board_reply, 0, sizeof(board_reply));
-    memset(&m, 0, sizeof(m));
-    m.type = GC_MT_BOARD_POST;
-    strcpy(m.u.board.text, "Hello through the bridge");
-    n = gc_msg_encode(&m, wire, sizeof(wire));
-    CHECK_EQ(gc_link_send(&W.n[0].dev.link, wire, n, W.now), GC_LINK_OK);
-    sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_BOARD_POSTED);
-    memset(&board_reply, 0, sizeof(board_reply));
-    memset(&m, 0, sizeof(m));
-    m.type = GC_MT_BOARD_READ;
-    n = gc_msg_encode(&m, wire, sizeof(wire));
-    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
-    sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_BOARD_ENTRY);
-    CHECK_EQ(board_reply.u.board.count, 1);
-    CHECK(strcmp(board_reply.u.board.text, "Hello through the bridge") == 0);
-    CHECK(strcmp(board_reply.u.board.name, "ngage0") == 0);
+    W.n[1].dev.link.ops.on_msg = reply_capture;
 
-    /* A user can spend several minutes composing without losing the link. */
+    /* An idle device keeps its link for several minutes. */
     sim_run(&W, 180000);
     CHECK_EQ(W.n[1].dev.link.state, GC_LS_UP);
     CHECK_EQ(W.n[1].br.u.gc.dev.state, GC_LS_UP);
     CHECK_EQ(W.n[1].br.srv.state, GC_LS_UP);
-    memset(&board_reply, 0, sizeof(board_reply));
+    memset(&dev_reply, 0, sizeof(dev_reply));
     memset(&m, 0, sizeof(m));
     m.type = GC_MT_REGISTER;
     m.u.reg.api = GC_API_V1;
@@ -1026,34 +995,15 @@ static void test_board_through_bridge(void)
     n = gc_msg_encode(&m, wire, sizeof(wire));
     CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
     sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_REGISTERED);
-    CHECK_EQ(board_reply.u.registered.result, GC_R_OK);
-    memset(&board_reply, 0, sizeof(board_reply));
-    memset(&m, 0, sizeof(m));
-    m.type = GC_MT_BOARD_POST;
-    strcpy(m.u.board.text, "Written after a long pause");
-    n = gc_msg_encode(&m, wire, sizeof(wire));
-    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
-    sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_BOARD_POSTED);
-    memset(&board_reply, 0, sizeof(board_reply));
-    memset(&m, 0, sizeof(m));
-    m.type = GC_MT_BOARD_READ;
-    n = gc_msg_encode(&m, wire, sizeof(wire));
-    CHECK_EQ(gc_link_send(&W.n[1].dev.link, wire, n, W.now), GC_LINK_OK);
-    sim_run(&W, 500);
-    CHECK_EQ(board_reply.type, GC_MT_BOARD_ENTRY);
-    CHECK_EQ(board_reply.u.board.count, 2);
-    CHECK(strcmp(board_reply.u.board.name, "new name") == 0);
-    CHECK(strcmp(board_reply.u.board.text, "Written after a long pause") == 0);
+    CHECK_EQ(dev_reply.type, GC_MT_REGISTERED);
+    CHECK_EQ(dev_reply.u.registered.result, GC_R_OK);
     sim_free(&W);
-    CHECK_EQ(remove("sim-board-test.dat"), 0);
 }
 
 int main(void)
 {
-    RUN(test_board_through_bridge);
-    RUN(test_board_registration_replayed_after_server_connects);
+    RUN(test_idle_link_and_reregister);
+    RUN(test_registration_replayed_after_server_connects);
     RUN(test_registration_does_not_repeat_immediately);
     RUN(test_role_start_does_not_advance_registration_retry);
     RUN(test_registration_retry_waits_for_deadline);
