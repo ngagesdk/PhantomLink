@@ -125,7 +125,7 @@ typedef struct
 static direct_conn g_dconns[GCSD_MAX_CONNS];
 static gcs_direct *g_direct;
 static sock_t g_dudp = SOCK_INVALID; /* SNAP */
-static gc_u32 g_direct_idle_ms = 120000;
+static gc_u32 g_direct_idle_ms = 1800000;
 static volatile sig_atomic_t g_stop;
 static volatile sig_atomic_t g_dump;
 static int g_log_level = 2;
@@ -979,7 +979,7 @@ static void usage(const char *argv0)
            "                       listening ports for the game's ports 80, 5222 and UDP 9090\n"
            "                       (defaults 80, 5222, 9090; 0 = off)\n"
            "  --direct_habbo_port=N listening port for Habbo Islands' port 8080 (default 8080; 0 = off)\n"
-           "  --direct_idle_ms=N   close silent direct TCP connections (default 120000)\n",
+           "  --direct_idle_ms=N   close silent direct TCP connections (default 1800000)\n",
            GCS_VERSION, argv0, GCS_DEFAULT_PORT);
 }
 

@@ -40,11 +40,23 @@
 typedef struct
 {
     gc_u32 seq;
-    gc_u32 t;
+    gc_u32 t;       /* last (re)send */
+    gc_u32 t_first; /* first send */
     int tries;
     size_t len;
     gc_u8 d[MAX_MSG];
 } outmsg;
+
+/* 1 s, 2 s, 4 s, then every GCSS_RESEND_MAX */
+static gc_u32 resend_interval(const outmsg *o)
+{
+    gc_u32 iv = GCSS_RESEND_MS;
+    int i;
+    for (i = 1; i < o->tries && iv < GCSS_RESEND_MAX; i++) {
+        iv *= 2;
+    }
+    return iv < GCSS_RESEND_MAX ? iv : GCSS_RESEND_MAX;
+}
 
 typedef struct
 {
@@ -320,6 +332,7 @@ static int send_msg(gcs_snap *s, sess *c, gc_u16 flags, gc_u8 cmdseq, gc_u8 op, 
         put32(m + 8, c->tx_rel);
         o->seq = c->tx_rel++;
         o->t = s->now;
+        o->t_first = s->now;
         o->tries = 1;
         o->len = len;
         memcpy(o->d, m, len);
@@ -1546,6 +1559,7 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
 {
     sess *c;
     size_t pos = 0, end;
+    int kick;
     char hx[3 * 32 + 4];
     s->now = now;
     s->st.datagrams++;
@@ -1578,6 +1592,10 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
     }
     memcpy(c->saddr, addr, 4);
     c->sport = port;
+    /* the client was quiet: whatever is still unacknowledged is resent
+     * right after this datagram instead of waiting for the backed-off
+     * timer (the game is reading its socket again) */
+    kick = c->logged_in && (gc_u32)(now - c->t_last) >= 2 * GCSS_RESEND_MS;
     c->t_last = now;
     while (pos + HDR <= end && c->used) {
         const gc_u8 *m = d + pos;
@@ -1628,6 +1646,18 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
         }
         pos += len;
     }
+    if (kick && c->used) {
+        int k;
+        for (k = 0; k < OUTQ; k++) {
+            outmsg *o = c->outq[k];
+            if (o && o->t != now) {
+                o->t = now;
+                s->st.resends++;
+                LOG_D("-> %08x resend seq %u op %u (client back)", c->uid, o->seq, o->d[3]);
+                send_raw(s, c, o->d, o->len);
+            }
+        }
+    }
 }
 
 void gcs_snap_poll(gcs_snap *s, gc_u32 now)
@@ -1646,12 +1676,17 @@ void gcs_snap_poll(gcs_snap *s, gc_u32 now)
         }
         for (k = 0; k < OUTQ && c->used; k++) {
             outmsg *o = c->outq[k];
-            if (!o || (gc_u32)(now - o->t) < GCSS_RESEND_MS) {
+            if (!o || (gc_u32)(now - o->t) < resend_interval(o)) {
                 continue;
             }
-            if (o->tries >= GCSS_MAX_TRIES) {
-                sess_free(s, c, "no acknowledgement");
-                break;
+            /* A client that does not acknowledge is usually one whose
+             * game is in an offline screen and does not read its socket
+             * (see GCSS_IDLE_MS).  Dropping the session here made the
+             * game lose the connection as soon as it came back, so keep
+             * resending (backing off) until the session falls silent. */
+            if (o->tries == GCSS_MAX_TRIES) {
+                LOG_I("user %08x '%s': no acknowledgement for %u s, still waiting", c->uid, c->name,
+                      (unsigned)((now - o->t_first) / 1000));
             }
             o->tries++;
             o->t = now;
