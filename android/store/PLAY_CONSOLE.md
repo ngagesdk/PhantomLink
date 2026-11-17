@@ -8,7 +8,7 @@ just as well).
 ## 0. Before you start
 
 - Google Play developer account (one-time fee). New personal accounts must
-  run a **closed test with at least 12 testers for 14 days** before they can
+  run a closed test with at least 12 testers for 14 days before they can
   publish to production; check the current rule in the Play Console.
 - Replace `CONTACT_EMAIL` in `android/PRIVACY.md`, commit it, and use its
   GitHub URL as the privacy policy URL:
@@ -54,11 +54,11 @@ Store settings:
 
 ## 3. App content (Policy > App content)
 
-**Privacy policy**: the URL from step 0.
+Privacy policy: the URL from step 0.
 
-**Ads**: No, the app does not contain ads.
+Ads: No, the app does not contain ads.
 
-**App access**: All functionality is available without special access (no
+App access: All functionality is available without special access (no
 login). Note for reviewers, in "Any other instructions":
 
 > PhantomLink Bridge forwards Bluetooth multiplayer traffic from a Nokia
@@ -66,24 +66,24 @@ login). Note for reviewers, in "Any other instructions":
 > starts, shows its status, finds servers and logs events, but no game
 > traffic flows. Source: https://github.com/ngagesdk/PhantomLink
 
-**Content rating** (IARC questionnaire):
+Content rating (IARC questionnaire):
 - Category: "All other app types" (utility).
 - Violence, sexuality, language, controlled substances, gambling: No.
-- Users can interact or exchange content: **Yes** (players of the forwarded
+- Users can interact or exchange content: Yes (players of the forwarded
   N-Gage games play together through the server). Shares location: No.
   Allows purchases: No.
 
-**Target audience**: 13 and older (13-15, 16-17, 18+). Not designed for
+Target audience: 13 and older (13-15, 16-17, 18+). Not designed for
 children. Appeals to children: No.
 
-**News app**: No. **COVID-19 app**: No. **Government app**: No.
-**Financial features**: None. **Health**: None.
+News app: No. COVID-19 app: No. Government app: No.
+Financial features: None. Health: None.
 
-**Data safety** (my reading of the form; the final answers are yours):
-- Collects or shares data: **Yes**. The app sends the N-Gage's Bluetooth
+Data safety (my reading of the form; the final answers are yours):
+- Collects or shares data: Yes. The app sends the N-Gage's Bluetooth
   address and player name to the server the user picks, which Google counts
   as collection even though the developer never receives it.
-- Encrypted in transit: **No** (the N-Gage protocol cannot use TLS).
+- Encrypted in transit: No (the N-Gage protocol cannot use TLS).
 - Users can request deletion: No account exists; the developer stores
   nothing. Answer "No" and explain in the privacy policy (already done).
 - Data types:
@@ -93,7 +93,7 @@ children. Appeals to children: No.
     functionality*. (Player nickname from the N-Gage.)
   - Nothing else (no location, contacts, files, app activity, diagnostics).
 
-**Foreground service permissions**: the app declares
+Foreground service permissions: the app declares
 `FOREGROUND_SERVICE_CONNECTED_DEVICE`. Select *Connected device* and enter:
 
 > The bridge keeps a Bluetooth serial connection to a Nokia N-Gage open and
@@ -107,7 +107,7 @@ Google asks for a video link showing the feature: record the phone (Start,
 N-Gage connects, notification visible, screen off, game keeps running) and
 upload it as an unlisted YouTube video.
 
-**Advertising ID**: No (the app does not use it).
+Advertising ID: No (the app does not use it).
 
 ## 4. Release
 

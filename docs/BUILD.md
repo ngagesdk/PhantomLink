@@ -11,7 +11,7 @@
 | Tests | C compiler, CMake, Python 3 | test report |
 
 Ready-made binaries of everything above are published by CI as the
-pre-release **PhantomLink Continuous Integration Build** (tag `continuous`,
+pre-release PhantomLink Continuous Integration Build (tag `continuous`,
 GitHub Releases page): `PhantomLink.zip` with the Windows PC bridge, the
 server for Linux x86_64 and Windows, all DLL variants and the ESP32
 firmware. It is rebuilt on every push to `main`.
@@ -82,11 +82,11 @@ The same build also creates the N-Gage application `PhantomLink.sis`
 - pick a game from a list: the matching `gamecomms.dll` is written to
   `C:\System\Libs` (if the game ships its own copy in its folder, replace
   that one as described below);
-- choose **Restore original behavior** to remove the `gamecomms.dll` it
+- choose Restore original behavior to remove the `gamecomms.dll` it
   wrote to `C:\System\Libs`;
 - configure the ESP32 bridge over Bluetooth (see "Bluetooth configuration");
 - read and post short messages on the server's message board using either
-  the ESP32 or PC bridge. Select **Message board**, then use the options
+  the ESP32 or PC bridge. Select Message board, then use the options
   menu to post, refresh, or move between older and newer messages. Select
   an entry to read its full text. Names are chosen when posting. Scroll the
   board list to see the author, date, time and message preview.

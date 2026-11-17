@@ -26,38 +26,38 @@ column (`build/dll/out/vN/gamecomms.dll`, see BUILD.md, "Installing on
 the N-Gage"). You can check the original with its
 md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 
-| Game                                     | Use      | md5sum of the original           | Ordinals |                              Status                              |
-| ---------------------------------------- | -------- | -------------------------------- | -------- | :--------------------------------------------------------------: |
-| Marcel Desailly Pro Soccer               | v1       | 79c25cdd1972c287712475ee544c7bf3 | 33       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Puyo Pop                                 | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Puzzle Bobble VS                         | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Tony Hawk's Pro Skater                   | v2       | 8863fdea897f1c63807ad69252a3566f | 55       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Asphalt Urban GT                         | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| FIFA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| NCAA Football 2004                       | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Rayman 3                                 | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Tom Clancy's Ghost Recon: Jungle Storm   | v3       | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Catan                                    | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Mile High Pinball                        | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Requiem of Hell                          | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| The King of Fighters Extreme             | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Tom Clancy's Splinter Cell: Chaos Theory | v5       | e8d317204a763d71215680d567eb71e0 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Call of Duty                             | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| FIFA Football 2005                       | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| SSX Out of Bounds                        | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| WWE Aftershock                           | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Xanadu Next                              | v6       | bb02377c5361597f8d8503f5de584845 | 57       | ![Untested](https://img.shields.io/badge/Untested-grey)          |
-| Ashen                                    | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Bomberman                                | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Crash Nitro Kart                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Operation Shadow                         | v8       | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Tiger Woods PGA Tour 2004                | v9       | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Glimmerati                               | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| ONE                                      | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Rifts: Promise of Power                  | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| The Roots: Gates of Chaos                | v10      | 827df54717bc210daa96aef9e12de4a3 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Asphalt: Urban GT 2                      | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Warhammer 40,000: Glory in Death         | v11      | 75536306ef48b1928b4562890d01c9c6 | 63       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Game                                     | Use | md5sum of the original           | Ordinals | Status      |
+| ---------------------------------------- | --- | -------------------------------- | -------- | ----------- |
+| Marcel Desailly Pro Soccer               | v1  | 79c25cdd1972c287712475ee544c7bf3 | 33       | Working     |
+| Puyo Pop                                 | v2  | 8863fdea897f1c63807ad69252a3566f | 55       | Working     |
+| Puzzle Bobble VS                         | v2  | 8863fdea897f1c63807ad69252a3566f | 55       | Not working |
+| Tony Hawk's Pro Skater                   | v2  | 8863fdea897f1c63807ad69252a3566f | 55       | Working     |
+| Asphalt Urban GT                         | v3  | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | Working     |
+| FIFA Football 2004                       | v3  | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | Working     |
+| NCAA Football 2004                       | v3  | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | Working     |
+| Rayman 3                                 | v3  | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | Working     |
+| Tom Clancy's Ghost Recon: Jungle Storm   | v3  | f6fbc3c745ae0ecf584b3ef7ec4371ef | 56       | Working     |
+| Catan                                    | v5  | e8d317204a763d71215680d567eb71e0 | 57       | Not working |
+| Mile High Pinball                        | v5  | e8d317204a763d71215680d567eb71e0 | 57       | Working     |
+| Requiem of Hell                          | v5  | e8d317204a763d71215680d567eb71e0 | 57       | Not working |
+| The King of Fighters Extreme             | v5  | e8d317204a763d71215680d567eb71e0 | 57       | Not working |
+| Tom Clancy's Splinter Cell: Chaos Theory | v5  | e8d317204a763d71215680d567eb71e0 | 57       | Not working |
+| Call of Duty                             | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Working     |
+| FIFA Football 2005                       | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Not working |
+| SSX Out of Bounds                        | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Not working |
+| WWE Aftershock                           | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Working     |
+| Xanadu Next                              | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Untested    |
+| Ashen                                    | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Working     |
+| Bomberman                                | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Working     |
+| Crash Nitro Kart                         | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Not working |
+| Operation Shadow                         | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Working     |
+| Tiger Woods PGA Tour 2004                | v9  | 6ac8b1a1e490b367a1d5e46bb720fe70 | 57       | Working     |
+| Glimmerati                               | v10 | 827df54717bc210daa96aef9e12de4a3 | 63       | Not working |
+| ONE                                      | v10 | 827df54717bc210daa96aef9e12de4a3 | 63       | Not working |
+| Rifts: Promise of Power                  | v10 | 827df54717bc210daa96aef9e12de4a3 | 63       | Working     |
+| The Roots: Gates of Chaos                | v10 | 827df54717bc210daa96aef9e12de4a3 | 63       | Working     |
+| Asphalt: Urban GT 2                      | v11 | 75536306ef48b1928b4562890d01c9c6 | 63       | Working     |
+| Warhammer 40,000: Glory in Death         | v11 | 75536306ef48b1928b4562890d01c9c6 | 63       | Working     |
 
 Always use the matching version. v1 and v2 to v11 have different APIs and
 cannot be mixed. Other combinations are not tested. Games not listed are
@@ -65,25 +65,66 @@ unsupported because they use their own custom Bluetooth stack or
 implementation (see "Why games fail" below).
 
 The app's game list (`app/src/GameList.cpp`) must contain exactly the
-games marked Working here, with the same variant;
-`python tests/compat/check_app_games.py` checks this.
+games marked Working here, with the same variant.
+`python tests/compat/check_app_games.py` checks this. It also checks that
+the game and bridge tables in this file match the ones in the README.
+
+## N-Gage Arena games
+
+These games do not use GameComms for their online modes. They use the
+N-Gage Arena client stack instead. See ARENA.md.
+
+| Game                            | Online feature                                                  | Status   |
+| ------------------------------- | --------------------------------------------------------------- | -------- |
+| Pocket Kingdom: Own the World   | Battles against other players' kingdoms, auctions, rankings     | Working  |
+| Rifts: Promise of Power         | Challenges and turn-based battles "by e-mail"                   | Working  |
+| Ashen                           | Online leaderboards for every chapter and the whole game        | Untested |
+| Worms World Party               | Play Now game rooms (Freestyle, Ranked), skill points, rankings | Untested |
+| Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages    | Untested |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | Untested |
+
+Pocket Kingdom and Rifts are tested on a real N-Gage. Ashen's leaderboards and Worms World
+Party are tested against the server only, not yet on a real N-Gage. Both
+Pathway to Glory games have a game server of their own, tested against
+simulated games only.
+
+## Other online games
+
+These games had their own online service instead of N-Gage Arena. The
+PhantomLink server provides it with the same accounts as the Arena games.
+See HABBO.md.
+
+| Game          | Online feature                                    | Status  |
+| ------------- | ------------------------------------------------- | ------- |
+| Habbo Islands | Habbo Console: friends, messages, friend requests | Working |
+
+Habbo Islands is tested against the server only, not yet on a real N-Gage.
+
+## Bridges
+
+| Bridge                     | Status                                                    |
+| -------------------------- | --------------------------------------------------------- |
+| Android phone (Android 8+) | Tested with simulated N-Gages                             |
+| Linux PC / Raspberry Pi    | Tested with simulated N-Gages                             |
+| ESP32 board                | Supported (one ESP32 per N-Gage)                          |
+| Windows PC                 | Limited: may not work, depending on the Bluetooth adapter |
 
 ## Variants
 
-| Variant | md5sum of the original | Version tag | API | Ordinals |
-|---|---|---|---|---|
-| v0 | cb326c500bdb795494d55d30196b8711 | SDK 1.0 beta | 1.x | 33 |
-| v1 | 79c25cdd1972c287712475ee544c7bf3 | none | 1.x | 33 |
-| v2 | 8863fdea897f1c63807ad69252a3566f | none | 2.x | 55 |
-| v3 | f6fbc3c745ae0ecf584b3ef7ec4371ef | none | 2.x | 56 |
-| v4 | c2f184012cd0635f3065b7d5042702ce | SDK v1.0 | 2.x | 56 |
-| v5 | e8d317204a763d71215680d567eb71e0 | SDK v2.6 | 2.x | 57 |
-| v6 | bb02377c5361597f8d8503f5de584845 | SDK v2.5 | 2.x | 57 |
-| v7 | f07f48ee44cca60046f40ce41858a160 | SDK v2.5 | 2.x | 57 |
-| v8 | d4c10fcebfb6da8da6b757aa8392b6d7 | SDK v2.0 | 2.x | 57 |
-| v9 | 6ac8b1a1e490b367a1d5e46bb720fe70 | SDK v1.0 | 2.x | 57 |
-| v10 | 827df54717bc210daa96aef9e12de4a3 | SDK v3.0 | 2.x | 63 |
-| v11 | 75536306ef48b1928b4562890d01c9c6 | SDK v3.1 | 2.x | 63 |
+| Variant | md5sum of the original           | Version tag  | API | Ordinals |
+| ------- | -------------------------------- | ------------ | --- | -------- |
+| v0      | cb326c500bdb795494d55d30196b8711 | SDK 1.0 beta | 1.x | 33       |
+| v1      | 79c25cdd1972c287712475ee544c7bf3 | none         | 1.x | 33       |
+| v2      | 8863fdea897f1c63807ad69252a3566f | none         | 2.x | 55       |
+| v3      | f6fbc3c745ae0ecf584b3ef7ec4371ef | none         | 2.x | 56       |
+| v4      | c2f184012cd0635f3065b7d5042702ce | SDK v1.0     | 2.x | 56       |
+| v5      | e8d317204a763d71215680d567eb71e0 | SDK v2.6     | 2.x | 57       |
+| v6      | bb02377c5361597f8d8503f5de584845 | SDK v2.5     | 2.x | 57       |
+| v7      | f07f48ee44cca60046f40ce41858a160 | SDK v2.5     | 2.x | 57       |
+| v8      | d4c10fcebfb6da8da6b757aa8392b6d7 | SDK v2.0     | 2.x | 57       |
+| v9      | 6ac8b1a1e490b367a1d5e46bb720fe70 | SDK v1.0     | 2.x | 57       |
+| v10     | 827df54717bc210daa96aef9e12de4a3 | SDK v3.0     | 2.x | 63       |
+| v11     | 75536306ef48b1928b4562890d01c9c6 | SDK v3.1     | 2.x | 63       |
 
 v0 is the SDK beta and was not shipped with a game, so no replacement is
 built for it. v5, v6 and v7 contain identical code. They are still built
@@ -99,28 +140,28 @@ v11.
 | Ordinal | Function | Conf. | Status | Notes |
 |---|---|---|---|---|
 | 1 | RSGEDebugLog::RSGEDebugLog() | V | Full | 20 byte layout kept |
-| 2 | CGameBTComms::ConnectState() | V | Full | |
-| 3 | CGameBTComms::ConnectionRole() | V | Full | |
+| 2 | CGameBTComms::ConnectState() | V | Full |  |
+| 3 | CGameBTComms::ConnectionRole() | V | Full |  |
 | 4 | CGameBTComms::ContinueMultiPlayerGame() | S | Full | continues when the host and all clients asked |
 | 5 | CGameBTComms::DisconnectClient(TUint16) | V | Full | KErrNotReady unless host, KErrBadHandle for 0 |
 | 6 | CGameBTComms::Disconnect() | V | Full | while paused: temporary, ReconnectL restores |
-| 7 | CGameBTComms::EndMultiPlayerGame() | S | Full | |
-| 8 | CGameBTComms::GameState() | V | Full | |
+| 7 | CGameBTComms::EndMultiPlayerGame() | S | Full |  |
+| 8 | CGameBTComms::GameState() | V | Full |  |
 | 9 | CGameBTComms::GetLocalDeviceName(THostName&) | V | Full | DeviceName from GameComms.ini, else the Bluetooth name |
 | 10 | CGameBTComms::IsShowingDeviceSelectDlg() | S | Full | true while the bridge selection or the host list is shown |
-| 11 | CGameBTComms::NewL(MGameBTCommsNotify*, TUint32, RSGEDebugLog*) | V | Full | |
+| 11 | CGameBTComms::NewL(MGameBTCommsNotify*, TUint32, RSGEDebugLog*) | V | Full |  |
 | 12, 13, 22 to 30 | RSGEDebugLog::NewLine, Open, WriteLine, Write | V/S | Full | return KErrNone, as in the original |
-| 14 | CGameBTComms::PauseMultiPlayerGame() | S | Full | |
-| 15 | CGameBTComms::ReconnectL(TBool) | S | Full | |
-| 16 | CGameBTComms::SendDataToAllClients(TDesC8&) | V | Full | |
-| 17 | CGameBTComms::SendDataToClient(TUint16, TDesC8&) | V | Full | |
-| 18 | CGameBTComms::SendDataToHost(TDesC8&) | V | Full | |
-| 19 | RSGEDebugLog::SetLoggingLevel(TLogLevel) | V | Full | |
+| 14 | CGameBTComms::PauseMultiPlayerGame() | S | Full |  |
+| 15 | CGameBTComms::ReconnectL(TBool) | S | Full |  |
+| 16 | CGameBTComms::SendDataToAllClients(TDesC8&) | V | Full |  |
+| 17 | CGameBTComms::SendDataToClient(TUint16, TDesC8&) | V | Full |  |
+| 18 | CGameBTComms::SendDataToHost(TDesC8&) | V | Full |  |
+| 19 | RSGEDebugLog::SetLoggingLevel(TLogLevel) | V | Full |  |
 | 20 | CGameBTComms::StartClientL() | V | Full | shows the host list instead of the Bluetooth device dialog |
-| 21 | CGameBTComms::StartHostL(TUint16, TUint16) | V | Full | |
-| 31 | CGameBTComms::~CGameBTComms() | V | Full | |
-| 32 | RSGEDebugLog::~RSGEDebugLog() | V | Full | |
-| 33 | RSGEDebugLog::Close() | V | Full | |
+| 21 | CGameBTComms::StartHostL(TUint16, TUint16) | V | Full |  |
+| 31 | CGameBTComms::~CGameBTComms() | V | Full |  |
+| 32 | RSGEDebugLog::~RSGEDebugLog() | V | Full |  |
+| 33 | RSGEDebugLog::Close() | V | Full |  |
 
 All 12 callbacks of MGameBTCommsNotify are delivered asynchronously with
 the documented arguments and error codes.
@@ -129,61 +170,61 @@ the documented arguments and error codes.
 
 The "Variants" column lists which variants have the export.
 
-| Ordinal | Function | Conf. | Status | Variants |
-|---|---|---|---|---|
-| 1 | RSGEDebugLog::RSGEDebugLog() | V | Full | v2 to v11 |
-| 2 | BluetoothPowerState(TBool&) | V | Full | v2 to v11 |
-| 3 | CGameBTDiscoverer::Cancel() | V | Full | v2 to v11 |
-| 4 | CGameBTDeviceList::Reset() | V | Inert | v2 to v11 |
-| 5 | RSGEDebugLog::Close() | V | Full | v2 to v11 |
-| 6 | ConnectState() | V | Full | v2 to v11 |
-| 7 | Connect() | V | Full | v2 to v11 |
-| 8 | Connect(TUint16) | V | Full | v2 to v11 |
-| 9 | ConnectionRole() | V | Full | v2 to v11 |
-| 10 | CGameBTDeviceList::Count() | V | Inert | v2 to v11 |
-| 11 | DeclareRemoteDevice(const TDeviceDetails&) | V | Full | v2 to v11 |
-| 12 | CGameBTDeviceList::Delete(TInt) | V | Inert | v2 to v11 |
-| 13 | CGameBTDiscoverer::DeviceClass() | V | Full | v2 to v11 |
-| 14 | Disconnect() | V | Full | v2 to v11 |
-| 15 | Disconnect(TUint16, TBool) | V | Full | v2 to v11 |
-| 16 | CGameBTResolver::Start(const TDeviceDetails&) | V | Full | v2 to v11 |
-| 17 | CGameBTDeviceList::CurrentItem() | V | Inert | v2 to v11 |
-| 18 | CGameBTDeviceList::ListBox() | V | Inert | v2 to v11 |
-| 19 | CGameBTDeviceList::At(TInt) | V | Inert | v2 to v11 |
-| 20 | GetLocalDeviceName(THostName&) | V | Full | v2 to v11 |
-| 21 | CGameBTDeviceList::Hide() | V | Inert | v2 to v11 |
-| 22 | HostAcceptMode() | V | Full | v2 to v11 |
-| 23 | CGameBTDeviceList::InsertL(TInt, const TDeviceDetails&) | V | Inert | v2 to v11 |
-| 24 | CGameBTDiscoverer::IsIdle() | V | Full | v2 to v11 |
-| 25 | CGameBTResolver::NewL(...) | V | Full | v2 to v11 |
-| 26 | CGameBTDeviceList::NewL(...) | V | Inert | v2 to v11 |
-| 27 | NewL(MGameBTCommsNotify*, TUint32, RSGEDebugLog*) | V | Full | v2 to v11 |
-| 28 | CGameBTDiscoverer::NewL(...) | V | Full | v2 to v11 |
-| 29, 30, 41 to 49 | RSGEDebugLog::NewLine, Open, WriteLine, Write | V/S | Full | v2 to v11 |
-| 31 | CGameBTDiscoverer::StartL() | V | Full | v2 to v11 |
-| 32 | SendData(const TDesC8&) | V | Full | v2 to v11 |
-| 33 | SendData(TUint16, const TDesC8&) | V | Full | v2 to v11 |
-| 34 | SetBluetoothPowerState(TBool) | V | Full | v2 to v11 |
-| 35 | CGameBTDiscoverer::SetDeviceClass(const TBTDeviceClass&) | V | Full | v2 to v11 |
-| 36 | SetHostAcceptMode(TAcceptMode) | V | Full | v2 to v11 |
-| 37 | RSGEDebugLog::SetLoggingLevel() | V | Full | v2 to v11 |
-| 38 | CGameBTDeviceList::Show() | V | Inert | v2 to v11 |
-| 39 | StartClientL(TInt, CEikAppUi*) | V | Full | v2 to v11 |
-| 40 | StartHostL(TInt, CEikAppUi*) | V | Full | v2 to v11 |
-| 50 | CGameBTResolver destructor | V | Full | v2 to v11 |
-| 51 | CGameBTDeviceList destructor | V | Inert | v2 to v11 |
-| 52 | ~CGameBTComms() | V | Full | v2 to v11 |
-| 53 | RSGEDebugLog destructor | V | Full | v2 to v11 |
-| 54 | CGameBTDiscoverer destructor | V | Full | v2 to v11 |
-| 55 | CGameBTDeviceList::AppendL(const TDeviceDetails&) | V | Inert | v2 to v11 |
-| 56 | SetLocalDeviceName(THostName) | V | Full | v3 to v11 |
-| 57 | CGameBTDiscoverer::StartFullL() | V | Full | v5 to v11 |
-| 58 | EndSession() | V | Full | v10, v11 |
-| 59 | IsDiscoverabilityModeLimited(TBool&) | S | Full (1) | v10, v11 |
-| 60 | visibility getter (TBool&) | S | Full (1) | v10, v11 |
-| 61 | SetDiscoverabilityModeLimited(TBool) | V | Full (1) | v10, v11 |
-| 62 | discoverer search mode setter | I | Full (1) | v10, v11 |
-| 63 | visibility setter (TBool) | S | Full (1) | v10, v11 |
+| Ordinal          | Function                                                 | Conf. | Status   | Variants  |
+| ---------------- | -------------------------------------------------------- | ----- | -------- | --------- |
+| 1                | RSGEDebugLog::RSGEDebugLog()                             | V     | Full     | v2 to v11 |
+| 2                | BluetoothPowerState(TBool&)                              | V     | Full     | v2 to v11 |
+| 3                | CGameBTDiscoverer::Cancel()                              | V     | Full     | v2 to v11 |
+| 4                | CGameBTDeviceList::Reset()                               | V     | Inert    | v2 to v11 |
+| 5                | RSGEDebugLog::Close()                                    | V     | Full     | v2 to v11 |
+| 6                | ConnectState()                                           | V     | Full     | v2 to v11 |
+| 7                | Connect()                                                | V     | Full     | v2 to v11 |
+| 8                | Connect(TUint16)                                         | V     | Full     | v2 to v11 |
+| 9                | ConnectionRole()                                         | V     | Full     | v2 to v11 |
+| 10               | CGameBTDeviceList::Count()                               | V     | Inert    | v2 to v11 |
+| 11               | DeclareRemoteDevice(const TDeviceDetails&)               | V     | Full     | v2 to v11 |
+| 12               | CGameBTDeviceList::Delete(TInt)                          | V     | Inert    | v2 to v11 |
+| 13               | CGameBTDiscoverer::DeviceClass()                         | V     | Full     | v2 to v11 |
+| 14               | Disconnect()                                             | V     | Full     | v2 to v11 |
+| 15               | Disconnect(TUint16, TBool)                               | V     | Full     | v2 to v11 |
+| 16               | CGameBTResolver::Start(const TDeviceDetails&)            | V     | Full     | v2 to v11 |
+| 17               | CGameBTDeviceList::CurrentItem()                         | V     | Inert    | v2 to v11 |
+| 18               | CGameBTDeviceList::ListBox()                             | V     | Inert    | v2 to v11 |
+| 19               | CGameBTDeviceList::At(TInt)                              | V     | Inert    | v2 to v11 |
+| 20               | GetLocalDeviceName(THostName&)                           | V     | Full     | v2 to v11 |
+| 21               | CGameBTDeviceList::Hide()                                | V     | Inert    | v2 to v11 |
+| 22               | HostAcceptMode()                                         | V     | Full     | v2 to v11 |
+| 23               | CGameBTDeviceList::InsertL(TInt, const TDeviceDetails&)  | V     | Inert    | v2 to v11 |
+| 24               | CGameBTDiscoverer::IsIdle()                              | V     | Full     | v2 to v11 |
+| 25               | CGameBTResolver::NewL(...)                               | V     | Full     | v2 to v11 |
+| 26               | CGameBTDeviceList::NewL(...)                             | V     | Inert    | v2 to v11 |
+| 27               | NewL(MGameBTCommsNotify*, TUint32, RSGEDebugLog*)        | V     | Full     | v2 to v11 |
+| 28               | CGameBTDiscoverer::NewL(...)                             | V     | Full     | v2 to v11 |
+| 29, 30, 41 to 49 | RSGEDebugLog::NewLine, Open, WriteLine, Write            | V/S   | Full     | v2 to v11 |
+| 31               | CGameBTDiscoverer::StartL()                              | V     | Full     | v2 to v11 |
+| 32               | SendData(const TDesC8&)                                  | V     | Full     | v2 to v11 |
+| 33               | SendData(TUint16, const TDesC8&)                         | V     | Full     | v2 to v11 |
+| 34               | SetBluetoothPowerState(TBool)                            | V     | Full     | v2 to v11 |
+| 35               | CGameBTDiscoverer::SetDeviceClass(const TBTDeviceClass&) | V     | Full     | v2 to v11 |
+| 36               | SetHostAcceptMode(TAcceptMode)                           | V     | Full     | v2 to v11 |
+| 37               | RSGEDebugLog::SetLoggingLevel()                          | V     | Full     | v2 to v11 |
+| 38               | CGameBTDeviceList::Show()                                | V     | Inert    | v2 to v11 |
+| 39               | StartClientL(TInt, CEikAppUi*)                           | V     | Full     | v2 to v11 |
+| 40               | StartHostL(TInt, CEikAppUi*)                             | V     | Full     | v2 to v11 |
+| 50               | CGameBTResolver destructor                               | V     | Full     | v2 to v11 |
+| 51               | CGameBTDeviceList destructor                             | V     | Inert    | v2 to v11 |
+| 52               | ~CGameBTComms()                                          | V     | Full     | v2 to v11 |
+| 53               | RSGEDebugLog destructor                                  | V     | Full     | v2 to v11 |
+| 54               | CGameBTDiscoverer destructor                             | V     | Full     | v2 to v11 |
+| 55               | CGameBTDeviceList::AppendL(const TDeviceDetails&)        | V     | Inert    | v2 to v11 |
+| 56               | SetLocalDeviceName(THostName)                            | V     | Full     | v3 to v11 |
+| 57               | CGameBTDiscoverer::StartFullL()                          | V     | Full     | v5 to v11 |
+| 58               | EndSession()                                             | V     | Full     | v10, v11  |
+| 59               | IsDiscoverabilityModeLimited(TBool&)                     | S     | Full (1) | v10, v11  |
+| 60               | visibility getter (TBool&)                               | S     | Full (1) | v10, v11  |
+| 61               | SetDiscoverabilityModeLimited(TBool)                     | V     | Full (1) | v10, v11  |
+| 62               | discoverer search mode setter                            | I     | Full (1) | v10, v11  |
+| 63               | visibility setter (TBool)                                | S     | Full (1) | v10, v11  |
 
 (1) Returns KErrNone. Bluetooth discoverability has no meaning when the
 sessions run over the network. The getters 59 and 60 answer "not
@@ -237,12 +278,12 @@ RFCOMM sockets, so a GAMECOMMS.DLL replacement never sees any of it. The
 host search lists the bridge as a phone, the connection to it fails and
 the game stops in matchmaking. They cannot be fixed inside the DLL.
 
-| Game | Own stack |
-|---|---|
-| Pathway to Glory, Pathway to Glory: Ikusa Islands | inquiry by name, RFCOMM channel 4, no SDP |
-| Colin McRae Rally 2005 | own sockets (6R66_2.APP), GameComms only in a helper |
-| X-Men Legends, X-Men Legends II | own sockets and SDP records |
-| Worms World Party | the Mophun runtime (MOPHUN.DLL) has its own sockets and SDP records |
+| Game                                              | Own stack                                                           |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| Pathway to Glory, Pathway to Glory: Ikusa Islands | inquiry by name, RFCOMM channel 4, no SDP                           |
+| Colin McRae Rally 2005                            | own sockets (6R66_2.APP), GameComms only in a helper                |
+| X-Men Legends, X-Men Legends II                   | own sockets and SDP records                                         |
+| Worms World Party                                 | the Mophun runtime (MOPHUN.DLL) has its own sockets and SDP records |
 
 Possible route: the bridge acts as the other phone (inquiry name of the
 remote host, RFCOMM server or client on the game's channel) and tunnels

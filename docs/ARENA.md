@@ -1,4 +1,6 @@
-# N-Gage Arena support (work in progress)
+# N-Gage Arena support
+
+This is work in progress.
 
 Some N-Gage games, such as Pocket Kingdom: Own the World (UID 0x101fd3dd),
 Rifts: Promise of Power (game class 8053), Ashen (game class 42318,
@@ -9,15 +11,17 @@ online over GPRS. PhantomLink replaces the three network clients of that
 stack with plug-ins that use the PhantomLink Bluetooth bridge. The server
 emulates the Arena back ends.
 
-```
-game ─ arenaframework.dll ─┬─ arenabase.dll ─┬─ SnapComm.dll ───────┐
-                           │                 └─ HttpDllRequest.dll ─┤  replaced: PhantomLink plug-ins
-                           └─ sc_lib.dll (SegaChat/Jabber) ─────────┘   + plarena.dll (shared link)
-                                                                        │ Bluetooth SPP
-                                                         bridge (ESP32 / PC / Android, unchanged)
-                                                                        │ TCP
-                                                         gamecommsd + gcs_arena.c
-```
+How the parts fit together:
+
+- The game uses arenaframework.dll. That uses arenabase.dll and sc_lib.dll
+  (SegaChat, a Jabber client). arenabase.dll uses SnapComm.dll and
+  HttpDllRequest.dll.
+- PhantomLink replaces SnapComm.dll, HttpDllRequest.dll and sc_lib.dll
+  with its own plug-ins. They share one link through plarena.dll.
+- plarena.dll talks over Bluetooth SPP to the bridge (ESP32, PC or
+  Android, unchanged).
+- The bridge talks over TCP to gamecommsd, where gcs_arena.c handles the
+  Arena messages.
 
 ## Overview
 
@@ -25,12 +29,12 @@ PhantomLink connects Arena games to the PhantomLink server without changing
 the game card, over Bluetooth through a bridge or, where GPRS networks still
 run, directly:
 
-1. In the PhantomLink app, **Arena over BT** turns an access point named
+1. In the PhantomLink app, Arena over BT turns an access point named
    `PhantomLink` into a direct PPP connection over Bluetooth to the chosen
-   bridge and writes the hosts file. **Arena over GPRS** only writes the
+   bridge and writes the hosts file. Arena over GPRS only writes the
    hosts file, pointing the Arena names at the server set under Settings >
    Arena server (the server runs with `direct = 1`); the game then uses the
-   operator's packet data access point. **Arena off** undoes either.
+   operator's packet data access point. Arena off undoes either.
 2. Every bridge (ESP32, PC, Android) carries its own PPP and TCP/IP stack.
    It answers the Arena host names with its own address and passes the
    game's connections and datagrams to the server.
@@ -46,17 +50,19 @@ and one N-Gage can have one account. The server keeps the accounts in
 
 ### Supported games
 
-| Game                          | Arena features                                                                     | Server side                                                        |                                Status                                |
-| ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------ | :------------------------------------------------------------------: |
-| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings                        | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction) | ![In%20progress](https://img.shields.io/badge/In%20progress-yellow) |
-| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns)     | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Ashen                         | Online leaderboards: best score of every level and of the whole game               | SegaChat login, score reports and top lists (gcs_scores.c)         | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Worms World Party             | Play Now: Freestyle and Ranked game rooms, games between 2–4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | ![Untested](https://img.shields.io/badge/Untested-grey) |
+| Game | Arena features | Server side | Status |
+|---|---|---|---|
+| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction) | Working |
+| Rifts: Promise of Power | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns) | Working |
+| Ashen | Online leaderboards: best score of every level and of the whole game | SegaChat login, score reports and top lists (gcs_scores.c) | Untested |
+| Worms World Party | Play Now: Freestyle and Ranked game rooms, games between 2 and 4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | Untested |
+| Pathway to Glory | GPRS battles for up to 6 players, Field Radio voice messages | SNAP lobbies and rooms, game server that passes the commands, synchronisation data and Field Radio messages on (gcs_ptg.c) | Untested |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages | Same as Pathway to Glory (gcs_ptg.c) | Untested |
 
-Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; its game
-server (below) is tested against simulated games only. The Rifts
-game server is tested against simulated games, but has not run with a real N-Gage
-yet. Rifts' Bluetooth multiplayer works with the GameComms replacement
+The status column matches the README.
+
+Pocket Kingdom and Rifts, including their game servers, are tested on a
+real N-Gage. Rifts' Bluetooth multiplayer works with the GameComms replacement
 (see COMPATIBILITY.md), independently of Arena. Ashen's leaderboards are
 tested against its decoder rebuilt from the game, not yet on a real
 N-Gage; its Bluetooth multiplayer works as well.
@@ -69,18 +75,23 @@ SnapComm.dll and sc_lib.dll from its own folder. The plug-ins below
 therefore only work on a writable copy of the card. For retail cards the
 original Arena stack stays in place and only its network path changes:
 
-```
-game + original Arena DLLs (card)
-  │ TCP/IP through the access point "PhantomLink"
-CSD agent, empty number = no dialling, PPP over BTCOMM::0          (phone settings on C:)
-  │ Bluetooth serial port
-bridge (PC, ESP32 or Android): first byte 0x7E → PPP mode          (bridge_core.c)
-  │ gc_ppp: LCP/IPCP, N-Gage 10.64.0.2, bridge 10.64.0.1
-  │ gc_ip:  DNS answered here (Arena names → 10.64.0.1), TCP/UDP terminated
-  │ GCN tunnel messages (gc_net.h) over the normal link
-gamecommsd + gcs_native.c: Community SOAP and pages (TCP 80), SegaChat (TCP 5222),
-                           SNAP (UDP 9090, gcs_snap.c) + game servers (Rifts: gcs_rifts.c)
-```
+The path from the game to the server:
+
+1. The game and the original Arena DLLs on the card use TCP/IP through
+   the access point "PhantomLink".
+2. The phone's CSD agent dials nothing (empty number) and runs PPP over
+   BTCOMM::0. These phone settings are on C:.
+3. The Bluetooth serial port carries the PPP data to the bridge (PC,
+   ESP32 or Android). A first byte 0x7E puts the bridge into PPP mode
+   (bridge_core.c).
+4. In the bridge, gc_ppp handles LCP and IPCP (N-Gage 10.64.0.2, bridge
+   10.64.0.1). gc_ip answers DNS (the Arena names resolve to 10.64.0.1)
+   and terminates TCP and UDP.
+5. The bridge sends GCN tunnel messages (gc_net.h) over its normal link
+   to the server.
+6. gamecommsd with gcs_native.c answers: Community SOAP and pages
+   (TCP 80), SegaChat (TCP 5222), SNAP (UDP 9090, gcs_snap.c) and the
+   game servers (Rifts: gcs_rifts.c).
 
 No pppd, no root and no Python script are needed any more: every bridge
 carries its own PPP peer and IPv4 end point (`protocol/src/gc_ppp.c`,
@@ -91,8 +102,8 @@ and UDP datagram:
 
 | GCN message | Direction | Content |
 |---|---|---|
-| `TCP_OPEN` 0xA0 | bridge → server | id, address and port the game connected to, its own port |
-| `TCP_DATA` 0xA1 | both | id, bytes (server → bridge at most 512 per message) |
+| `TCP_OPEN` 0xA0 | bridge to server | id, address and port the game connected to, its own port |
+| `TCP_DATA` 0xA1 | both | id, bytes (server to bridge: at most 512 per message) |
 | `TCP_CLOSE` 0xA2 | both | id, FIN or reset |
 | `UDP` 0xA3 | both | server side address and port, the game's port, bytes |
 
@@ -106,14 +117,14 @@ fresh, the bridge registers again and resets the open connections.
 Steps:
 
 1. On the N-Gage: Settings > Connection > Access points > new access
-   point **PhantomLink**, data bearer GSM data, any phone number.
-2. PhantomLink app: choose the bridge, then **Arena over Bluetooth**. It
+   point PhantomLink, data bearer GSM data, any phone number.
+2. PhantomLink app: choose the bridge, then Arena over Bluetooth. It
    changes that access point to a direct connection (empty number, no login
    script, addresses from the server), switches the data modem to
    `BTCOMM::0` / `BTCOMM`, points `BTCOMM::0` at the bridge
    (`CBTRegistry::SetDefaultCommPort`) and writes the hosts file. On
    Symbian 6.1 the modem record is shared by all data call access points,
-   so the old values are saved; **Arena off** puts them back and removes
+   so the old values are saved; Arena off puts them back and removes
    the hosts entries.
 3. Bridge: nothing to set up; PPP mode is on by default (`ppp=1` in
    gcbridge.ini, `ppp_local` / `ppp_remote` change the addresses).
@@ -158,7 +169,7 @@ see the reverse engineering notes below):
   and the game servers behind the rooms, see "SNAP" below. Datagrams
   without the SNAP trailer are logged as hex.
 
-### Accounts (shared by all games)
+### Accounts
 
 All Arena games and back ends use one account store
 (`server/src/gcs_accounts.c`, file `arena_accounts`):
@@ -220,16 +231,18 @@ own, the way the original Arena was used. Nothing on the card or in the
 phone's network settings changes; only the Arena host names are pointed at
 the PhantomLink server:
 
-```
-game + original Arena DLLs (card)
-  │ TCP/IP through the operator's packet data access point
-  │ C:\System\Data\hosts: Arena names → the server's public IPv4 address
-operator network, internet
-  │
-gamecommsd --direct=1: TCP 80 and 5222, UDP 9090 (gcs_direct.c)
-  │ the same GCN messages a bridge would send, one peer per client address
-gcs_native.c: Community SOAP and pages, SegaChat, SNAP + game servers
-```
+The path from the game to the server:
+
+1. The game and the original Arena DLLs on the card use TCP/IP through
+   the operator's packet data access point.
+2. `C:\System\Data\hosts` points the Arena names to the server's public
+   IPv4 address.
+3. The traffic goes through the operator network and the Internet.
+4. `gamecommsd --direct=1` listens on TCP 80 and 5222 and UDP 9090
+   (gcs_direct.c). It turns the traffic into the same GCN messages a
+   bridge would send, one peer per client address.
+5. gcs_native.c answers: Community SOAP and pages, SegaChat, SNAP and the
+   game servers.
 
 GPRS and Bluetooth players use the same accounts, lobbies and game
 servers.
@@ -240,7 +253,7 @@ Steps:
    IPv4 address (or a router that forwards TCP 80, TCP 5222 and UDP 9090
    to it). The game always uses these three ports; `direct_http_port`,
    `direct_xmpp_port` and `direct_snap_port` only change where the server
-   listens, for a port forward such as 80 → 8000 (ports below 1024 need
+   listens, for a port forward such as 80 to 8000 (ports below 1024 need
    privileges, see `server/deploy/gamecommsd.service`). `direct_bind`
    (default `0.0.0.0`) limits it to one interface. These listeners speak
    only the Arena protocols in plain text, like the original Arena; the
@@ -248,18 +261,18 @@ Steps:
 2. On the N-Gage: a packet data access point for the operator (Settings >
    Connection > Access points, data bearer Packet data, the operator's
    APN). Most phones have one from the operator's settings message.
-3. PhantomLink app: Settings > **Arena server**: the server's IPv4 address,
+3. PhantomLink app: Settings > Arena server: the server's IPv4 address,
    or a host name (looked up when the next step runs, which opens a data
    connection; run it again if the address changes).
-4. PhantomLink app: **Arena over GPRS**. It lists the packet data access
+4. PhantomLink app: Arena over GPRS. It lists the packet data access
    points, writes the hosts file and asks for a restart.
-5. Restart the N-Gage, then choose **Arena over GPRS** once more. With the
+5. Restart the N-Gage, then choose Arena over GPRS once more. With the
    entries already in place it looks up `arena.n-gage.com` and reports
-   "Arena names: OK" when the answer is the server. **Do not log in
-   before it does**: without the hosts file the game would send the
+   "Arena names: OK" when the answer is the server. Important: do not
+   log in before it does. Without the hosts file the game would send the
    account name and password to whoever holds the old Arena domains today.
 6. Start the game, choose N-Gage Arena and pick the operator's access point
-   when asked. **Arena off** removes the hosts entries again (and restores
+   when asked. Arena off removes the hosts entries again (and restores
    the modem if Arena over BT changed it).
 
 How the server tells clients apart: each client address is one peer of
@@ -373,20 +386,20 @@ news (`/servlets/msg`).
 | GCA messages (types 0x80..0x9F) | `protocol/include/gc_arena.h`, `protocol/src/gc_arena.c` | done, tested |
 | Server Arena module | `server/src/gcs_arena.c` | done, tested (generic) |
 | Shared link core (portable) | `dll/arena/core/pla_core.c` | done, tested against the server core |
-| plarena.dll (Bluetooth, log) | `dll/arena/symbian/PlArena.cpp` | written, **not built yet** |
+| plarena.dll (Bluetooth, log) | `dll/arena/symbian/PlArena.cpp` | written, not built yet |
 | SnapComm.dll | `dll/arena/symbian/PlSnapComm.cpp` | logs all slots, forwards login |
 | sc_lib.dll | `dll/arena/symbian/PlScLib.cpp` | logs all slots |
 | HttpDllRequest.dll | `dll/arena/symbian/PlHttpRequest.cpp` | logs all slots |
 | Retail: access point + hosts | `app/src/ArenaSetup.cpp` | done, works on an N-Gage |
-| Retail over GPRS: hosts + check (app), direct clients (server) | `app/src/ArenaSetup.cpp`, `server/src/gcs_direct.c` | written; server tested, app syntax-checked only, **not yet on hardware** |
+| Retail over GPRS: hosts + check (app), direct clients (server) | `app/src/ArenaSetup.cpp`, `server/src/gcs_direct.c` | written; server tested, app syntax-checked only, not yet on hardware |
 | Retail: PPP + IPv4 in every bridge | `protocol/src/gc_ppp.c`, `gc_ip.c`, `gc_net.c`, `firmware/src/bridge_core.c` | done, tested (PC bridge with Linux as the N-Gage) |
 | Retail: native back ends | `server/src/gcs_native.c` | SOAP/pages/Jabber login answered |
 | Retail: shared accounts | `server/src/gcs_accounts.c` | done, tested |
-| Retail: SNAP lobby/room service | `server/src/gcs_snap.c` | written from the client DLLs, tested against simulated games, **not yet on hardware** |
-| Retail: Rifts game server | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c` | written, tested against simulated games, **not yet on hardware** |
-| Retail: SegaChat score service (Ashen) | `server/src/gcs_scores.c` | written from sc_lib.dll and the game, tested against the game's decoder, **not yet on hardware** |
-| Retail: SegaChat friends, presence, chat | `server/src/gcs_roster.c`, `server/src/gcs_native.c` | written from sc_lib.dll's stanzas, tested against simulated clients, **not yet on hardware** |
-| Retail: rankings, tournaments, activities, games (device pages) | `server/src/gcs_pages.c`, `server/src/gcs_tourney.c` | list format from cafmplay.dll, tested with its decoding rules, **not yet on hardware** |
+| Retail: SNAP lobby/room service | `server/src/gcs_snap.c` | written from the client DLLs, tested against simulated games and on an N-Gage (Pocket Kingdom, Rifts) |
+| Retail: Rifts game server | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c` | written, tested against simulated games and on an N-Gage |
+| Retail: SegaChat score service (Ashen) | `server/src/gcs_scores.c` | written from sc_lib.dll and the game, tested against the game's decoder, not yet on hardware |
+| Retail: SegaChat friends, presence, chat | `server/src/gcs_roster.c`, `server/src/gcs_native.c` | written from sc_lib.dll's stanzas, tested against simulated clients, not yet on hardware |
+| Retail: rankings, tournaments, activities, games (device pages) | `server/src/gcs_pages.c`, `server/src/gcs_tourney.c` | list format from cafmplay.dll, tested with its decoding rules, not yet on hardware |
 
 The DLLs build only with `-DGC_BUILD_ARENA=ON` (off by default until the
 build has been verified with the N-Gage toolchain). Copy `plarena.dll`,
@@ -397,7 +410,7 @@ address. That log is the next step for identifying the remaining slots.
 
 ## Not tied to one game
 
-- The server keeps users, lobbies and rooms per **game class id** (sent
+- The server keeps users, lobbies and rooms per game class id (sent
   in LOGIN). Every Arena title gets login, lobbies/rooms created on
   demand by name, member events, room status values, room and private
   data relay, chat, presence and the Community web service without game
@@ -419,7 +432,7 @@ server side is `server/src/gcs_snap.c`.
 
 ### Transport
 
-One UDP socket. The login goes to port **9090** of the server named
+One UDP socket. The login goes to port 9090 of the server named
 `GameServerFQDN` in `arena.amr`; the login answer can move the client to
 another port (the server keeps 9090). The client only accepts datagrams
 from the address and port it sends to. A datagram is one or more
@@ -444,7 +457,7 @@ connection counts as lost). Reliable messages are delivered in order.
 
 ### Opcodes
 
-Requests (client → server):
+Requests (client to server):
 
 | Op | Flags | Payload | Meaning |
 |---|---|---|---|
@@ -460,16 +473,16 @@ Requests (client → server):
 | 8 | 0xa000 | attribute (four letters), value (4 bytes BE, text for NAME) | set an attribute of the user's room: the server keeps it (up to 16 per room) and tells the other members (op 8 below); STAT is the room status of the room lists, MAXI the room size |
 | 9 | 0xa000/0xb000 | object id, attribute | read an attribute of a room or a lobby (0xb000; NAME as 16 byte text, USER, MAXI): op 9 {id, attribute, value}, then success. ArenaFramework's slot 0x6c reads the NAME of the current lobby this way |
 | 73 | 0xb000 | like op 72 | room search with criteria (snapcomm.dll 0x81f0, arenabase slot 0xf4; ArenaFramework's SelectGameRooms, Pocket Kingdom's Ranked "Finding game room" and slot 0x6c): open rooms of every lobby of the game class that are not full and match; 40 byte entries with the lobby (parser 0x3c24). Seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID) |
-| 72 | 0xb000 | {value, count, 3 bytes}, count × {attribute, operator, value} | **lobby** search with criteria (snapcomm.dll 0x7fb4, arenabase slot 0xf0; ArenaFramework's slot 0x6c sends NAME = "Auction"): lobbies of the game class that match, answered like op 71 (36 byte lobby entries, parser 0x3bf0 → 0x38a0). The operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word). Criteria on room attributes (STAT, ARNx) still get the old room search of the user's lobby (Worms World Party's "Find Game", unverified) |
+| 72 | 0xb000 | {value, count, 3 bytes}, count x {attribute, operator, value} | lobby search with criteria (snapcomm.dll 0x7fb4, arenabase slot 0xf0; ArenaFramework's slot 0x6c sends NAME = "Auction"): lobbies of the game class that match, answered like op 71 (36 byte lobby entries, parser 0x3bf0, then 0x38a0). The operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word). Criteria on room attributes (STAT, ARNx) still get the old room search of the user's lobby (Worms World Party's "Find Game", unverified) |
 | 10, 12, 13, 67 | | | user lists, user properties (not identified in detail) |
 | 11 | 0xb000 | lobby id | search game rooms |
 | 71 | 0xb000 | - | lobbies of the login's game class (Rifts sends it when the player creates a challenge) |
 | 15 | 0xa400 / 0x2000 | data | game data to the room, reliable / unreliable |
 | 16 | 0xa400 / 0x2000 | count, user ids, data | game data to some users |
-| 17 | 0xa000 | data | game data to the room's **game server** (`SendGameDataToServer`, CArenaFramework vtable slot 0x3c) |
+| 17 | 0xa000 | data | game data to the room's game server (`SendGameDataToServer`, CArenaFramework vtable slot 0x3c) |
 | 18, 19, 20, 50, 37, 70..75 | | | not used by the Rifts flow |
 
-Answers and notifications (server → client):
+Answers and notifications (server to client):
 
 | Op | Payload | Meaning |
 |---|---|---|
@@ -478,13 +491,13 @@ Answers and notifications (server → client):
 | 40 | request op, value, ... | request succeeded; the 0x1000 flag tells lobby from room answers (op 6: "Entered lobby" / "Entered room", value = id) |
 | 3 | name [16], lobby id | a lobby (ArenaFramework builds its lobby list from these) |
 | 4 | room entry | the created room |
-| 11 | header {parent, total, count} + count × room entry (name [16], users, lobby, status, max users, id) | room search result; ArenaFramework 2.01.047 (parser 0x3954) keeps users, status, max and id and calls a room full when users >= max |
-| 14 | header + count × {name [16], id, members, max} | lobby list |
-| 71 | header {game class, total, count} + count × {name [16], users, -, max, status, lobby id} | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it) |
+| 11 | header {parent, total, count} + count x room entry (name [16], users, lobby, status, max users, id) | room search result; ArenaFramework 2.01.047 (parser 0x3954) keeps users, status, max and id and calls a room full when users >= max |
+| 14 | header + count x {name [16], id, members, max} | lobby list |
+| 71 | header {game class, total, count} + count x {name [16], users, -, max, status, lobby id} | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it) |
 | 8 | room id, attribute, value | an attribute of the room changed (snapcomm.dll parser 0x39a0) |
 | 72 | like op 11 | result of the room search with criteria (parser 0x3bf0) |
-| 73 | header {0, total, count} + count × 40 byte entries (name [16], lobby, users, -, status, max users, id) | result of the room search with criteria over all lobbies |
-| 10 | header + count × {name [16], user id, property size, properties padded to 4 bytes} | user list |
+| 73 | header {0, total, count} + count x 40 byte entries (name [16], lobby, users, -, status, max users, id) | result of the room search with criteria over all lobbies |
+| 10 | header + count x {name [16], user id, property size, properties padded to 4 bytes} | user list |
 | 6 | {name [16], user id, property size} | a user entered the room |
 | 7 | user id | a user left the room |
 | 15 | data | game data (also what the game server sends; arrives as `GameDataReceived`) |
@@ -492,28 +505,38 @@ Answers and notifications (server → client):
 ### Flow of Rifts (game.rsc)
 
 Rifts sets `GameClassId` 8053, `BypassCommunity`, `LobbyToJoin` "S79",
-`RoomToJoin` "BYPASS", `CreateRoomToJoin` 1 and `ReturnContextOnRoomEntry`
-1. Seen on hardware: Community login (SOAP) → SNAP login → SegaChat login;
-creating a challenge then sends op 71 (lobbies of the game class), and
-ArenaFramework looks for "S79" in that list. Then: op 13 + enter lobby
-(op 6, packed) → room search (op 11) → op 13 + create room "BYPASS<user id>"
-(op 4, packed) →
-room attributes (op 8: ARNA, ARNB, ARNC, ARND; creating the room counts as entering it: the server makes the creator a member, there is no join; ArenaFramework goes on only when all four are confirmed) → room status (op 8 STAT 0x90000000) → `EGameStart` → game data to
-the game server (op 17), answers as op 15. The server creates lobbies on
-demand, gives every created room a game server when one is registered for
-the login's game class, and closes empty rooms.
+`RoomToJoin` "BYPASS", `CreateRoomToJoin` 1 and
+`ReturnContextOnRoomEntry` 1. The flow:
 
-Unverified on hardware: whether ArenaFramework needs more after the room
-entry (for example a room status notification) before `EGameStart`, and
-whether the login answer is enough without the encrypted challenge
-(op 64 → op 65, done with sustandard.dll) the client also understands.
-The server log at level 3 shows every message in both directions.
+1. Community login (SOAP), then SNAP login, then SegaChat login (seen on
+   hardware).
+2. Creating a challenge sends op 71 (lobbies of the game class).
+   ArenaFramework looks for "S79" in that list.
+3. Op 13 and enter lobby (op 6, packed).
+4. Room search (op 11).
+5. Op 13 and create room "BYPASS<user id>" (op 4, packed).
+6. Room attributes (op 8: ARNA, ARNB, ARNC, ARND). Creating the room
+   counts as entering it: the server makes the creator a member, there
+   is no join. ArenaFramework goes on only when all four are confirmed.
+7. Room status (op 8 STAT 0x90000000).
+8. `EGameStart`, then game data to the game server (op 17). Answers come
+   as op 15.
+
+The server creates lobbies on demand, gives every created room a game
+server when one is registered for the login's game class, and closes
+empty rooms.
+
+This flow works on a real N-Gage. ArenaFramework needs nothing more after
+the room entry before `EGameStart`, and the login answer is enough without
+the encrypted challenge (op 64 answered by op 65, done with sustandard.dll)
+that the client also understands. The server log at level 3 shows every
+message in both directions.
 
 ### SNAP sessions of idle players
 
 snapcomm.dll has no thread or active object of its own: it reads its
-socket only when the game pumps ArenaFramework (slot 0x1c → arenabase
-slot 0x64 → snapcomm slot 0x90 → poll 0x32e4). Pocket Kingdom most
+socket only when the game pumps ArenaFramework (slot 0x1c, which calls arenabase
+slot 0x64, then snapcomm slot 0x90, then the poll at 0x32e4). Pocket Kingdom most
 likely stops pumping in its offline screens (castle, units, items; not
 confirmed on hardware, but players were dropped while upgrading units),
 and its keep alive (type 2, every ~165 frames) belongs to the online
@@ -527,7 +550,7 @@ Now (`gcs_snap.c`): resends back off (1, 2, 4, then every 8 s) and never
 end a logged-in session; the first datagram after a quiet spell makes the
 server resend everything still unacknowledged at once; a session ends on
 logout, on a lost bridge (`gcs_snap_peer_gone`) or after 30 minutes of
-silence (`GCSS_IDLE_MS`). The log shows `user … gone (silent)` for the
+silence (`GCSS_IDLE_MS`). The log shows `user ... gone (silent)` for the
 last case and `no acknowledgement for N s, still waiting` (level 2) when a
 client stalls. Up to 32 reliable messages wait per session; more are
 dropped with `send queue full`.
@@ -548,7 +571,7 @@ padding):
 
 | Id | Message | Layout |
 |---|---|---|
-| 4 | MSG_SERVER | object id i32 @4, action type u8 @8, flags u8 @9, offset i32 @12, length i32 @16, total i32 @20, data [≤ 384] @24 |
+| 4 | MSG_SERVER | object id i32 @4, action type u8 @8, flags u8 @9, offset i32 @12, length i32 @16, total i32 @20, data [at most 384] @24 |
 | 5 | MSG_SERVER_CANCEL | object id @4, reason @8 |
 | 25 | MSG_FLOW_EXTEND_CREDIT | credit @4 |
 | 26 | MSG_PING | answered with MSG_PING |
@@ -723,7 +746,7 @@ generic SNAP and SegaChat code plus the registration in
   nodes (`retrieval1104@ngage-auth`), not to `retrieval@`; the server
   accepts both.
 - `game.rsc` (a Symbian resource file): resource 2 links the settings,
-  resource 3 holds key 0x2007 = **1104** (GameClassId; Pocket Kingdom has
+  resource 3 holds key 0x2007 = 1104 (GameClassId; Pocket Kingdom has
   1 there, matching its SegaChat presence), 0x2000 = 6, two links to the
   settings of the two matchmaking modes (0x2019 and 0x201a), 0x2022 = 1,
   0x2009 = 1. Resource 4 (Freestyle): 0x200e = 2 and 0x200d = 4 (minimum
@@ -847,13 +870,13 @@ is ARM code; arenaframework.dll, arenabase.dll and snapcomm.dll
 - The game imports only three ArenaFramework ordinals: 164
   (`CArenaFramework::NewL(env, observer)`, 0xc38c) and two descriptor
   helpers (59, 129). Everything else goes through the framework's vtable.
-- **No direct sockets for GPRS.** The ESOCK imports belong to the game's
+- No direct sockets for GPRS. The ESOCK imports belong to the game's
   own Bluetooth stack. All game data goes to the game server with
   CArenaFramework slot 0x3c (arenabase 0xe8, reliable, SNAP op 17) and
   comes back as room data. This snapcomm build delivers op 15 (dispatch
-  0x42ac, op 15 -> 0x4910; arenabase registers events 0x12..0x15), unlike
+  0x42ac, op 15 at 0x4910; arenabase registers events 0x12..0x15), unlike
   Pocket Kingdom's, so the server answers with op 15.
-- **Host.** ArenaFramework's IsHost (slot 0x58, 0x10cb0) compares its own
+- Host. ArenaFramework's IsHost (slot 0x58, 0x10cb0) compares its own
   user id with the room attribute `HOST`, which it asks with op 9 when it
   enters a room. gcs_snap.c now answers `HOST` with the room's creator
   (0 for fixed rooms, as before), unless a game set it with op 8.
@@ -916,7 +939,7 @@ server does the passing on:
 | 52 | message for everybody | passes it on to all others | to all other players |
 | 27, 39, 54 | end turn / ready flags, "Overpowered bonus!" | handles them itself | to the host |
 | 9, 10, 14 | lobby: version answer, player data (40 bytes), game data (136 bytes) | writes them to each player's connection | to the clients, each one once per player |
-| others | | | client -> host, host -> clients |
+| others | | | from a client to the host, from the host to the clients |
 
 The Field Radio ("Use the Field Radio for voice communication between
 you and your allies", in-game menu > Communications) records 8 kHz audio
@@ -924,7 +947,7 @@ you and your allies", in-game menu > Communications) records 8 kHz audio
 256-byte chunks, one every 30 frames (sender 0x2f078); the receiver
 collects the chunks and plays the message when all are in (0x2ec60).
 
-**Rollback.** The help texts describe the GPRS synchronisation: a command
+Rollback. The help texts describe the GPRS synchronisation: a command
 is executed on the other phones when it arrives there ("Soldiers start
 to flicker when you give them a command in the GPRS game. The command is
 executed when it is delivered via GPRS to your allies and enemies", the
@@ -949,8 +972,8 @@ help texts and the server error list are the same.
 
 The network layer (6R72.APP 0x78d80, receive 0x79884, send 0x79248 via
 CArenaFramework slot 0x3c, keep alive 0x7977c) has the same message
-types, pieces, zlib messages, bundles (32 -> 16, 34 -> 21 and its own
-35, 23 and its own 41), acknowledgements and keep alive, with these
+types, pieces, zlib messages, bundles (32 carries 16; 34 carries 21 and is followed by its own
+35; 23 is followed by its own 41), acknowledgements and keep alive, with these
 differences:
 
 - The whole first header byte is the type; above 51 the game treats the
@@ -994,14 +1017,14 @@ Arena menus. Observer slot 0x38 is GameDataReceived (the parser at
 
 So Pocket Kingdom has a real game server behind the SNAP room
 (op 17 in, op 16 out, gcs_snap.c). Answers must be op 16 (private data:
-u32 count, count × u32 recipient uid, then the game message); the server
+u32 count, count x u32 recipient uid, then the game message); the server
 sends {1, uid}. Pocket Kingdom's snapcomm.dll (dispatch table 0x4338,
-index = op − 3) handles incoming op 16 at 0x49ec (reliable → observer
-event 0x13 → ArenaFramework 0xab3c → GameDataReceived) and silently drops
+index = op - 3) handles incoming op 16 at 0x49ec (reliable: observer
+event 0x13, then ArenaFramework 0xab3c, then GameDataReceived) and silently drops
 op 15 and op 17. Until 2026-11-16 the server answered with op 15, so the
-game never saw 129/130/…; the Global Auction waits for the 130 and timed
+game never saw 129, 130 and the other answers; the Global Auction waits for the 130 and timed
 out with trigger039 before ArenaFramework was even asked to switch rooms.
-Battles are **not** played against
+Battles are not played against
 stored kingdoms, as the manual suggested: the defender's game is online
 and answers scouting and attacks itself; the server passes the messages
 on. Server code: `server/src/gcs_pk.c`, tests: `tests/server/test_pk.c`.
@@ -1041,7 +1064,7 @@ entered a room yet reaches the game server, too.
 
 From arenaframework.dll 0xccc8 (slot 0x6c), arenabase.dll and
 snapcomm.dll (static analysis, 2026-11-16). The game calls slot 0x6c
-(lobby "Auction", room "Auction", 0) after its keep alive (2 -> 130) and
+(lobby "Auction", room "Auction", 0) after its keep alive (type 2, answered by 130) and
 then waits for observer slot 0x44 (0 = done). ArenaFramework keeps a
 state at +0x1304 and goes through these requests, each one started by
 the answer to the one before:
@@ -1074,29 +1097,29 @@ in auction messages are big endian.
 
 | Type | Len | Direction | Content |
 |---:|---:|---|---|
-| 1 | 24 | game → server | online: [2] area, [3..6] kingdom look, name @8 → **129** (4 bytes, only counted) |
-| 2 | 20 | game → server | keep alive (every ~165 frames), name @4 → **130** |
-| 3 | 20 | game → server | going offline, name @4 (no answer) |
-| 5 | 20 | game → server | moved: [2] new area, name @4 (no answer) |
-| 6 | 20 | game → server | enemy search: [2] area, name @4 → **134** |
-| 134 | 104 | server → game | up to 5 entries of 20 bytes from offset 4: name[16], look[4] (the castle, transporter, mark and colour other players see); empty name = end |
+| 1 | 24 | game to server | online: [2] area, [3..6] kingdom look, name @8; answer 129 (4 bytes, only counted) |
+| 2 | 20 | game to server | keep alive (every ~165 frames), name @4; answer 130 |
+| 3 | 20 | game to server | going offline, name @4 (no answer) |
+| 5 | 20 | game to server | moved: [2] new area, name @4 (no answer) |
+| 6 | 20 | game to server | enemy search: [2] area, name @4; answer 134 |
+| 134 | 104 | server to game | up to 5 entries of 20 bytes from offset 4: name[16], look[4] (the castle, transporter, mark and colour other players see); empty name = end |
 | 7 | 36 | relayed | scout: from @4, to @20 |
 | 135 | 52 | relayed | scout answer from the defender's game: [2] result, to @4, from @20, party data |
-| 9 | 88 | relayed | attack: [3] party, from @4, to @20, 4 units × 12 bytes from @40 |
+| 9 | 88 | relayed | attack: [3] party, from @4, to @20, 4 units x 12 bytes from @40 |
 | 137 | 88 | relayed | attack answer from the defender's game: [2] result, to @8, from @24, defending units |
 | 10 | 36 | relayed | the battle starts: from @4, to @20 |
-| 18 | 116 | relayed | chat: [2] area, from @4, to @20, text @36 (78 chars), [115] → **146** [2] = 1 delivered, 0 not |
-| 13 | 32 | game → server | exhibit: name @4, item @20..26, starting price u32 @28 → **141** |
-| 141 | 8 | server → game | [3] 0 exhibited (trigger041), 1 too many (040), 2 refused (043); u32 @4 auction id |
-| 14 | 32 | game → server | browse: [2] category, [3] item type, [4] rarity, [8] sub-filter (0xff = any), u32 @12 page, name @16 → **142** |
-| 142 | 248 | server → game | u16 @2 page, u32 @4 matches (0: trigger052), 10 entries from @8 |
-| 15 | 28 | game → server | bid: u32 @4 auction, u32 @8 amount, name @12 → **143** |
-| 143 | 8 | server → game | [2] 0 placed (044), 1 someone bid higher (045), 2 ended (046), 3 too many bids (042), 4 own exhibit (050), 5 refused (051); u32 @4 the bidder's previous bid on it: the game pays amount − this |
-| 16 | 20 | game → server | own list: [3] mode 0 exhibits, 1 bids (looking), 2 exhibits, 3 bids (collecting), name @4 → **144** |
-| 144 | 244 | server → game | 10 entries from @4 |
-| 21 | 112 | game → server | kingdom summary: u32 @4 victory points, u32 @8 loot, unit table, parties, look, area → **149** |
-| 17, 22 | 20, 32 | game → server | built by the game, never sent → 145, 150 |
-| 255 | 4 | server → game | the game goes offline at once (never sent by this server) |
+| 18 | 116 | relayed | chat: [2] area, from @4, to @20, text @36 (78 chars), [115]; answer 146: [2] = 1 delivered, 0 not |
+| 13 | 32 | game to server | exhibit: name @4, item @20..26, starting price u32 @28; answer 141 |
+| 141 | 8 | server to game | [3] 0 exhibited (trigger041), 1 too many (040), 2 refused (043); u32 @4 auction id |
+| 14 | 32 | game to server | browse: [2] category, [3] item type, [4] rarity, [8] sub-filter (0xff = any), u32 @12 page, name @16; answer 142 |
+| 142 | 248 | server to game | u16 @2 page, u32 @4 matches (0: trigger052), 10 entries from @8 |
+| 15 | 28 | game to server | bid: u32 @4 auction, u32 @8 amount, name @12; answer 143 |
+| 143 | 8 | server to game | [2] 0 placed (044), 1 someone bid higher (045), 2 ended (046), 3 too many bids (042), 4 own exhibit (050), 5 refused (051); u32 @4 the bidder's previous bid on it: the game pays amount minus this |
+| 16 | 20 | game to server | own list: [3] mode 0 exhibits, 1 bids (looking), 2 exhibits, 3 bids (collecting), name @4; answer 144 |
+| 144 | 244 | server to game | 10 entries from @4 |
+| 21 | 112 | game to server | kingdom summary: u32 @4 victory points, u32 @8 loot, unit table, parties, look, area; answer 149 |
+| 17, 22 | 20, 32 | game to server | built by the game, never sent (answers would be 145, 150) |
+| 255 | 4 | server to game | the game goes offline at once (never sent by this server) |
 
 Auction list entry (24 bytes): u32 auction id, [4] status (0 = end of
 list), [5..11] the exhibit's item bytes 20..26 (category, type, item,
@@ -1106,7 +1129,7 @@ player's own bid.
 
 | List | 1 | 2 | 3 | 4 |
 |---|---|---|---|---|
-| browse (142) | — | the player has the high bid | | |
+| browse (142) | - | the player has the high bid | | |
 | exhibits (144, modes 0/2) | running, no bids | running, bids | sold: the game adds @16 to the loot | no sale: the item comes back |
 | bids (144, modes 1/3) | outbid | high bid | won: the game adds the item | lost: the game adds @20 back |
 
@@ -1169,7 +1192,7 @@ response callback id (fn 0x2360). It returns the request sequence number.
 - 0x10 login: four C strings (r1, r2, r3, sp0), server TInetAddr, a value, three ints, observer. Returns 0 on success.
 - 0x14..0x8c requests; arenabase has one wrapper per slot (0x1020..0x19bc), each followed by slot 0x9c. Opcodes seen: 0x07 (slot 0x38), 0x0e (0x4c), 0x47 (0x50), 0x12 (0x74), 0x13 (0x78), 0x11 (0x88), 0x14 (0x8c), 0x0c (0x64), 0x0f (0x6c, 0x80), 0x32 (0x7c)
 - 0x90 logout/disconnect, 0x94 clear callbacks, 0x98 SetCallback(id, observer), 0x9c last error
-- Callbacks: a table of observer **objects** at handle+0x554, indexed by id. Each id calls a different virtual slot of the observer with (header, parsed struct). arenabase registers ids 0..20 during login (0x796..0xae2).
+- Callbacks: a table of observer objects at handle+0x554, indexed by id. Each id calls a different virtual slot of the observer with (header, parsed struct). arenabase registers ids 0..20 during login (0x796..0xae2).
 - Transport of the original: one UDP socket (its own BSD socket layer over ESOCK), default port apparently 8080.
 
 ### sc_lib client (vtable 26 slots)
@@ -1246,15 +1269,6 @@ Ashen (retail card, PPP or GPRS route):
 2. If the game reports an error, compare the answer with "Answer (CSV)"
    above.
 
-Rifts (retail card, PPP route):
-
-1. Run Rifts' Arena mode with the server at log level 3. The log shows the
-   SOAP login, the SegaChat login and every SNAP message.
-2. If ArenaFramework stops after the room entry, compare the last
-   messages with "Flow of Rifts" above (candidates: a room status
-   notification, an answer for op 8, the encrypted login challenge).
-3. Then the actions: server config, create/find/accept challenge, turns.
-
 Pocket Kingdom:
 
 1. Build the four DLLs with the N-Gage toolchain and fix what the
@@ -1264,11 +1278,7 @@ Pocket Kingdom:
 3. Identify the remaining slots from the logged calls and the arenabase
    wrappers. Implement the SnapComm observer events (login result first,
    then lobby/room lists and entries), forward the HTTP slots as HTTP_REQ.
-4. Game server (done, gcs_pk.c): run the online map and the Global
-   Auction with two N-Gages and the server at log level 3. Check the game
-   class in the SNAP login, the area numbers, and whether the look bytes
-   of the search answer come out in the right order.
-5. The All-Time Owner Board (retrieval board `player_skills`).
+4. The All-Time Owner Board (retrieval board `player_skills`).
 
 Every ArenaFramework game (Communicate and Play menus):
 
