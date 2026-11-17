@@ -31,6 +31,8 @@
 #define SYNC_WAIT_MS 3000               /* records without end marker go on alone */
 #define DUP_MS       1500               /* identical copies of one message */
 #define SEEN_N       16                 /* lobby messages remembered per player */
+#define PING_MS      2000               /* start pings until the phone answers */
+#define ST_PLAYING   0x80000000u        /* room status bit: game in progress */
 
 typedef struct
 {
@@ -46,6 +48,8 @@ typedef struct
     gc_u8 last_type;
     gc_u32 last_hash;
     gc_u32 last_t;
+    int live;      /* the phone's network layer runs: it sent game data */
+    gc_u32 ping_t; /* last start ping */
 } player;
 
 typedef struct
@@ -62,6 +66,7 @@ typedef struct
     int sync_count;
     gc_u32 sync_t;
     int perm_open; /* host sent 23, the clients make the 41 themselves */
+    int playing;   /* room status had bit 31 at the last poll */
 } game;
 
 struct gcs_ptg;
@@ -576,6 +581,11 @@ static void g_data(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
         }
         p->st.messages_in++;
         LOG_D("<- %08x type %u, %u bytes%s", uid, type, (unsigned)len, uid == g->host ? " (host)" : "");
+        if (!from->live && !(type == GCS_PTG_KEEPALIVE && len == 0)) {
+            /* anything but the answer to a start ping */
+            from->live = 1;
+            LOG_I("room %08x: %08x started", g->room, uid);
+        }
         if (h & 0x8000) {
             LOG_W("room %08x: compressed type %u from %08x not expected, ignored", g->room, type, uid);
         } else if (type <= (g->classic ? 51 : 54)) {
@@ -599,6 +609,37 @@ static void g_data(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
     }
 }
 
+/* The game's network layer starts only when the first message from the
+ * game server arrives after ArenaFramework's game start (6R82.APP
+ * 0x84bac, 6R72.APP 0x79888: flag set, observer slot 0x48 with 3); until
+ * then the phone sends nothing.  So once the host sets the room status
+ * to "in progress" (STAT bit 31, CArenaFramework 0x7a0c), every phone
+ * that has not sent game data yet gets a ping (type 18; the game answers
+ * with an empty 19) every PING_MS. */
+static void start_pings(gcs_ptg *p, gcs_snap *s, game *g, gc_u32 now)
+{
+    int playing = (gcs_snap_room_status(s, g->room) & ST_PLAYING) != 0;
+    int k;
+    if (playing != g->playing) {
+        LOG_I("room %08x: game %s", g->room, playing ? "in progress" : "over");
+        g->playing = playing;
+        for (k = 0; k < GCS_PTG_MAX_PLAYERS; k++) {
+            g->pl[k].live = 0; /* a new game starts the layer again */
+            g->pl[k].ping_t = now - PING_MS;
+        }
+    }
+    if (!playing) {
+        return;
+    }
+    for (k = 0; k < GCS_PTG_MAX_PLAYERS; k++) {
+        player *pl = &g->pl[k];
+        if (pl->uid && !pl->live && (gc_u32)(now - pl->ping_t) >= PING_MS) {
+            pl->ping_t = now;
+            send_to(p, g, pl, GCS_PTG_PING, NULL, 0);
+        }
+    }
+}
+
 static void g_poll(void *ctx, gcs_snap *s, gc_u32 now)
 {
     gcs_ptg *p = ((title *)ctx)->p;
@@ -614,6 +655,7 @@ static void g_poll(void *ctx, gcs_snap *s, gc_u32 now)
         for (k = 0; k < GCS_PTG_MAX_PLAYERS; k++) {
             flush_bundle(p, g, &g->pl[k]);
         }
+        start_pings(p, s, g, now);
         if (g->sync_count && (gc_u32)(now - g->sync_t) >= SYNC_WAIT_MS) {
             flush_sync(p, g, 0);
         }

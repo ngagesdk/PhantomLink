@@ -126,6 +126,10 @@ gc_u32 gcs_snap_room_of(const gcs_snap *s, gc_u32 uid);
 /** User who created the room (0: unknown room or a game's fixed room). */
 gc_u32 gcs_snap_room_owner(const gcs_snap *s, gc_u32 room);
 
+/** Room status (the STAT attribute; bit 31: game in progress), 0 if
+ *  there is no such room. */
+gc_u32 gcs_snap_room_status(const gcs_snap *s, gc_u32 room);
+
 /** Name of the logged in user uid, NULL if none. */
 const char *gcs_snap_user_of(const gcs_snap *s, gc_u32 uid);
 

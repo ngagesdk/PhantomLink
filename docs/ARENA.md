@@ -913,6 +913,16 @@ Message, both directions, little endian:
   u16 count of 32, u16 tag of the message, u16}. Bit 7 resets both counts
   and the drop flag that slot +0x18 sets; the server sets it on every
   message so nothing is dropped after the game flushed its queues.
+- **The game server speaks first.** After ArenaFramework's game start
+  (event 25) the network layer stays idle until the first message from
+  the game server arrives (start of the receive function, 6R82.APP 0x84bac,
+  6R72.APP 0x79888: flag +0x8f6, observer slot 0x48 with 3); only then
+  does the game send anything. Without it the phone hangs on "Starting
+  Game" (seen on hardware 2026-11-17: the whole room set-up, STAT
+  0x90000000, op 13, op 12, then silence). The server pings (type 18)
+  every phone of a room whose status has bit 31 (set by the host when it
+  starts the game, CArenaFramework 0x7a0c) every 2 s until the phone sends
+  game data other than the empty answer.
 - Type 18 from the server: the game answers 19 without data. Every 20 s
   the game sends 19 with 4 bytes and expects 19 back within 30 s, else
   "Connection to game server has been lost" (0x84a80).

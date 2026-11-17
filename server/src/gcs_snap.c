@@ -1824,6 +1824,17 @@ gc_u32 gcs_snap_room_owner(const gcs_snap *s, gc_u32 room)
     return 0;
 }
 
+gc_u32 gcs_snap_room_status(const gcs_snap *s, gc_u32 room)
+{
+    int i;
+    for (i = 0; room && i < GCSS_MAX_ROOMS; i++) {
+        if (s->rooms[i].used && s->rooms[i].id == room) {
+            return s->rooms[i].status;
+        }
+    }
+    return 0;
+}
+
 const char *gcs_snap_user_of(const gcs_snap *s, gc_u32 uid)
 {
     int i;

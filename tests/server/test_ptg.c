@@ -525,6 +525,16 @@ static gc_u32 room_host(phone *g)
     return m ? be32(m->p + 8) : 0;
 }
 
+/* op 8 STAT: ArenaFramework's room status; bit 31 = game in progress
+ * (set by the host when it starts the game, CArenaFramework 0x7a0c) */
+static void set_stat(phone *g, gc_u32 v)
+{
+    gc_u8 p[8];
+    memcpy(p, "STAT", 4);
+    put32(p + 4, v);
+    send_msg(g, 0xa000, 40, GCSS_OP_ATTR, p, 8);
+}
+
 static void clear_in(void)
 {
     int i;
@@ -563,6 +573,41 @@ static void test_game(void)
     /* IsHost: the creator */
     CHECK_EQ(room_host(b), a->uid);
     CHECK_EQ(room_host(a), a->uid);
+
+    /* no game yet: no pings */
+    gcs_snap_poll(S, g_now);
+    CHECK_EQ(a->c.qn[GCS_PTG_PING], 0);
+    /* the host starts the game: every phone gets pings until its
+     * network layer runs (the first message from the server starts it) */
+    set_stat(a, 0x90000000u);
+    gcs_snap_poll(S, g_now);
+    for (i = 0; i < 3; i++) {
+        CHECK_EQ(q_pop(&P[i].c, GCS_PTG_PING, r, sizeof(r)), 0);
+        game_send(&P[i], GCS_PTG_KEEPALIVE, NULL, 0); /* the game's answer */
+    }
+    g_now += 1000;
+    gcs_snap_poll(S, g_now);
+    CHECK_EQ(b->c.qn[GCS_PTG_PING], 0);
+    g_now += 1000;
+    gcs_snap_poll(S, g_now);
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_PING, r, sizeof(r)), 0); /* the empty 19 does not count */
+    q_pop(&a->c, GCS_PTG_PING, NULL, 0);
+    q_pop(&c->c, GCS_PTG_PING, NULL, 0);
+    game_send(a, 13, "ver", 3); /* now the layers run */
+    game_send(b, GCS_PTG_KEEPALIVE, "\0\0\0\0", 4);
+    q_pop(&b->c, GCS_PTG_KEEPALIVE, NULL, 0);
+    game_send(c, GCS_PTG_COMMAND, "c", 1);
+    q_pop(&a->c, GCS_PTG_COMMAND, NULL, 0);
+    q_pop(&b->c, GCS_PTG_COMMAND, NULL, 0);
+    send_acks(a);
+    send_acks(b);
+    g_now += 5000;
+    gcs_snap_poll(S, g_now);
+    for (i = 0; i < 3; i++) {
+        CHECK_EQ(P[i].c.qn[GCS_PTG_PING], 0);
+    }
+    q_pop(&b->c, 13, NULL, 0); /* the host's message went to the clients */
+    q_pop(&c->c, 13, NULL, 0);
 
     /* keep alive: 4 bytes back, nothing to the others */
     game_send(b, GCS_PTG_KEEPALIVE, "\x01\x02\x03\x04", 4);
@@ -725,7 +770,7 @@ static void test_game(void)
     CHECK_EQ(b->c.status, GCS_PTG_ST_HOST_LEFT);
     gcs_ptg_get_stats(PT, &st);
     CHECK_EQ(st.games, 1);
-    CHECK(st.commands == 3 && st.radio_chunks == 2 && st.duplicates >= 3);
+    CHECK(st.commands == 4 && st.radio_chunks == 2 && st.duplicates >= 3);
     send_msg(b, 0xa000, 16, GCSS_OP_LEAVE, d, 0);
     gcs_ptg_get_stats(PT, &st);
     CHECK_EQ(st.games, 0);
@@ -774,6 +819,11 @@ static void test_classic(void)
     join_room(c, a->room);
     clear_in();
     CHECK_EQ(room_host(c), a->uid);
+    set_stat(a, 0x90000000u);
+    gcs_snap_poll(S, g_now);
+    for (i = 5; i < 8; i++) {
+        CHECK_EQ(q_pop(&P[i].c, GCS_PTG_PING, r, sizeof(r)), 0);
+    }
 
     game_send(c, GCS_PTG_KEEPALIVE, "abcd", 4);
     CHECK_EQ(q_pop(&c->c, GCS_PTG_KEEPALIVE, r, sizeof(r)), 4);
