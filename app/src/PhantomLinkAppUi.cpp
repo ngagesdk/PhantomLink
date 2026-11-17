@@ -45,10 +45,7 @@ void CPhantomLinkAppUi::ConstructL()
     iView = CPhantomLinkView::NewL(ClientRect());
     AddToStackL(iView);
     iClient = CBridgeClient::NewL(*this);
-    iBoardClient = CBoardClient::NewL(*this);
     iPicker = CBridgePicker::NewL(*this);
-    iBoardName = _L("N-Gage");
-    Mem::FillZ(&iBoard, sizeof(iBoard));
     iStatus = _L("not read");
     ShowGamesL();
 }
@@ -56,7 +53,6 @@ void CPhantomLinkAppUi::ConstructL()
 CPhantomLinkAppUi::~CPhantomLinkAppUi()
 {
     delete iPicker;
-    delete iBoardClient;
     delete iClient;
     if (iView) {
         RemoveFromStack(iView);
@@ -101,46 +97,6 @@ void CPhantomLinkAppUi::ShowBridgeL()
     }
     CleanupStack::Pop();
     iView->SetListL(items, 0, EFalse);
-}
-
-void CPhantomLinkAppUi::ShowBoardL()
-{
-    iMode = EBoard;
-    CDesCArrayFlat *items = new (ELeave) CDesCArrayFlat(5);
-    CleanupStack::PushL(items);
-    TBuf<200> line;
-    if (!iBoard.u.board.count) {
-        items->AppendL(_L("\tNo messages"));
-    } else {
-        line.Copy(_L("\tMessage "));
-        line.AppendNum(iBoard.u.board.index + 1);
-        line.Append(_L(" of "));
-        line.AppendNum(iBoard.u.board.count);
-        items->AppendL(line);
-        TBuf<GC_MAX_NAME> name;
-        TBuf<GC_BOARD_TIME_MAX> time;
-        CnvUtfConverter::ConvertToUnicodeFromUtf8(name, TPtrC8((const TUint8 *)iBoard.u.board.name));
-        CnvUtfConverter::ConvertToUnicodeFromUtf8(time, TPtrC8((const TUint8 *)iBoard.u.board.time));
-        line.Copy(_L("\t"));
-        line.Append(name);
-        items->AppendL(line);
-        line.Copy(_L("\t"));
-        line.Append(time.Left(Min(time.Length(), 10)));
-        items->AppendL(line);
-        if (time.Length() > 10) {
-            TInt start = time[10] == ' ' ? 11 : 10;
-            line.Copy(_L("\t"));
-            line.Append(time.Mid(start));
-            items->AppendL(line);
-        }
-        TBuf<GC_BOARD_TEXT_MAX> text;
-        CnvUtfConverter::ConvertToUnicodeFromUtf8(text, TPtrC8((const TUint8 *)iBoard.u.board.text));
-        line.Copy(_L("\t"));
-        line.Append(text);
-        items->AppendL(line);
-    }
-    CleanupStack::Pop(items);
-    iView->SetListL(items, 0, EFalse, ETrue);
 }
 
 /* ------------------------------------------------------------------ */
@@ -401,50 +357,6 @@ void CPhantomLinkAppUi::ResetCommsL()
     }
 }
 
-void CPhantomLinkAppUi::ReadBoardL(TUint32 aIndex)
-{
-    TBuf8<GC_MAX_NAME> name;
-    if (CnvUtfConverter::ConvertFromUnicodeToUtf8(name, iBoardName) != 0) {
-        ErrorL(_L("Name is too long in UTF-8"));
-        return;
-    }
-    iBoardClient->StartL(name, KNullDesC8, aIndex, EFalse);
-}
-
-void CPhantomLinkAppUi::PostBoardL()
-{
-    TBuf<GC_MAX_NAME> name(iBoardName);
-    CAknTextQueryDialog *nameDialog = CAknTextQueryDialog::NewL(name);
-    nameDialog->SetMaxLength(GC_MAX_NAME);
-    if (!nameDialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Your name"))) {
-        return;
-    }
-    if (!name.Length()) {
-        ErrorL(_L("Enter a name"));
-        return;
-    }
-    TBuf<GC_BOARD_TEXT_MAX> text(iBoardDraft);
-    CAknTextQueryDialog *dialog = CAknTextQueryDialog::NewL(text);
-    dialog->SetMaxLength(GC_BOARD_TEXT_MAX);
-    if (!dialog->ExecuteLD(R_PL_TEXT_QUERY, _L("Message"))) {
-        return;
-    }
-    if (!text.Length()) {
-        ErrorL(_L("Enter a message"));
-        return;
-    }
-    iBoardName.Copy(name);
-    iBoardDraft.Copy(text);
-    TBuf8<GC_MAX_NAME> name8;
-    TBuf8<GC_BOARD_TEXT_MAX> text8;
-    if (CnvUtfConverter::ConvertFromUnicodeToUtf8(name8, name) != 0 ||
-        CnvUtfConverter::ConvertFromUnicodeToUtf8(text8, text) != 0) {
-        ErrorL(_L("Name or message is too long in UTF-8"));
-        return;
-    }
-    iBoardClient->StartL(name8, text8, 0, ETrue);
-}
-
 void CPhantomLinkAppUi::RefreshBridgeL()
 {
     if (iMode != EBridge) {
@@ -479,7 +391,6 @@ void CPhantomLinkAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane *aMenuPa
     }
     TBool games = iMode == EGames;
     TBool bridge = iMode == EBridge;
-    TBool board = iMode == EBoard;
     TBool comms = iMode == EComms;
     aMenuPane->SetItemDimmed(EPlCmdSelect, EFalse);
     aMenuPane->SetItemDimmed(EPlCmdComms, comms);
@@ -494,11 +405,6 @@ void CPhantomLinkAppUi::DynInitMenuPaneL(TInt aResourceId, CEikMenuPane *aMenuPa
     aMenuPane->SetItemDimmed(EPlCmdSetup, !bridge);
     aMenuPane->SetItemDimmed(EPlCmdFactory, !bridge);
     aMenuPane->SetItemDimmed(EPlCmdChoose, !bridge);
-    aMenuPane->SetItemDimmed(EPlCmdBoard, board);
-    aMenuPane->SetItemDimmed(EPlCmdBoardRefresh, !board);
-    aMenuPane->SetItemDimmed(EPlCmdBoardPost, !board);
-    aMenuPane->SetItemDimmed(EPlCmdBoardOlder, !board || iBoard.u.board.index + 1 >= iBoard.u.board.count);
-    aMenuPane->SetItemDimmed(EPlCmdBoardNewer, !board || iBoard.u.board.index == 0);
 }
 
 void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
@@ -516,7 +422,7 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
     if (iPicker->IsBusy()) {
         return; /* the device selection is open */
     }
-    if (iClient->IsBusy() || iBoardClient->IsBusy()) {
+    if (iClient->IsBusy()) {
         InfoL(_L("Please wait, talking to the bridge"));
         return;
     }
@@ -533,12 +439,6 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
             if (line.Length() > 1) {
                 InfoL(line.Mid(1)); /* without the leading tab */
             }
-        } else if (iMode == EBoard) {
-            if (iBoard.u.board.count) {
-                TBuf<GC_BOARD_TEXT_MAX> text;
-                CnvUtfConverter::ConvertToUnicodeFromUtf8(text, TPtrC8((const TUint8 *)iBoard.u.board.text));
-                InfoL(text);
-            }
         } else if (iView->CurrentIndex() == KStatusLine) {
             StartL(ERead, _L8("show\n"), EFalse);
         } else {
@@ -546,11 +446,9 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
         }
         break;
     case EPlCmdGames:
-        iBoardClient->Close();
         ShowGamesL();
         break;
     case EPlCmdBridge:
-        iBoardClient->Close();
         ShowBridgeL();
         break;
     case EPlCmdRead:
@@ -575,28 +473,10 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
     case EPlCmdChoose:
         StartL(ERead, _L8("show\n"), ETrue);
         break;
-    case EPlCmdBoard:
-    case EPlCmdBoardRefresh:
-        ReadBoardL(0);
-        break;
-    case EPlCmdBoardPost:
-        PostBoardL();
-        break;
-    case EPlCmdBoardOlder:
-        if (iBoard.u.board.index + 1 < iBoard.u.board.count) {
-            ReadBoardL(iBoard.u.board.index + 1);
-        }
-        break;
-    case EPlCmdBoardNewer:
-        if (iBoard.u.board.index > 0) {
-            ReadBoardL(iBoard.u.board.index - 1);
-        }
-        break;
     case EPlCmdAbout:
         ShowAboutL();
         break;
     case EPlCmdComms:
-        iBoardClient->Close();
         ShowCommsL(0);
         break;
     case EPlCmdCommsReset:
@@ -656,7 +536,6 @@ void CPhantomLinkAppUi::HandleCommandL(TInt aCommand)
         break;
     }
     case EPlCmdLog:
-        iBoardClient->Close();
         ShowLogL();
         break;
     case EPlCmdLogClear:
@@ -848,36 +727,6 @@ void CPhantomLinkAppUi::BridgePicked(TInt aError)
         text.Copy(_L("Could not save the bridge, error "));
         text.AppendNum(aError);
         PL_IGNORE(ErrorL(text));
-    }
-}
-
-void CPhantomLinkAppUi::BoardFinished(TInt aError, const gc_msg &aReply)
-{
-    if (aError != KErrNone) {
-        TBuf<100> text;
-        if (aReply.type == GC_MT_ERROR) {
-            text.Copy(_L("Board: "));
-            TBuf<GC_MAX_NAME> detail;
-            CnvUtfConverter::ConvertToUnicodeFromUtf8(detail, TPtrC8((const TUint8 *)aReply.u.error.text));
-            text.Append(detail);
-        } else {
-            DescribeError(aError, text);
-        }
-        PL_IGNORE(ErrorL(text));
-        return;
-    }
-    if (aReply.type == GC_MT_BOARD_POSTED) {
-        iBoardDraft.Zero();
-        PL_IGNORE(InfoL(_L("Message posted")));
-        TRAPD(err, ReadBoardL(0));
-        if (err != KErrNone) {
-            TBuf<100> text;
-            DescribeError(err, text);
-            PL_IGNORE(ErrorL(text));
-        }
-    } else {
-        iBoard = aReply;
-        PL_IGNORE(ShowBoardL());
     }
 }
 

@@ -833,7 +833,7 @@ static int set_option(app_cfg *a, const char *key, const char *val)
         return set_str(a->core.access_key, sizeof(a->core.access_key), val) ? 1 : -1;
     }
     if (!strcmp(key, "board_file")) {
-        return *val && set_str(a->core.board_file, sizeof(a->core.board_file), val) ? 1 : -1;
+        return 1; /* the message board was removed: still accepted so old configurations load */
     }
     if (!strcmp(key, "arena_accounts")) {
         return set_str(a->core.arena_accounts, sizeof(a->core.arena_accounts), val) ? 1 : -1;
@@ -952,7 +952,6 @@ static void usage(const char *argv0)
            "  --discovery=0|1      answer LAN discovery on UDP port (default 1)\n"
            "  --name=TEXT          server name shown to devices\n"
            "  --access_key=TEXT    require this key from bridges (default none)\n"
-           "  --board_file=PATH    persistent message board file\n"
            "  --arena_accounts=PATH Arena accounts, shared by all Arena games (empty: not kept)\n"
            "  --rifts_data=PATH    Rifts: Promise of Power battles and turns (empty: not kept)\n"
            "  --habbo_data=PATH    Habbo Islands: Habbo Console friends and messages (empty: not kept)\n"

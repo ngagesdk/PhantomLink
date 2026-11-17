@@ -14,7 +14,6 @@ legacy/server-prototype/.vs/
 tmp
 session-state
 # server state written to the working directory
-gamecomms-board.dat
 gamecomms-arena.txt
 gamecomms-arena.txt.tmp
 gamecomms-rifts.dat

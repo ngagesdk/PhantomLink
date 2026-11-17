@@ -8,7 +8,6 @@
 #ifndef PHANTOMLINKAPPUI_H
 #define PHANTOMLINKAPPUI_H
 
-#include "BoardClient.h"
 #include "BridgeClient.h"
 #include "BridgePicker.h"
 #include "GcConfig.h"
@@ -16,7 +15,7 @@
 
 class CPhantomLinkView;
 
-class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public MBoardObserver, public MBridgePickerObserver
+class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public MBridgePickerObserver
 {
   public:
     void ConstructL();
@@ -30,7 +29,6 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
   public: // from MBridgeClientObserver
     void BridgeFinished(TInt aError);
     void BridgeProgress(const TDesC &aText);
-    void BoardFinished(TInt aError, const gc_msg &aReply);
 
   public: // from MBridgePickerObserver
     void BridgePicked(TInt aError);
@@ -40,7 +38,6 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
     {
         EGames,
         EBridge,
-        EBoard,
         EComms,
         ELog
     };
@@ -68,15 +65,12 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
 
     void ShowGamesL();
     void ShowBridgeL();
-    void ShowBoardL();
     void ShowCommsL(TInt aCurrent);
     void CommsText(TInt aRow, TDes &aText) const;
     void EditCommsL();
     void ResetCommsL();
     void ShowLogL();
     void ClearLogL();
-    void ReadBoardL(TUint32 aIndex);
-    void PostBoardL();
     void RefreshBridgeL();
     void SetStatusL(const TDesC &aText);
     void InstallSelectedL();
@@ -91,11 +85,7 @@ class CPhantomLinkAppUi : public CAknAppUi, public MBridgeClientObserver, public
 
     CPhantomLinkView *iView;
     CBridgeClient *iClient;
-    CBoardClient *iBoardClient;
     CBridgePicker *iPicker;
-    gc_msg iBoard;
-    TBuf<GC_MAX_NAME> iBoardName;
-    TBuf<GC_BOARD_TEXT_MAX> iBoardDraft;
     TBridgeSettings iSettings;
     TGcConfig iComms; /* GameComms.ini as last read */
     TMode iMode;

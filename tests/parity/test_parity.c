@@ -261,7 +261,6 @@ static void world_init(world *w, const bp_profile *prof, const scenario *sc)
     w->sc = *sc;
     w->now = 100000;
     gcs_default_config(&cfg);
-    strcpy(cfg.board_file, "parity-board-test.dat");
     cfg.log_level = 3;
     io.write = srv_write;
     io.close = srv_close;
@@ -318,7 +317,6 @@ static void world_free(world *w)
         pipe_free(&s->tcp_down);
     }
     gcs_core_destroy(w->core);
-    remove("parity-board-test.dat");
 }
 
 static void on_event(node *s, const gcd_event *e)
