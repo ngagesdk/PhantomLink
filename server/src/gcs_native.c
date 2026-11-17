@@ -15,6 +15,7 @@
 #include "gcs_habbo.h"
 #include "gcs_pages.h"
 #include "gcs_pk.h"
+#include "gcs_ptg.h"
 #include "gcs_rifts.h"
 #include "gcs_roster.h"
 #include "gcs_scores.h"
@@ -127,6 +128,7 @@ struct gcs_native
     gcs_snap *snap;       /* SNAP game server (UDP) */
     gcs_rifts *rifts;     /* Rifts: Promise of Power game server */
     gcs_pk *pk;           /* Pocket Kingdom game server */
+    gcs_ptg *ptg;         /* Pathway to Glory: Ikusa Islands game server */
     gcs_habbo *habbo;     /* Habbo Console (Habbo Islands, port 8080) */
     gcs_scores *scores;   /* SegaChat leaderboards (Ashen) */
     gcs_roster *roster;   /* SegaChat friends, requests, offline messages */
@@ -2292,12 +2294,14 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     n->habbo = n->acc ? gcs_habbo_create(n->acc, habbo_file, acc_log, n) : NULL;
     n->scores = gcs_scores_create(scores_file, acc_log, n);
     n->pk = gcs_pk_create(pk_file, snap_log, n);
+    n->ptg = gcs_ptg_create(snap_log, n);
     n->roster = gcs_roster_create(NULL, acc_log, n);
     n->tourney = gcs_tourney_create(NULL, NULL, acc_log, n);
-    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk || !n->roster || !n->tourney) {
+    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk || !n->ptg || !n->roster || !n->tourney) {
         gcs_tourney_destroy(n->tourney);
         gcs_roster_destroy(n->roster);
         gcs_pk_destroy(n->pk);
+        gcs_ptg_destroy(n->ptg);
         gcs_scores_destroy(n->scores);
         gcs_habbo_destroy(n->habbo);
         gcs_accounts_destroy(n->acc);
@@ -2309,6 +2313,8 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     gcs_snap_add_game(n->snap, gcs_rifts_game(n->rifts));
     gcs_snap_add_game(n->snap, gcs_pk_game(n->pk));
     gcs_snap_add_game(n->snap, gcs_wwp_game());
+    gcs_snap_add_game(n->snap, gcs_ptg_game(n->ptg));
+    gcs_snap_add_game(n->snap, gcs_ptg1_game(n->ptg));
     gcs_scores_set_listener(n->scores, score_listener, n);
     return n;
 }
@@ -2328,6 +2334,7 @@ void gcs_native_destroy(gcs_native *n)
     gcs_snap_destroy(n->snap);
     gcs_rifts_destroy(n->rifts);
     gcs_pk_destroy(n->pk);
+    gcs_ptg_destroy(n->ptg);
     gcs_habbo_destroy(n->habbo);
     gcs_scores_destroy(n->scores);
     gcs_accounts_destroy(n->acc);

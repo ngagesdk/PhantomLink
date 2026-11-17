@@ -123,6 +123,9 @@ gc_u32 gcs_snap_game_class_of(const gcs_snap *s, const char *user);
 /** Room of the logged in user uid, 0 if none. */
 gc_u32 gcs_snap_room_of(const gcs_snap *s, gc_u32 uid);
 
+/** User who created the room (0: unknown room or a game's fixed room). */
+gc_u32 gcs_snap_room_owner(const gcs_snap *s, gc_u32 room);
+
 /** Name of the logged in user uid, NULL if none. */
 const char *gcs_snap_user_of(const gcs_snap *s, gc_u32 uid);
 

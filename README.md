@@ -77,6 +77,8 @@ standard GameComms library, so PhantomLink cannot support them.
 | Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"                   | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
 | Ashen                         | Online leaderboards for every chapter and the whole game        | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 | Worms World Party             | Play Now game rooms (Freestyle, Ranked), skill points, rankings | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Pathway to Glory              | GPRS battles for up to 6 players, Field Radio voice messages    | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages  | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
 Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; the
 game server for the online map, battles, chat and the Global Auction is
@@ -85,6 +87,10 @@ Ashen's leaderboards are tested against the server only, not yet on a
 real N-Gage. The same goes for Worms World Party, whose server side is
 written from the game's Arena libraries (see
 [docs/ARENA.md](docs/ARENA.md#worms-world-party)).
+Both Pathway to Glory games have a game server of their own, written
+from the game's network code (see
+[docs/ARENA.md](docs/ARENA.md#pathway-to-glory-ikusa-islands)); it is
+tested against simulated games only.
 
 ### Other online games
 

@@ -816,6 +816,170 @@ with success and logs them), whether the room needs more than its
 attributes, and the meaning of the playerskills fields. The server log
 at level 3 shows every SNAP and SegaChat message for that.
 
+## Pathway to Glory: Ikusa Islands
+
+Pathway to Glory: Ikusa Islands (6R82, UID 0x101fd41d, v1.05)
+plays its GPRS games through N-Gage Arena: ArenaFramework 2.01.080 does
+login and the Play Now screens, and a game server of RedLynx's own sits
+behind the game room. The server side is `server/src/gcs_ptg.c` (game
+class 2955) on top of the SNAP server; the first Pathway to Glory is
+nearly the same (see below). Tests: `tests/server/test_ptg.c`.
+Bluetooth play does not use GameComms (own RFCOMM, see
+[COMPATIBILITY.md](COMPATIBILITY.md)); this section is only about GPRS.
+
+Everything below comes from static analysis of the retail dump (6R82.APP
+is ARM code; arenaframework.dll, arenabase.dll and snapcomm.dll
+"Jun 22 2005" are Thumb). Nothing has run on a real N-Gage yet.
+
+### Findings
+
+- `arena.amr`: `JabberFQDN` im.ptg2.redlynx.sf.yav4.com, `GameServerFQDN`
+  bs01.ptg2.redlynx.sf.yav4.com, `JabberServicesName` retrieval2955,
+  `JabberReportingName` reporter2955. Ranked results go through the
+  generic SegaChat reporter (`gcs_scores.c`).
+- `game.rsc`: key 0x2007 = 2955 (game class), 0x200d = 6 (players).
+  Two matchmaking modes (0x2018 and 0x201a). Settings: Battleground (City,
+  Jungle, Island, City 1..3, Jungle 1..3, Island 1..3), Number of
+  Missions 1..3, Ranked, Game name ("Battle"), Turn time 30..90 s, players
+  2/4/6, soldiers 3..8. No lobby names, so the server offers
+  `Freestyle,Ranked`. The game reads the settings back in observer slot
+  0x40 (6R82.APP 0x858b4).
+- The game imports only three ArenaFramework ordinals: 164
+  (`CArenaFramework::NewL(env, observer)`, 0xc38c) and two descriptor
+  helpers (59, 129). Everything else goes through the framework's vtable.
+- **No direct sockets for GPRS.** The ESOCK imports belong to the game's
+  own Bluetooth stack. All game data goes to the game server with
+  CArenaFramework slot 0x3c (arenabase 0xe8, reliable, SNAP op 17) and
+  comes back as room data. This snapcomm build delivers op 15 (dispatch
+  0x42ac, op 15 -> 0x4910; arenabase registers events 0x12..0x15), unlike
+  Pocket Kingdom's, so the server answers with op 15.
+- **Host.** ArenaFramework's IsHost (slot 0x58, 0x10cb0) compares its own
+  user id with the room attribute `HOST`, which it asks with op 9 when it
+  enters a room. gcs_snap.c now answers `HOST` with the room's creator
+  (0 for fixed rooms, as before), unless a game set it with op 8.
+
+### Network layer ("Pathway To Glory Network", 6R82.APP 0x83fd4)
+
+One object (0x8f8 bytes, vtables 0x1b0908 / 0x1b0944 observer /
+0x1b0990) with one receive queue per message type (55 types, 12 bytes
+each at +0x48). Main vtable: +0x08 receive into a buffer, +0x0c receive
+into a new buffer, +0x10 send, +0x18 flush all queues and drop the sync
+streams, +0x1c state.
+
+Message, both directions, little endian:
+
+| Offset | Size | Meaning |
+|---|---|---|
+| 0 | u16 | bits 0..6 type, bit 7 "restart counters", bits 8..14 tag, bit 15 zlib |
+| 2 | u16 | data length (compressed: length of the zlib stream) |
+| 4 | | data (compressed: u32 unpacked size, then the zlib stream) |
+
+- The game sends one message per framework call (send 0x844b4, at most
+  0xffc data bytes), never split or compressed.
+- From the server (receive 0x84b9c, observer slot 0x34): a message longer
+  than 600 bytes comes in pieces of the same header; the first carries
+  the total length, then 596 data bytes per piece (compressed: the first
+  piece 592 after the u32 size). Compressed messages are inflated with
+  the game's zlib 1.1.4 (at most 200000 bytes unpacked).
+- Type 32 and type 34 are bundles of `{u16 length, data}` entries; the
+  game puts them into the queues of type 16 and type 21. After every
+  type 34 it queues an empty 35, after every 23 an empty 41. Quirk: a
+  type 34 that is neither split nor compressed is queued as it is, so the
+  server always sends 34 compressed.
+- For every 23, 32 and 34 the game answers type 33 {u16 count of 23/34,
+  u16 count of 32, u16 tag of the message, u16}. Bit 7 resets both counts
+  and the drop flag that slot +0x18 sets; the server sets it on every
+  message so nothing is dropped after the game flushed its queues.
+- Type 18 from the server: the game answers 19 without data. Every 20 s
+  the game sends 19 with 4 bytes and expects 19 back within 30 s, else
+  "Connection to game server has been lost" (0x84a80).
+- Type 50 {u16 code}: the game ends or shows an error. Codes (texts at
+  0x1a5054, switch 0x6927c): 1 server asserted, 2 game ended, 3 host left,
+  4 GPRS too bad, 5 too many players, 6 client build not supported,
+  7 connection lost, 8 no opponents, 9 removed by the host, 10 connecting
+  failed, 11 no version from the client, 12 timeout. 0, 3, 5, 7, 8 and 9
+  end the game.
+
+### What travels (Bluetooth host code as the reference)
+
+In a Bluetooth game the host's phone is the hub (multiplayer loop
+0x2e7a0): clients send everything to it, and it passes on what the others
+need. Over GPRS each phone has one connection, to the server, so the
+server does the passing on:
+
+| Type | Meaning | Host's Bluetooth code | Server |
+|---|---|---|---|
+| 16 | a soldier's command (serialised, `IssueCommand` 0x2e200) | executes it and sends it to all other connections | to all other players, in bundles (32) |
+| 21, 35 | synchronisation records, end marker (0x271d8, waits 0x74468) | sends records, then 35 | collects the host's records, sends one 34 at the 35; without 35 after 3 s the records alone |
+| 23, 41 | permanent damage data ("Waiting permanent damage data from the host"), end marker (0xe0da8) | sends 23, then 41 to all | 23 to the clients, swallows the host's 41 after a 23 |
+| 43 | Field Radio chunk, 260 bytes: player (1..20), chunk, chunk count, 256 bytes of the recording | passes it to the players of the side whose turn it is | to all other players; a repeated copy within 1.5 s once |
+| 52 | message for everybody | passes it on to all others | to all other players |
+| 27, 39, 54 | end turn / ready flags, "Overpowered bonus!" | handles them itself | to the host |
+| 9, 10, 14 | lobby: version answer, player data (40 bytes), game data (136 bytes) | writes them to each player's connection | to the clients, each one once per player |
+| others | | | client -> host, host -> clients |
+
+The Field Radio ("Use the Field Radio for voice communication between
+you and your allies", in-game menu > Communications) records 8 kHz audio
+(MEDIACLIENTAUDIO, WAV writer 0x103800) and streams the message in
+256-byte chunks, one every 30 frames (sender 0x2f078); the receiver
+collects the chunks and plays the message when all are in (0x2ec60).
+
+**Rollback.** The help texts describe the GPRS synchronisation: a command
+is executed on the other phones when it arrives there ("Soldiers start
+to flicker when you give them a command in the GPRS game. The command is
+executed when it is delivered via GPRS to your allies and enemies", the
+blue ring shows the delivery time). The phone that gives the order runs
+it at once (0x2e200 queues it locally before sending), the others run it
+when the bundle arrives and correct their state; this lives entirely in
+the game. The server's part is to pass every command on once, to every
+other player, in the order it arrived, without waiting (a bundle goes
+out at the end of each incoming datagram).
+
+### Pathway to Glory (the first game)
+
+Pathway to Glory v1.03 (6R72, game class 43520 = 0xaa00) has the same
+GPRS mode on an older Arena stack: ArenaFramework 2.01.054 (the game
+creates it with ordinal 154), snapcomm "Nov 11 2004" (Thumb; delivers
+op 15 like the Ikusa Islands build), `arena.amr` with
+`im.ptg.redlynx.sf.yav4.com`, `GameServerFQDN`
+snap.ptg.redlynx.sf.yav4.com and retrieval43520 / reporter43520.
+`game.rsc` has the same settings with other battlegrounds (S. Europe,
+France, Rhein, Sicily and their numbered maps). The Field Radio, the GPRS
+help texts and the server error list are the same.
+
+The network layer (6R72.APP 0x78d80, receive 0x79884, send 0x79248 via
+CArenaFramework slot 0x3c, keep alive 0x7977c) has the same message
+types, pieces, zlib messages, bundles (32 -> 16, 34 -> 21 and its own
+35, 23 and its own 41), acknowledgements and keep alive, with these
+differences:
+
+- The whole first header byte is the type; above 51 the game treats the
+  message as an error. There is no restart bit (no drop flag either).
+- The queue number is the whole header with bit 15 removed, so the tag
+  bits must be 0 (the acknowledgement still copies them).
+- Type 50 always ends the connection, whatever the code.
+
+The server registers both games (`gcs_ptg_game()`, `gcs_ptg1_game()`)
+and leaves out the restart bit and the tag for 43520. Its lobbies are
+also `Freestyle,Ranked`; gcs_snap.c now keeps lobbies per game class, so
+that Worms World Party and the two Pathway to Glory games each get their
+own "Freestyle" and "Ranked" (before, the first game to register owned
+the name and the others saw no lobby).
+
+### Assumptions to check on hardware
+
+- Teams: the host's Bluetooth code sends the Field Radio only to the
+  players of the side whose turn it is; the server does not know the
+  sides and sends it to all other players.
+- Which lobby messages the GPRS game really uses, and whether the
+  original server answered the version check (code 11 in its error list)
+  itself instead of the host.
+- Whether a game ever sends more than one SNAP message can carry
+  (~1000 bytes) in one call; the server takes several messages per
+  datagram but does not join SNAP packet series.
+- The receive path of op 15 reliable (arenabase slot 0x50) up to the
+  game's observer slot 0x34; op 16 would be the alternative.
+
 ## Pocket Kingdom: game server
 
 Found in the retail game (6RAH.APP 110804, ARM code; static analysis of
