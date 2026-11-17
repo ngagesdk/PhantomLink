@@ -40,12 +40,12 @@ Uninstalling the app deletes all of it.
 
 ## Permissions
 
-- **Nearby devices (Bluetooth)**: accept the N-Gage's connection, answer
+- Nearby devices (Bluetooth): accept the N-Gage's connection, answer
   its pairing PIN and, when you tap "Make visible", let the N-Gage find the
   phone.
-- **Internet and network state**: connect to the server and find servers on
+- Internet and network state: connect to the server and find servers on
   the local network.
-- **Notifications and foreground service**: keep the bridge running and
+- Notifications and foreground service: keep the bridge running and
   show that it runs while the screen is off.
 
 ## Children

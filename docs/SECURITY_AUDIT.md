@@ -80,29 +80,29 @@ from the PC bridge were guessable.
 
 ### Session manager (`server/src/gcs_core.c`)
 
-- **Deferred destruction.** Sends never destroy a peer; an overflowing peer
+- Deferred destruction. Sends never destroy a peer; an overflowing peer
   is marked `doomed` and killed at defined safe points (end of input
   processing, transport close, timer poll). This removes the re-entrancy
   class behind findings 4 and 5 instead of patching individual call sites.
-- **One cleanup path.** Every peer death goes through `peer_kill()`, which
+- One cleanup path. Every peer death goes through `peer_kill()`, which
   leaves sessions and clears reservations. Before memory is released,
   `peer_scrub_refs()` verifies no session still references the peer, and
   dead sessions are unlinked from all peers (defence in depth; logged as an
   internal error if it ever triggers).
-- **State before notification.** `session_end()`, `h_kick()` and
+- State before notification. `session_end()`, `h_kick()` and
   `h_peer_accept()` update all membership state before sending anything.
-- **Handshake rules.** One HELLO per connection; a different second HELLO
+- Handshake rules. One HELLO per connection; a different second HELLO
   closes the connection. HELLOs on dead or detached peers are ignored.
   A link whose connection is still alive is only resumed from the same
   source address; otherwise the resume waits until the old connection is
   declared dead (at most the link's 20 s dead time).
-- **Limits.** Connections without a completed handshake are closed after
+- Limits. Connections without a completed handshake are closed after
   `hello_timeout_ms`. A connection is closed after `max_auth_failures` wrong
   keys; keys are compared in constant time. Lingering connections whose link
   was closed are released.
-- **Unpredictable ids** through `gcs_core_set_random()`, backed by the OS
+- Unpredictable ids through `gcs_core_set_random()`, backed by the OS
   CSPRNG in `gcs_main.c`.
-- **Input hygiene.** All log lines are stripped of control characters; all
+- Input hygiene. All log lines are stripped of control characters; all
   `strcpy`/`strncpy` replaced with a bounded copy; `SESSION_STATE` values are
   validated; slot indices are range checked before use.
 
@@ -164,16 +164,16 @@ semantics; the bridge and DLL test suites pass unchanged.
 
 ## Residual risks
 
-- **Resumption credential.** A detached link can be resumed by anyone who
+- Resumption credential. A detached link can be resumed by anyone who
   presents its 32-bit link id during the link grace period (20 s by default).
   Rate limits make guessing impractical for a single source, and the bridge
   now uses unpredictable ids, but the proper fix is a longer server-issued
   resume token. That is a protocol change across server, bridges and DLL.
-- **Local tunnels.** Behind SSH port forwarding or stunnel every client
+- Local tunnels. Behind SSH port forwarding or stunnel every client
   appears as `127.0.0.1`. The same-address resume rule and per-address limits
   then cannot tell bridges apart. A VPN such as WireGuard keeps distinct
   addresses.
-- **No transport security.** As before, TCP traffic and the access key are
+- No transport security. As before, TCP traffic and the access key are
   cleartext; remote access must go through a trusted VPN or tunnel.
-- **Trusted peers inside a session.** A malicious host can still cause slow
+- Trusted peers inside a session. A malicious host can still cause slow
   clients to be dropped by flooding them, which is inherent to relaying.

@@ -80,9 +80,7 @@ standard GameComms library, so PhantomLink cannot support them.
 | Pathway to Glory              | GPRS battles for up to 6 players, Field Radio voice messages    | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 | Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages  | ![Untested](https://img.shields.io/badge/Untested-grey)             |
 
-Pocket Kingdom logs in and reaches its Arena menus on a real N-Gage; the
-game server for the online map, battles, chat and the Global Auction is
-tested against simulated games only.
+Pocket Kingdom and Rifts are tested on a real N-Gage.
 Ashen's leaderboards are tested against the server only, not yet on a
 real N-Gage. The same goes for Worms World Party, whose server side is
 written from the game's Arena libraries (see

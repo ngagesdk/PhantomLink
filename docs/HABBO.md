@@ -2,7 +2,7 @@
 
 Habbo Islands (Sulake, 2006, app `6R83`, UID `0x101FD41E`) is not an
 N-Gage Arena game and does not use Bluetooth multiplayer. Its only online
-feature is the **Habbo Console**, the messenger of Habbo Hotel: log in with
+feature is the Habbo Console, the messenger of Habbo Hotel: log in with
 a Habbo account, see your friends (online or their last visit), read and
 send messages, accept or reject friend requests, find a Habbo and ask them
 to be your friend, remove a friend. The islands themselves stay offline.
@@ -17,31 +17,34 @@ so both Arena routes work for it. The PhantomLink app writes the host name
 of the console, `builder.sulake.com`, into `C:\System\Data\hosts` together
 with the Arena names.
 
-**Over GPRS** (no bridge):
+### Over GPRS (no bridge)
 
 1. Server: `gamecommsd` with `direct = 1`. The console uses TCP port 8080
    (`direct_habbo_port`, default 8080; open or forward it like the Arena
    ports).
-2. PhantomLink app: Settings > **Arena server**, then **Arena over GPRS**,
-   restart the N-Gage and choose **Arena over GPRS** once more until it
+2. PhantomLink app: Settings > Arena server, then Arena over GPRS,
+   restart the N-Gage and choose Arena over GPRS once more until it
    reports "Arena names: OK" (docs/ARENA.md, "Arena over GPRS").
-3. Habbo Islands: **Set Access Point** (in the console's options): the
+3. Habbo Islands: Set Access Point (in the console's options): the
    operator's packet data access point. Then open the Habbo Console, pick the server
    "PhantomLink" and log in.
 
-**Over Bluetooth** (PPP to a bridge): **Arena over BT** in the PhantomLink
-app (docs/ARENA.md), restart, and choose the access point `PhantomLink`
-in the game. The bridge passes port 8080 to the server like the Arena
-ports.
+### Over Bluetooth (PPP to a bridge)
 
-**Accounts**: the shared PhantomLink accounts (docs/ARENA.md, "Accounts").
+Choose Arena over BT in the PhantomLink app (docs/ARENA.md), restart,
+and choose the access point `PhantomLink` in the game. The bridge passes
+port 8080 to the server like the Arena ports.
+
+### Accounts
+
+The console uses the shared PhantomLink accounts (docs/ARENA.md, "Accounts").
 An Arena account works in the console with the same name and password; a
 new name creates the account on the first login. The game sends no IMEI,
 so a console login neither checks nor makes the IMEI binding (the binding
 is made by the first Arena login). Players find each other by account
 name. The Arena profile's quote is shown as the friend's text.
 
-**Do not log in before the hosts file is in force** (the check in the
+Important: do not log in before the hosts file is in force (the check in the
 app). `builder.sulake.com` is a real Sulake domain; without the redirect
 the game would try to reach it.
 
@@ -63,19 +66,19 @@ framework in its own `system\libs`, because the N-Gage firmware has none.
 
 HTTP/1.1, `User-Agent: Habbo Console (1.0)`, `Accept: */*`.
 
-1. **Server list**: `GET http://builder.sulake.com:8080/test/locator.html`.
+1. Server list: `GET http://builder.sulake.com:8080/test/locator.html`.
    Text, one server per line (CRLF or LF), fields separated by `;`:
    `id;display name;base URL`. The name goes into the server list, the base
    URL is the prefix of the servlets. PhantomLink answers
    `1;PhantomLink;http://<Host header>/habbo/`, so the game stays on the
    same host and port.
-2. **Login**: `POST <base>AuthenticationServlet`,
+2. Login: `POST <base>AuthenticationServlet`,
    `Content-Type: application/x-www-form-urlencoded`, body
    `user=NAME&pass=PASSWORD`. `0` is success; anything else shows "You have
    entered the wrong password or Habbo name!". The session is a cookie:
    the game keeps the `Set-Cookie` pairs and sends them back as `Cookie`.
-3. **Messenger**: `POST <base>MessengerServlet`, body
-   `m=ID[&p1=...][&p2=...]`. `m` is the **FUSE client message ID** of Habbo
+3. Messenger: `POST <base>MessengerServlet`, body
+   `m=ID[&p1=...][&p2=...]`. `m` is the FUSE client message ID of Habbo
    Hotel's own messenger (FUSE 0.2.0, Habbo v16):
 
 | m  | FUSE name              | Parameters                         | Answer on success |
@@ -95,7 +98,7 @@ Every answer is first compared with `2` (not logged in: the game logs in
 again and repeats the request, except for the logout) and `1` (this
 request failed: "Failed to send message!", "No Habbo found!", ...).
 
-The other answers are binary, **not** in Habbo's FUSE encoding (no Base64
+The other answers are binary, not in Habbo's FUSE encoding (no Base64
 headers, no VL64, no chr 2 / chr 1): Java `DataOutputStream` style,
 big-endian. `long` is 8 bytes, `str` is a u16 length followed by UTF-8
 bytes (`writeUTF`):

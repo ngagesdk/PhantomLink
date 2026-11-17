@@ -385,8 +385,8 @@ tunnels the traffic in these messages; the server's `gcs_native.c` answers.
 
 | Type | Direction | Layout after the type byte |
 |---|---|---|
-| 0xA0 TCP_OPEN | bridge → server | u16 id, 4 bytes address, u16 port, u16 device port |
-| 0xA1 TCP_DATA | both | u16 id, bytes (server → bridge: at most 512) |
+| 0xA0 TCP_OPEN | bridge to server | u16 id, 4 bytes address, u16 port, u16 device port |
+| 0xA1 TCP_DATA | both | u16 id, bytes (server to bridge: at most 512) |
 | 0xA2 TCP_CLOSE | both | u16 id, u8 how (0 FIN, 1 reset) |
 | 0xA3 UDP | both | 4 bytes server side address, u16 server side port, u16 device port, bytes |
 

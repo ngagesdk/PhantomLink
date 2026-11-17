@@ -34,7 +34,7 @@ phone forwards the game to a PhantomLink server over Wi-Fi or mobile data.
 
 1. Tap the start button. Allow "Nearby devices" (and notifications).
 2. On the N-Gage, start a multiplayer game and select the phone in the
-   Bluetooth list. If the phone is not listed, tap **Make visible**.
+   Bluetooth list. If the phone is not listed, tap Make visible.
 3. If the N-Gage asks for a PIN, enter the PIN from the settings (1234).
 
 The N-Gage shows the phone under the phone's Bluetooth name (Android
@@ -133,13 +133,14 @@ pairing or the insecure RFCOMM connection; the log shows how far it gets.
 
 ## Layout
 
-```
-android/
-  app/src/main/cpp/            JNI wrapper + CMake (shared C engine)
-  app/src/main/java/.../bridge/ BridgeEngine, NativeBridge (plain Java)
-  app/src/main/java/.../       service, Bluetooth listener, settings, UI
-  tests/                       host test (HostBridge.java, run_host_test.py)
-  fastlane/metadata/android/   store texts, icon, feature graphic, screenshots
-  store/PLAY_CONSOLE.md        Play Console walkthrough
-  PRIVACY.md                   privacy policy
-```
+| Folder or file | Content |
+|---|---|
+| `app/src/main/cpp/` | JNI wrapper and CMake (shared C engine) |
+| `app/src/main/java/de/ngagesdk/phantomlink/` | BridgeEngine and NativeBridge (plain Java), service, Bluetooth listener, settings |
+| `app/src/main/java/de/ngagesdk/phantomlink/ui/` | user interface |
+| `tests/` | host test (HostBridge.java, run_host_test.py) |
+| `fastlane/metadata/android/` | store texts, icon, feature graphic, screenshots |
+| `store/PLAY_CONSOLE.md` | Play Console walkthrough |
+| `PRIVACY.md` | privacy policy |
+
+All paths are relative to `android/`.
