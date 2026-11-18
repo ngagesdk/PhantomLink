@@ -55,9 +55,9 @@ and one N-Gage can have one account. The server keeps the accounts in
 | Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction) | Working |
 | Rifts: Promise of Power | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns) | Working |
 | Ashen | Online leaderboards: best score of every level and of the whole game | SegaChat login, score reports and top lists (gcs_scores.c) | Untested |
-| Worms World Party | Play Now: Freestyle and Ranked game rooms, games between 2 and 4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | In Progress |
-| Pathway to Glory | GPRS battles for up to 6 players, Field Radio voice messages | SNAP lobbies and rooms, game server that passes the commands, synchronisation data and Field Radio messages on (gcs_ptg.c) | In Progress |
-| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages | Same as Pathway to Glory (gcs_ptg.c) | In Progress |
+| Worms World Party | Play Now: Freestyle and Ranked game rooms, games between 2 and 4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | Untested |
+| Pathway to Glory | GPRS battles for up to 6 players, Field Radio voice messages | SNAP lobbies and rooms, game server that passes the commands, synchronisation data and Field Radio messages on (gcs_ptg.c) | Untested |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages | Same as Pathway to Glory (gcs_ptg.c) | Untested |
 
 The status column matches the README.
 
