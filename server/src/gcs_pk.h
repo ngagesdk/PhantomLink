@@ -90,7 +90,7 @@ void gcs_pk_get_stats(const gcs_pk *p, gcs_pk_stats *st);
 #define GCSP_SEARCH   6    /* kingdoms in the area                -> 134 */
 #define GCSP_SCOUT    7    /* scout a kingdom (relayed)           -> 135 */
 #define GCSP_ATTACK   9    /* attack a kingdom (relayed)          -> 137 */
-#define GCSP_ENGAGE   10   /* the battle starts (relayed)             */
+#define GCSP_ENGAGE   10   /* the battle starts (relayed + echoed)    */
 #define GCSP_EXHIBIT  13   /* auction: exhibit an item            -> 141 */
 #define GCSP_BROWSE   14   /* auction: search the exhibits        -> 142 */
 #define GCSP_BID      15   /* auction: bid                        -> 143 */
@@ -105,6 +105,11 @@ void gcs_pk_get_stats(const gcs_pk *p, gcs_pk_stats *st);
 /* result codes in byte 2 of a scout or attack answer (> 252) */
 #define GCSP_NOBODY_HOME 0xff /* sent by the defender's own game */
 #define GCSP_MOVED_AREA  0xfe /* sent by the server: offline or elsewhere */
+/* 146 [2]: 0 delivered (the game shows nothing); anything else starts a
+ * mission (type 11, 6RAH 0x6817c) that ends with trigger037 "Couldn't
+ * deliver the message!" (0x70e6c) */
+#define GCSP_CHAT_OK     0
+#define GCSP_CHAT_FAILED 1
 
 #define GCSP_MAX_NAME     15
 #define GCSP_SEARCH_MAX   5  /* kingdoms per search answer          */

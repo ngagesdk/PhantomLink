@@ -58,9 +58,9 @@ typedef struct
     int drop;        /* +740 */
     gc_u8 acks[QMAX][8];
     int n_acks;
-    int status; /* last type 50 code, -1 none */
-    int bad;    /* something the game would refuse */
-    int raw34;  /* a type 34 the game would not unpack */
+    int status;  /* last type 50 code, -1 none */
+    int bad;     /* something the game would refuse */
+    int raw34;   /* a type 34 the game would not unpack */
     int classic; /* Pathway to Glory (6R72.APP 0x79884) */
 } ptg_client;
 

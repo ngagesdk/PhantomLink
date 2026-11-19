@@ -667,7 +667,7 @@ static void on_relay(gcs_pk *p, gcs_snap *s, player *pl, const relay_fmt *f, con
         if (dst) {
             send_to(p, s, dst->uid, m, f->len);
             p->relayed++;
-            answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], 1);
+            answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], GCSP_CHAT_OK);
             LOG_I("chat '%s' -> '%s'", pl->name, to);
         } else if (dst_k) {
             int i, waiting = 0;
@@ -679,14 +679,14 @@ static void on_relay(gcs_pk *p, gcs_snap *s, player *pl, const relay_fmt *f, con
                 memcpy(p->ml[p->nml].m, m, CHATSZ);
                 p->nml++;
                 save(p);
-                answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], 1);
+                answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], GCSP_CHAT_OK);
                 LOG_I("chat '%s' -> '%s' kept until the next visit", pl->name, dst_k->name);
             } else {
-                answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], 0);
+                answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], GCSP_CHAT_FAILED);
                 LOG_W("chat '%s' -> '%s': too many waiting messages", pl->name, dst_k->name);
             }
         } else {
-            answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], 0);
+            answer4(p, s, pl->uid, GCSP_ANSWER | GCSP_CHAT, d[1], GCSP_CHAT_FAILED);
             LOG_I("chat '%s' -> '%s': no such kingdom", pl->name, to);
         }
         return;
@@ -705,6 +705,13 @@ static void on_relay(gcs_pk *p, gcs_snap *s, player *pl, const relay_fmt *f, con
     }
     send_to(p, s, dst->uid, m, f->len);
     p->relayed++;
+    if (f->type == GCSP_ENGAGE) {
+        /* the attacker gets his own 10 back: its handler (0x66de0) sees
+         * its own name @4 and only then clears the pending attack (type 1,
+         * the 10's sequence number); without the echo the mission check
+         * (0x28760) ends the attack with "has moved Area!" */
+        send_to(p, s, pl->uid, m, f->len);
+    }
     LOG_I("message %u '%s' -> '%s'%s", f->type, pl->name, to,
           (f->type & GCSP_ANSWER) && d[2] > 252 ? " (refused)" : "");
 }
