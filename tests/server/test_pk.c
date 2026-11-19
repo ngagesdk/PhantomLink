@@ -322,8 +322,16 @@ static void test_relay(void)
     m[1] = 13;
     name16(m + 4, "Alice");
     name16(m + 20, "Bob");
+    name16(m + 4, "Mallory"); /* the server writes the real sender */
     send(&P[0], m, 36);
-    CHECK(take(&P[1], GCSP_ENGAGE) != NULL);
+    r = take(&P[1], GCSP_ENGAGE);
+    CHECK(r && r->n == 36 && r->d[1] == 13 && !strcmp((const char *)r->d + 4, "Alice"));
+    /* the attacker gets its own 10 back (its game only then plays the
+     * battle; without it: "has moved Area!") */
+    r = take(&P[0], GCSP_ENGAGE);
+    CHECK(r && r->n == 36 && r->d[1] == 13 && !strcmp((const char *)r->d + 4, "Alice") &&
+          !strcmp((const char *)r->d + 20, "Bob"));
+    CHECK(take(&P[2], GCSP_ENGAGE) == NULL);
 
     /* chat (18): online, then to an offline kingdom, then unknown */
     memset(m, 0, sizeof(m));
@@ -335,8 +343,10 @@ static void test_relay(void)
     send(&P[0], m, 116);
     r = take(&P[1], GCSP_CHAT);
     CHECK(r && r->n == 116 && !strcmp((const char *)r->d + 36, "Hello Bob"));
+    /* 146 [2] = 0: delivered; anything else makes the game say
+     * "Couldn't deliver the message!" */
     r = take(&P[0], 146);
-    CHECK(r && r->d[1] == 20 && r->d[2] == 1);
+    CHECK(r && r->d[1] == 20 && r->d[2] == GCSP_CHAT_OK);
 
     G->left(G->ctx, NULL, P[2].uid);
     m[1] = 21;
@@ -344,12 +354,12 @@ static void test_relay(void)
     strcpy((char *)m + 36, "See you");
     send(&P[0], m, 116);
     r = take(&P[0], 146);
-    CHECK(r && r->d[1] == 21 && r->d[2] == 1);
+    CHECK(r && r->d[1] == 21 && r->d[2] == GCSP_CHAT_OK);
     m[1] = 22;
     name16(m + 20, "Zed");
     send(&P[0], m, 116);
     r = take(&P[0], 146);
-    CHECK(r && r->d[1] == 22 && r->d[2] == 0);
+    CHECK(r && r->d[1] == 22 && r->d[2] == GCSP_CHAT_FAILED);
     {
         gcs_pk_stats st;
         gcs_pk_get_stats(K, &st);

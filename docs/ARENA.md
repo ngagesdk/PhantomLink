@@ -1117,8 +1117,8 @@ in auction messages are big endian.
 | 135 | 52 | relayed | scout answer from the defender's game: [2] result, to @4, from @20, party data |
 | 9 | 88 | relayed | attack: [3] party, from @4, to @20, 4 units x 12 bytes from @40 |
 | 137 | 88 | relayed | attack answer from the defender's game: [2] result, to @8, from @24, defending units |
-| 10 | 36 | relayed | the battle starts: from @4, to @20 |
-| 18 | 116 | relayed | chat: [2] area, from @4, to @20, text @36 (78 chars), [115]; answer 146: [2] = 1 delivered, 0 not |
+| 10 | 36 | relayed | the battle starts: from @4, to @20; the server also sends it back to the attacker |
+| 18 | 116 | relayed | chat: [2] area, from @4, to @20, text @36 (78 chars), [115]; answer 146: [2] = 0 delivered (or kept), anything else makes the game report trigger037 "Couldn't deliver the message!" |
 | 13 | 32 | game to server | exhibit: name @4, item @20..26, starting price u32 @28; answer 141 |
 | 141 | 8 | server to game | [3] 0 exhibited (trigger041), 1 too many (040), 2 refused (043); u32 @4 auction id |
 | 14 | 32 | game to server | browse: [2] category, [3] item type, [4] rarity, [8] sub-filter (0xff = any), u32 @12 page, name @16; answer 142 |
@@ -1163,8 +1163,22 @@ another area.
   summary, victory points, loot, last visit).
 - Relayed messages go to the user named in the "to" field (any case);
   the server writes the sender's real name into the "from" field.
+- Message 10 also goes back to the attacker. The game's handler
+  (6RAH 0x66de0) compares the name @4 with its own: someone else's 10
+  starts the defence, its own 10 confirms the attack (it clears the
+  pending attack with the 10's sequence number; the 137 handler 0x66698
+  moves the attack to that number when it sends the 10). Without the echo
+  the attack stays pending and the mission check (0x28760) reports "It
+  seems X has moved Area!" (mestext.dat records 322/323; 319 is "False
+  alarm", 320/321 "nobody home" for result 255), while the defender's
+  game plays the battle.
 - Chat to a known kingdom that is offline is kept (at most 50 per player)
-  and delivered after its next message 1; unknown names get 146 with 0.
+  and delivered after its next message 1; unknown names get 146 with 1.
+  Byte 2 of 146 is a failure flag: the game's handler (6RAH 0x6817c)
+  ignores 0 and for any other value starts a mission (type 11) that ends
+  with trigger037 "Couldn't deliver the message!" (0x70e6c). The server
+  used to send 1 for a delivered message, so every message looked
+  undelivered.
 - Auctions run 24 hours (`GCSP_AUCTION_SECS`); at most 10 exhibits and 10
   bids per player (results not yet collected count); prices up to
   9,999,999. A bid must be at least the starting price, or higher than the
