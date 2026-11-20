@@ -22,9 +22,9 @@ phone forwards the game to a PhantomLink server over Wi-Fi or mobile data.
 
 | Setting | gcbridge.ini | Default |
 |---|---|---|
-| Find server automatically / Server address | `server` | auto |
+| Find server automatically / Server address | `server` | auto; manual address defaults to `188.68.43.183` |
 | Port | `port` | 9888 |
-| Access key | `key` | empty |
+| Access key | `key` | `ngage` |
 | Pairing PIN | `pin` | 1234 |
 | Service name | `name` | GameComms Bridge |
 | N-Gages at the same time | `max_devices` | 4 |
@@ -33,13 +33,25 @@ phone forwards the game to a PhantomLink server over Wi-Fi or mobile data.
 ## Using it
 
 1. Tap the start button. Allow "Nearby devices" (and notifications).
-2. On the N-Gage, start a multiplayer game and select the phone in the
-   Bluetooth list. If the phone is not listed, tap Make visible.
-3. If the N-Gage asks for a PIN, enter the PIN from the settings (1234).
+2. Tap **Make visible**.
+3. On the N-Gage, open Bluetooth, select Paired devices, and pair with the
+   Android phone.
+4. If the N-Gage asks for a PIN, enter the PIN from the settings (default
+   1234). If the PIN setting is empty, choose a PIN and confirm it on the phone.
 
+After pairing, start a multiplayer game on the N-Gage and select the phone.
 The N-Gage shows the phone under the phone's Bluetooth name (Android
 Settings > Connected devices > Device name). On phones with aggressive
 battery savers, exempt PhantomLink from battery optimization.
+
+To install PhantomLink on a Symbian phone, tap **Send PhantomLink.sis to
+phone** on the Bridge screen. The app downloads the current CI installer
+from GitHub and opens Android's Bluetooth file-transfer device picker. Select
+the Symbian phone and accept the incoming file there. Android's Bluetooth
+sharing uses OBEX Object Push; pairing steps depend on the Android device.
+The transfer and installation are completed outside the app. The action
+requires the system Bluetooth file-sharing activity, which may not be
+available on every Android device.
 
 ## Building
 

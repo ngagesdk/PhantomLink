@@ -52,6 +52,8 @@ fun HomeScreen(
     onStop: () -> Unit,
     onRestart: () -> Unit,
     onMakeVisible: () -> Unit,
+    onSendInstaller: () -> Unit,
+    downloadingInstaller: Boolean,
     contentPadding: PaddingValues,
 ) {
     val sc = LocalStatusColors.current
@@ -62,6 +64,9 @@ fun HomeScreen(
         LogoHeader()
         Spacer(Modifier.height(12.dp))
         PowerCard(ui, onStart, onStop)
+        TextButton(onClick = onSendInstaller, enabled = !downloadingInstaller) {
+            Text(if (downloadingInstaller) "Downloading PhantomLink.sis..." else "Send PhantomLink.sis to phone")
+        }
 
         val active = ui.activeSettings
         if (ui.running && active != null && active.bridgeDiffers(settings)) {
@@ -170,10 +175,12 @@ private fun PowerCard(ui: BridgeUi, onStart: () -> Unit, onStop: () -> Unit) {
 private fun HowTo(ui: BridgeUi, settings: AppSettings) {
     PlainCard {
         Column(Modifier.padding(horizontal = 18.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            val name = ui.phoneName?.let { "“$it”" } ?: "this phone"
+            val name = ui.phoneName?.takeIf { it.isNotBlank() }?.let { "“$it”" } ?: "this phone"
+            val pin = (ui.activeSettings ?: settings).pin
             Step(1, if (ui.running) "Bridge started." else "Tap the start button above.")
-            Step(2, "On the N-Gage, start a multiplayer game and select $name in the Bluetooth list.")
-            Step(3, if (settings.pin.isNotEmpty()) "If the N-Gage asks for a PIN, enter ${settings.pin}."
+            Step(2, "Tap Make visible.")
+            Step(3, "On the N-Gage, open Bluetooth, select Paired devices, and pair with $name.")
+            Step(4, if (pin.isNotEmpty()) "If the N-Gage asks for a PIN, enter $pin."
                     else "If the N-Gage asks for a PIN, choose one and confirm it on the phone.")
         }
     }

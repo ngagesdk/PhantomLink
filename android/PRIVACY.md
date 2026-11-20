@@ -23,7 +23,7 @@ adds what the server needs to tell players apart:
 | Bluetooth address of the connected N-Gage | identifies your N-Gage across short connection drops |
 | Player name set on the N-Gage | shown to the other players |
 | Game and session data from the N-Gage | the multiplayer game itself |
-| Access key, if you entered one | lets the server admit you |
+| Access key, if configured (default `ngage`) | lets the server admit you |
 | Your Internet (IP) address | needed for any Internet connection |
 
 This traffic is not encrypted, because the N-Gage cannot use encryption.
