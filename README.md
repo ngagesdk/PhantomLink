@@ -119,7 +119,7 @@ For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 | Tony Hawk's Pro Skater                   | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | Warhammer 40,000: Glory in Death         | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
 | WWE Aftershock                           | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Xanadu Next                              | ![Untested](https://img.shields.io/badge/Untested-grey)          |
+| Xanadu Next                              | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 
 Games that are not listed use their own Bluetooth code instead of the
 standard GameComms library, so PhantomLink cannot support them.
