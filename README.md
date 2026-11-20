@@ -117,31 +117,33 @@ see [docs/HABBO.md](docs/HABBO.md).
 
 - A Nokia N-Gage (Classic or QD) and a supported game.
 - A bridge: one of the devices listed above.
-- A PhantomLink server that all players connect to.
+- A shared PhantomLink server, either the prefilled server or your own.
 - An Internet or local network connection for the bridge.
 
-## Getting started
+## Quickstart
 
-Download `PhantomLink.zip` from the
-[Releases page](https://github.com/ngagesdk/PhantomLink/releases/tag/continuous).
-It contains the server (Linux, Windows), the Android and Windows bridges,
-the ESP32 firmware and the N-Gage app `PhantomLink.sis`.
-
-1. **Start a server.** Run `gamecommsd` on a computer in your network.
-   To play over the Internet, all players connect to the same server
-   through a VPN.
-2. **Set up a bridge.** The easiest choice is the Android app:
+1. **Set up the Android bridge.** Install the app and choose a server in
+   Settings. To use the prefilled server, turn off **Find server automatically**.
+   For your own server, use automatic discovery on the local network or enter
+   its address and access key. All players must use the same server.
 
    [![Get it on Google Play](https://play.google.com/intl/en_us/badges/images/generic/en_badge_web_generic.png)](https://play.google.com/store/apps/details?id=de.ngagesdk.phantomlink)
 
-   Open it and tap start. For the other bridges, see
-   [docs/BUILD.md](docs/BUILD.md).
-3. **Prepare the N-Gage.** Install `PhantomLink.sis`, open PhantomLink and
-   pick your game from the list. (If the game has its own `gamecomms.dll`
-   in its folder, see [docs/BUILD.md](docs/BUILD.md), "Installing on the
-   N-Gage".)
-4. **Play.** Start a multiplayer game and select the bridge when asked
-   (PIN `1234`).
+2. **Pair the devices.** Start the bridge, allow the requested permissions and
+   tap **Make visible**. On the N-Gage, open Bluetooth, select **Paired devices**
+   and pair with the Android phone. Enter the PIN from the app settings when
+   pairing (default `1234`).
+3. **Set up the N-Gage.** Open **Settings**, then **Connection**, then **Access
+   points**. Create an access point named `PhantomLink`, select **GSM data** and
+   enter any number. In the Android app, tap **Send PhantomLink.sis to phone**,
+   select the N-Gage and accept the file. Install and open it, then pick your
+   game. The Symbian app handles the remaining setup.
+4. **Play.** Start a multiplayer game and select the paired bridge or access
+   point.
+
+For other bridges, running your own server or alternative installation steps,
+see [docs/BUILD.md](docs/BUILD.md). Downloads are available on the
+[Releases page](https://github.com/ngagesdk/PhantomLink/releases/tag/continuous-integration).
 
 For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 [docs/ARENA.md](docs/ARENA.md).
