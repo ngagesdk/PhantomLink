@@ -13,7 +13,7 @@ env:
   # tag of the rolling CI release
   CI_RELEASE_TAG: continuous-integration
 
-jobs:   
+jobs:
   host-tests:
     strategy:
       matrix:
@@ -276,6 +276,8 @@ jobs:
           workflow run:    ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}
           ngage-toolchain: ${NGAGE_TOOLCHAIN_REF}
           EOF
+          # Standalone SIS asset, alongside PhantomLink.zip
+          cp "$root/ngage/PhantomLink.sis" PhantomLink.sis
       - name: Verify contents
         run: |
           root=dist/PhantomLink
@@ -291,14 +293,20 @@ jobs:
           for f in $required; do
             if [ ! -s "$root/$f" ]; then echo "::error::missing $f"; missing=1; fi
           done
+          if [ ! -s PhantomLink.sis ]; then
+            echo "::error::missing standalone PhantomLink.sis"; missing=1
+          fi
           find "$root" -type f | sort
+          ls -lh PhantomLink.sis
           exit $missing
       - name: Create ZIP
         run: cd dist && zip -r -9 -X ../PhantomLink.zip PhantomLink
       - uses: actions/upload-artifact@v7
         with:
           name: PhantomLink
-          path: PhantomLink.zip
+          path: |
+            PhantomLink.zip
+            PhantomLink.sis
           if-no-files-found: error
 
   # Rolling pre-release with the latest build of main.
@@ -338,7 +346,11 @@ jobs:
             - `ngage/PhantomLink.sis` - Symbian app: pick a game to install its `gamecomms.dll`, configure the ESP32 bridge over Bluetooth
             - `ngage/v1` ... `ngage/v11/` - replacement `gamecomms.dll`, one per variant (see docs/COMPATIBILITY.md)
             - `firmware/esp32dev/` - ESP32 bridge firmware (see FLASHING.txt)
-          files: PhantomLink.zip
+
+            `PhantomLink.sis` is also available as a standalone download.
+          files: |
+            PhantomLink.zip
+            PhantomLink.sis
           draft: false
           prerelease: true
           make_latest: false
