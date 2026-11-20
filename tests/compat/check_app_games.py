@@ -20,10 +20,10 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
 
 # README heading, COMPATIBILITY.md heading
 SECTIONS = [
+    ("### Bridges", "## Bridges"),
     ("### Multiplayer games", "## Games"),
     ("### N-Gage Arena games", "## N-Gage Arena games"),
     ("### Other online games", "## Other online games"),
-    ("### Bridges", "## Bridges"),
 ]
 
 
