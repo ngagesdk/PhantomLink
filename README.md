@@ -40,22 +40,6 @@ games' server logic is handled.
 - N-Gage Arena: accounts, chat login and game services for selected games.
 - Other online services, such as the Habbo Console of Habbo Islands.
 
-### Bridges
-
-| Bridge                     | Status                                                               |
-| -------------------------- | -------------------------------------------------------------------- |
-| Android phone (Android 8+) | Supported                                                            |
-| Linux PC / Raspberry Pi    | Supported                                                            |
-| ESP32 board                | Supported (one ESP32 per N-Gage)                                     |
-| Windows PC                 | Limited: may not work, depending on the Bluetooth adapter            |
-
-## What you need
-
-- A Nokia N-Gage (Classic or QD) and a supported game.
-- A bridge: one of the devices listed above.
-- A shared PhantomLink server, either the prefilled server or your own.
-- An Internet or local network connection for the bridge.
-
 ## Quickstart
 
 1. **Set up the Android bridge.** Install the app and choose a server in
@@ -85,6 +69,15 @@ For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 [docs/ARENA.md](docs/ARENA.md).
 
 ## Compatibility
+
+### Bridges
+
+| Bridge                     | Status                                                               |
+| -------------------------- | -------------------------------------------------------------------- |
+| Android phone (Android 8+) | Supported                                                            |
+| Linux PC / Raspberry Pi    | Supported                                                            |
+| ESP32 board                | Supported (one ESP32 per N-Gage)                                     |
+| Windows PC                 | Limited: may not work, depending on the Bluetooth adapter            |
 
 ### Multiplayer games
 
