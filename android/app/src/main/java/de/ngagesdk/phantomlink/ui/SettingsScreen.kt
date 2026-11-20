@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import de.ngagesdk.phantomlink.AppSettings
+import de.ngagesdk.phantomlink.DEFAULT_SERVER_HOST
 import de.ngagesdk.phantomlink.ThemeMode
 import de.ngagesdk.phantomlink.BridgeConfig
 import de.ngagesdk.phantomlink.BridgeEngine
@@ -52,7 +53,9 @@ fun SettingsScreen(settings: AppSettings, onChange: ((AppSettings) -> AppSetting
         SectionTitle("Server")
         PlainCard {
             SwitchRow("Find server automatically", "Looks for a PhantomLink server on the local network",
-                settings.autoServer) { v -> onChange { it.copy(autoServer = v) } }
+                settings.autoServer) { v ->
+                onChange { it.copy(autoServer = v, serverHost = if (!v && it.serverHost.isBlank()) DEFAULT_SERVER_HOST else it.serverHost) }
+            }
             Divider()
             Column(Modifier.padding(horizontal = 18.dp, vertical = 10.dp)) {
                 if (!settings.autoServer) {

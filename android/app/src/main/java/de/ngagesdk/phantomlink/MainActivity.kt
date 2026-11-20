@@ -9,6 +9,8 @@ package de.ngagesdk.phantomlink
 import android.Manifest
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -44,17 +46,28 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import de.ngagesdk.phantomlink.ui.HomeScreen
 import de.ngagesdk.phantomlink.ui.LogScreen
 import de.ngagesdk.phantomlink.ui.PhantomTheme
 import de.ngagesdk.phantomlink.ui.SettingsScreen
 import de.ngagesdk.phantomlink.ui.isDark
+import java.io.File
+import java.io.IOException
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.UUID
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var store: SettingsStore
     private var message by mutableStateOf<String?>(null)
+    private var downloadingInstaller by mutableStateOf(false)
 
     private val startPermissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         if (BridgeService.hasBluetoothPermission(this)) {
@@ -134,6 +147,8 @@ class MainActivity : ComponentActivity() {
                     onStop = { BridgeService.stop(this) },
                     onRestart = { BridgeService.restart(this) },
                     onMakeVisible = ::makeVisible,
+                    onSendInstaller = ::sendInstaller,
+                    downloadingInstaller = downloadingInstaller,
                     contentPadding = padding,
                 )
                 1 -> LogScreen(log, onShare = ::shareLog, onClear = BridgeState::clearLog, contentPadding = padding)
@@ -186,6 +201,74 @@ class MainActivity : ComponentActivity() {
             )
         } catch (_: Exception) {
             message = "Open the phone's Bluetooth settings to make it visible."
+        }
+    }
+
+    private fun sendInstaller() {
+        if (downloadingInstaller) return
+        downloadingInstaller = true
+        lifecycleScope.launch {
+            try {
+                val file = withContext(Dispatchers.IO) { downloadInstaller() }
+                val uri = FileProvider.getUriForFile(this@MainActivity, "$packageName.files", file)
+                // The system Bluetooth share filter may omit application/octet-stream.
+                val send = Intent(Intent.ACTION_SEND).setType("application/octet-stream")
+                    .setClassName("com.android.bluetooth", "com.android.bluetooth.opp.BluetoothOppLauncherActivity")
+                    .putExtra(Intent.EXTRA_STREAM, uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    .apply { clipData = ClipData.newRawUri("PhantomLink.sis", uri) }
+                startActivity(send)
+            } catch (e: IOException) {
+                message = "Could not download PhantomLink.sis: ${e.message}"
+            } catch (_: ActivityNotFoundException) {
+                message = "Bluetooth file sharing is not available on this Android device."
+            } catch (_: SecurityException) {
+                message = "This Android device does not allow Bluetooth file sharing from PhantomLink."
+            } finally {
+                downloadingInstaller = false
+            }
+        }
+    }
+
+    private fun downloadInstaller(): File {
+        val directory = File(cacheDir, "installer/${UUID.randomUUID()}")
+        if (!directory.mkdirs()) throw IOException("Could not create download directory")
+        val file = File(directory, "PhantomLink.sis")
+        try {
+            val connection = URL("https://github.com/ngagesdk/PhantomLink/releases/download/continuous-integration/PhantomLink.sis")
+                .openConnection() as HttpURLConnection
+            try {
+                connection.connectTimeout = 15000
+                connection.readTimeout = 30000
+                val status = connection.responseCode
+                if (status !in 200..299) throw IOException("HTTP $status")
+                val expectedLength = connection.contentLengthLong
+                val maxSize = 50L * 1024 * 1024
+                if (expectedLength > maxSize) throw IOException("Installer is too large")
+                var total = 0L
+                connection.inputStream.use { input ->
+                    file.outputStream().use { output ->
+                        val buffer = ByteArray(8192)
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count == -1) break
+                            total += count
+                            if (total > maxSize) throw IOException("Installer is too large")
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                if (total == 0L || (expectedLength >= 0 && total != expectedLength)) {
+                    throw IOException("Incomplete installer download")
+                }
+            } finally {
+                connection.disconnect()
+            }
+            return file
+        } catch (e: IOException) {
+            file.delete()
+            directory.delete()
+            throw e
         }
     }
 

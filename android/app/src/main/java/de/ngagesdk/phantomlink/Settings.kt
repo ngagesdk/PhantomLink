@@ -14,12 +14,14 @@ import de.ngagesdk.phantomlink.BridgeConfig
 
 enum class ThemeMode { LIGHT, DARK, SYSTEM }
 
+const val DEFAULT_SERVER_HOST = "188.68.43.183"
+
 data class AppSettings(
     /** true = find the server on the local network */
     val autoServer: Boolean = true,
-    val serverHost: String = "",
+    val serverHost: String = DEFAULT_SERVER_HOST,
     val port: Int = BridgeConfig.DEFAULT_PORT,
-    val accessKey: String = "",
+    val accessKey: String = "ngage",
     /** answered automatically when an N-Gage pairs; empty = confirm on the phone */
     val pin: String = "1234",
     val serviceName: String = "GameComms Bridge",
@@ -62,7 +64,7 @@ class SettingsStore private constructor(context: Context) {
         val d = AppSettings()
         return AppSettings(
             autoServer = prefs.getBoolean("auto_server", d.autoServer),
-            serverHost = prefs.getString("server", d.serverHost) ?: d.serverHost,
+            serverHost = prefs.getString("server", d.serverHost)?.takeUnless { it.isBlank() } ?: d.serverHost,
             port = prefs.getInt("port", d.port),
             accessKey = prefs.getString("key", d.accessKey) ?: d.accessKey,
             pin = prefs.getString("pin", d.pin) ?: d.pin,
