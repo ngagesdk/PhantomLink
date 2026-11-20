@@ -138,8 +138,8 @@ see [docs/HABBO.md](docs/HABBO.md).
    enter any number. In the Android app, tap **Send PhantomLink.sis to phone**,
    select the N-Gage and accept the file. Install and open it, then pick your
    game. The Symbian app handles the remaining setup.
-4. **Play.** Start a multiplayer game and select the paired bridge or access
-   point.
+4. **Play.** Start a multiplayer game and select the paired bridge or the
+   PhantomLink access point (when connecting to the N-Gage Arena).
 
 For other bridges, running your own server or alternative installation steps,
 see [docs/BUILD.md](docs/BUILD.md). Downloads are available on the
