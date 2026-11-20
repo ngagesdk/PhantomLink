@@ -46,7 +46,7 @@ md5sum, or with `python tools/gc_identify.py dll gamecomms.dll`.
 | FIFA Football 2005                       | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Not working |
 | SSX Out of Bounds                        | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Not working |
 | WWE Aftershock                           | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Working     |
-| Xanadu Next                              | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Untested    |
+| Xanadu Next                              | v6  | bb02377c5361597f8d8503f5de584845 | 57       | Not working |
 | Ashen                                    | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Working     |
 | Bomberman                                | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Working     |
 | Crash Nitro Kart                         | v8  | d4c10fcebfb6da8da6b757aa8392b6d7 | 57       | Not working |
@@ -104,8 +104,8 @@ Habbo Islands is tested against the server only, not yet on a real N-Gage.
 
 | Bridge                     | Status                                                    |
 | -------------------------- | --------------------------------------------------------- |
-| Android phone (Android 8+) | Tested with simulated N-Gages                             |
-| Linux PC / Raspberry Pi    | Tested with simulated N-Gages                             |
+| Android phone (Android 8+) | Supported                                                 |
+| Linux PC / Raspberry Pi    | Supported                                                 |
 | ESP32 board                | Supported (one ESP32 per N-Gage)                          |
 | Windows PC                 | Limited: may not work, depending on the Bluetooth adapter |
 
