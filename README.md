@@ -20,6 +20,17 @@ PhantomLink also brings back **N-Gage Arena**, Nokia's online service for
 the N-Gage, which was shut down in 2010, and the online features of other
 games that had their own servers.
 
+## How it works
+
+The N-Gage app installs a drop-in replacement for `GameComms.dll`. Games that
+use it talk to a dedicated bridge service, allowing multiplayer games originally
+limited to local play to connect online. The app also emulates the Nokia N-Gage
+Arena service: games can access it directly over GPRS or through a Bluetooth
+bridge.
+
+The bridge service connects to the PhantomLink server, where the individual
+games' server logic is handled.
+
 ## Features
 
 - Online multiplayer for N-Gage games that originally used Bluetooth.
