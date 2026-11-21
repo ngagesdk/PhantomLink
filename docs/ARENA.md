@@ -155,8 +155,10 @@ see the reverse engineering notes below):
   file the pages of the Play menu (rankings, tournaments, activities,
   games) are generated (see "Rankings, tournaments and activities"
   below), other `*_x.jsp` lists are empty lists, other `.jsp` pages and
-  `/servlets/*` a short black page. The profile view is generated from the
-  requested account instead of a file: it shows the username, names enabled
+  `/servlets/*` use a themed fallback. Templates for all documented page
+  routes and generated community lists are in `server/deploy/page-templates`;
+  they are inactive until copied to `www_root`. The profile view is generated
+  from the requested account instead of a file: it shows the username, names enabled
   in display options, favourites and quote, but not email or credentials.
   An invalid or unknown username returns 404. The addresses are
   ArenaFramework's, the same in every game; example pages and the list of

@@ -643,11 +643,19 @@ static void soap_body(gcs_native *n, sbuf *b, const char *op, const char *user, 
     "<?xml version=\"1.0\" encoding=\"utf-8\"?><list><currentStart value=\"0\"/><listTotal value=\"0\"/>" \
     "</list>"
 /* black like the Arena menus around it */
-#define PAGE_HTML                                                                                                  \
-    "<?xml version=\"1.0\" encoding=\"utf-8\"?><html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"                \
-    "<title>N-Gage Arena</title></head><body bgcolor=\"#000000\" text=\"#ffffff\" "                                \
-    "style=\"background-color:#000000;color:#ffffff\"><p>PhantomLink Arena emulator: nothing here yet.</p></body>" \
-    "</html>"
+#define PAGE_HTML                                                                                                        \
+    "<?xml version=\"1.0\" encoding=\"utf-8\"?><!DOCTYPE html PUBLIC \"-//WAPFORUM//DTD XHTML Mobile 1.0//EN\" "    \
+    "\"http://www.wapforum.org/DTD/xhtml-mobile10.dtd\"><html xmlns=\"http://www.w3.org/1999/xhtml\"><head>"       \
+    "<title>N-Gage Arena</title><style type=\"text/css\">body { background-color: #080808; color: #eeeeee; "            \
+    "font-family: monospace; font-size: 14px; margin: 4px; }.header { background-color: #292929; color: #ffffff; "  \
+    "border: 2px solid #777777; padding: 5px; font-size: 18px; font-weight: bold; }.section { background-color: "     \
+    "#a60000; color: #ffffff; border: 1px solid #660000; padding: 4px; font-weight: bold; }.content { background-color: " \
+    "#211313; color: #dddddd; border: 1px solid #633333; padding: 6px; }.footer { background-color: #252525; color: " \
+    "#aaaaaa; border: 1px solid #555555; padding: 5px; text-align: center; font-size: 11px; }</style></head>"     \
+    "<body bgcolor=\"#080808\" text=\"#eeeeee\" style=\"background-color:#080808;color:#eeeeee\">"                \
+    "<div class=\"header\">N-GAGE ARENA</div><p class=\"section\">&gt; ARENA</p><div class=\"content\">"        \
+    "PhantomLink Arena emulator: nothing here yet.</div><div class=\"footer\">N-GAGE ARENA &#183; PHANTOMLINK</div>"   \
+    "</body></html>"
 
 static void http_answer_n(gcs_native *n, conn *c, const char *body, size_t blen, const char *ctype,
                           const char *cookie)
@@ -789,9 +797,17 @@ static void profile_answer(gcs_native *n, conn *c, const char *path, const char 
     }
     memset(&b, 0, sizeof(b));
     sb_str(&b, "<?xml version=\"1.0\" encoding=\"utf-8\"?>"
-               "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>Profile</title></head>"
-               "<body bgcolor=\"#000000\" text=\"#ffffff\" style=\"background-color:#000000;color:#ffffff\">"
-               "<p><b>Profile</b></p>");
+               "<!DOCTYPE html PUBLIC \"-//WAPFORUM//DTD XHTML Mobile 1.0//EN\" "
+               "\"http://www.wapforum.org/DTD/xhtml-mobile10.dtd\">"
+               "<html xmlns=\"http://www.w3.org/1999/xhtml\"><head><title>Profile</title>"
+               "<style type=\"text/css\">body { background-color: #080808; color: #eeeeee; font-family: monospace; "
+               "font-size: 14px; margin: 4px; }.header { background-color: #292929; color: #ffffff; border: 2px solid "
+               "#777777; padding: 5px; font-size: 18px; font-weight: bold; }.section { background-color: #a60000; "
+               "color: #ffffff; border: 1px solid #660000; padding: 4px; font-weight: bold; }.content { background-color: "
+               "#211313; color: #dddddd; border: 1px solid #633333; padding: 6px; }.footer { background-color: #252525; "
+               "color: #aaaaaa; border: 1px solid #555555; padding: 5px; text-align: center; font-size: 11px; }</style>"
+               "</head><body bgcolor=\"#080808\" text=\"#eeeeee\" style=\"background-color:#080808;color:#eeeeee\">"
+               "<div class=\"header\">N-GAGE ARENA</div><p class=\"section\">&gt; PROFILE</p><div class=\"content\">");
     profile_line(&b, "Username", canon);
     if (!strcmp(boolstr(pf(n, canon, 3)), "true")) {
         profile_line(&b, "First name", pf(n, canon, 0));
@@ -802,7 +818,7 @@ static void profile_answer(gcs_native *n, conn *c, const char *path, const char 
     for (i = 0; i < 7; i++) {
         profile_line(&b, labels[i], pf(n, canon, 15 + i));
     }
-    sb_str(&b, "</body></html>");
+    sb_str(&b, "</div><div class=\"footer\">N-GAGE ARENA &#183; PHANTOMLINK</div></body></html>");
     if (b.oom) {
         LOG_W("http: out of memory rendering profile");
     }

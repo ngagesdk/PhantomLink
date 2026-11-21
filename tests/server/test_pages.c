@@ -311,6 +311,10 @@ static void test_pages(void)
     /* a game's rankings: top 10, the user's own rank below */
     d = render(&p, "/global/play/rankings/post_game.jsp", "gameId=42318&locale=1", "Alice", t0);
     CHECK(strstr(d, "<title>Ashen</title>") != NULL);
+    CHECK(strstr(d, "background-color: #080808") != NULL);
+    CHECK(strstr(d, "class=\"header\">N-GAGE ARENA</div>") != NULL);
+    CHECK(strstr(d, "class=\"section\">&gt; Ashen</p>") != NULL);
+    CHECK(strstr(d, "N-GAGE ARENA &#183; PHANTOMLINK") != NULL);
     CHECK(strstr(d, "Total score</b> (13 players)") != NULL);
     CHECK(strstr(d, "1. p11 210<br/>") != NULL);
     CHECK(strstr(d, "10. p02 120<br/>") != NULL);

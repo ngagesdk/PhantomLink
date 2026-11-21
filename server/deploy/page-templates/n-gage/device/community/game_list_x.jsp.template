@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<list><currentStart value="0"/><listTotal value="1"/>
+<itemNode index="0" contentId="1" gameId="{{GAME_CLASS}}" username="" mediaPath="">{{GAME_NAME}}</itemNode>
+</list>

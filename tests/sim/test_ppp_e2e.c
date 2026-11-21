@@ -565,6 +565,7 @@ static void test_ppp_mode(void)
     r = tcp_request(80, "GET /n-gage/device/global/customize/profile/profile_view.jsp;jsessionid=PL0?locale=1&username=%74ester&%C4%84 HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
     CHECK(r && strstr(r, "Username:</b> tester") && strstr(r, "First name:</b> Ann"));
+    CHECK(r && strstr(r, "background-color: #080808") && strstr(r, "class=\"section\">&gt; PROFILE</p>"));
     CHECK(r && strstr(r, "Favorite game:</b> Rifts &amp; more") && !strstr(r, "B &amp; C") && !strstr(r, "a@b.c"));
     CHECK(r && strstr(r, "Favorite game types:</b> Strategy") && strstr(r, "Favorite music:</b> Jazz &amp; rock"));
     CHECK(r && strstr(r, "Favorite food:</b> Pizza") && strstr(r, "Hobbies:</b> Chess") &&
@@ -600,15 +601,19 @@ static void test_ppp_mode(void)
     CHECK(r && strstr(r, "Username:</b> tester") && strstr(r, "First name:</b> Ann"));
     r = tcp_request(80, "GET /n-gage/device/global/support/support_main.jsp HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "200 OK") && strstr(r, "application/xhtml+xml"));
-    CHECK(r && strstr(r, "run by a PhantomLink server") && strstr(r, "background-color:#000000"));
+    CHECK(r && strstr(r, "run by a PhantomLink server") && strstr(r, "background-color:#080808"));
+    CHECK(r && strstr(r, "class=\"header\">N-GAGE ARENA</div>") && strstr(r, "#a60000"));
     r = tcp_request(80,
                     "GET /n-gage/servlets/msg;jsessionid=PL0?locale=1&start=0&disp=10&platform=device& HTTP/1.1\r\n\r\n",
                     1);
     CHECK(r && strstr(r, "application/xhtml+xml") && strstr(r, "Welcome back") && !strstr(r, "Rifts"));
+    CHECK(r && strstr(r, "class=\"section\">&gt; NEWS</p>") && strstr(r, "class=\"date\">12 NOV 2026</p>"));
     r = tcp_request(80, "GET /n-gage/device/global/support/legal_main.jsp?locale=1 HTTP/1.1\r\n\r\n", 1);
-    CHECK(r && strstr(r, "<title>About</title>"));
+    CHECK(r && strstr(r, "<title>About</title>") && strstr(r, "class=\"section\">&gt; ABOUT</p>"));
     r = tcp_request(80, "GET /n-gage/device/community/ranking_list_x.jsp HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "<listTotal value=\"0\"/>")); /* no file: built-in list */
+    r = tcp_request(80, "GET /n-gage/device/global/support/missing.jsp HTTP/1.1\r\n\r\n", 1);
+    CHECK(r && strstr(r, "class=\"section\">&gt; ARENA</p>") && strstr(r, "#a60000"));
     r = tcp_request(80, "GET /n-gage/../README.md HTTP/1.1\r\n\r\n", 1);
     CHECK(r && strstr(r, "404"));
     r = tcp_request(80, "GET /n-gage/device HTTP/1.1\r\n\r\n", 1);

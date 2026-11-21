@@ -12,7 +12,7 @@
  *     bound to the N-Gage's IMEI, the same for every game), the account
  *     and alert operations with per user profile data, the device pages
  *     (profile view, rankings, tournaments, activities and games generated
- *     by gcs_pages.h, other *_x.jsp lists empty, other pages a stub),
+ *     by gcs_pages.h, other *_x.jsp lists empty, other pages a themed fallback),
  *   - TCP 5222: SegaChat (Jabber): jabber:iq:auth checked against the
  *     same accounts, friends (roster, friend requests, presence with the
  *     Play Now ext_pres data, gcs_roster.h), messages between users (kept

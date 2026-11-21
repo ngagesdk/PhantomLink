@@ -13,7 +13,7 @@ A request for `/n-gage/...` is answered with:
    and games of the Play menu (docs/ARENA.md, "Rankings, tournaments and
    activities"),
 4. else the server's built-in placeholder (an empty list for other
-   `*_x.jsp`, a short black page otherwise).
+   `*_x.jsp`, a short themed page otherwise).
 
 A file here hides the generated page with the same path. The example
 `n-gage/device/global/play/activities/news.jsp` does that for the
@@ -47,9 +47,16 @@ or the file it looked for (`http: no file ...`).
 The example `8053/n-gage/servlets/msg` replaces the News page in Rifts
 only; delete it to see the shared one there.
 
-Pages are XHTML Mobile Profile (UTF-8). The Arena menus around them are
-black, so the examples set a black background three ways (CSS in the head,
-a `style` attribute and the old `bgcolor`/`text` attributes); keep whichever
-the N-Gage shows correctly. Files are limited to 64 KB; images (`.gif`,
-`.png`, `.jpg`) are served too. Paths may only contain letters, digits,
-`-`, `_`, `.` and `/`.
+Templates for every documented page and the generated community XML lists
+are in `server/deploy/page-templates`, with the same paths and a `.template`
+suffix. They are kept outside `www_root`, because copying one to its active
+path overrides the corresponding generated page; see that folder's README
+for installation steps and placeholder notes.
+
+Pages are XHTML Mobile Profile (UTF-8) and use a compact Arena theme:
+monospace text on a near-black background, a grey N-GAGE ARENA banner, red
+section bars, dark bordered content panels and yellow accents. The pages set
+the background in CSS, a `style` attribute and the old `bgcolor`/`text`
+attributes for compatibility with the N-Gage browser. Files are limited to
+64 KB; images (`.gif`, `.png`, `.jpg`) are served too. Paths may only contain
+letters, digits, `-`, `_`, `.` and `/`.
