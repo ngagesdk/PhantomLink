@@ -1,9 +1,8 @@
 # PhantomLink's abtesrv.dll for SSX Out of Bounds (docs/SSX.md).
 #
 # Included from dll/CMakeLists.txt (needs the N-Gage toolchain).  Output:
-# build/dll/out/ssx/abtesrv.dll.  It does not go onto the N-Gage by hand:
-# the PhantomLink server hands it to the game (gamecommsd
-# --ssx_billing_dll=PATH), which writes it to C:\System\Libs itself.
+# build/dll/out/ssx/abtesrv.dll. The app SIS installs it on C:, and the
+# PhantomLink server can also hand it to the game (--ssx_billing_dll=PATH).
 
 set(lib abtesrv)
 set(ABTE_UID3 0x0fa4e7a2)

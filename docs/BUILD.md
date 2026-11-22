@@ -100,6 +100,12 @@ hash) and writes it to a temporary file before it replaces
 C:" if less than 128 KB would stay free, since a full C: drive can stop the
 N-Gage from booting. Building the SIS therefore needs Python 3.
 
+With `GC_BUILD_SSX=ON` (the default), the SIS also installs the SSX billing
+DLL to `C:\System\Libs\abtesrv.dll`, even when the app is installed on the
+memory card. Back up any existing copy first. The server may later replace
+it with its configured billing DLL; see docs/SSX.md. Set `GC_BUILD_SSX=OFF`
+to omit it from the build and SIS.
+
 Install the SIS on the memory card. The N-Gage toolchain does not generate
 C++ header dependency files; the app build explicitly tracks local headers so
 incremental builds rebuild affected C++ objects. Rebuild and reinstall the SIS

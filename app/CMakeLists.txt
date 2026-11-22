@@ -144,9 +144,18 @@ add_custom_target(PhantomLink_dlls
     BYPRODUCTS ${pl_dll_files}
     COMMENT "Making the DLL variant patches for PhantomLink.sis")
 add_dependencies(PhantomLink_dlls ${pl_out_targets})
+
+set(PL_SSX_LINE "")
+if(GC_BUILD_SSX)
+    file(TO_NATIVE_PATH "${GC_OUT_DIR}/ssx/abtesrv.dll" pl_ssx_native)
+    set(PL_SSX_LINE "\"${pl_ssx_native}\"-\"C:\\System\\Libs\\abtesrv.dll\"")
+endif()
 file(TO_NATIVE_PATH "${PL_BIN}" PL_BIN_NATIVE)
 set(PL_BIN ${PL_BIN_NATIVE})
 configure_file(${PL_RES_DIR}/PhantomLink.pkg.in ${CMAKE_CURRENT_BINARY_DIR}/PhantomLink.pkg @ONLY)
 
 build_sis(${CMAKE_CURRENT_BINARY_DIR} PhantomLink)
 add_dependencies(PhantomLink.sis PhantomLink.app PhantomLink.rsc PhantomLink.aif PhantomLink_dlls)
+if(GC_BUILD_SSX)
+    add_dependencies(PhantomLink.sis abtesrv_out)
+endif()

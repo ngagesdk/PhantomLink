@@ -11,3 +11,4 @@
 "@PL_BIN@/PhantomLink.rsc"-"!:\System\Apps\PhantomLink\PhantomLink.rsc"
 "@PL_BIN@/PhantomLink.aif"-"!:\System\Apps\PhantomLink\PhantomLink.aif"
 @PL_DLL_LINES@
+@PL_SSX_LINE@

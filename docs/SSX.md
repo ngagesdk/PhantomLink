@@ -26,9 +26,11 @@ Everything here comes from static analysis of AIRPLAYSERVER.EXE and
 ## Setup
 
 1. Build `dll/ssx` with the N-Gage toolchain (part of the `dll` build,
-   option `GC_BUILD_SSX`): `out/ssx/abtesrv.dll`. Put it where the server
-   finds it: `ssx_billing_dll` (default `abtesrv.dll` in the server's
-   working directory). It never goes onto the N-Gage by hand.
+   option `GC_BUILD_SSX`): `out/ssx/abtesrv.dll`. The PhantomLink SIS
+   installs it to `C:\System\Libs\abtesrv.dll`; back up any existing DLL
+   there before installing. Also put the built DLL where the server finds it:
+   `ssx_billing_dll` (default `abtesrv.dll` in the server's working
+   directory). The server can update the phone's copy when its MD5 differs.
 2. Server: nothing else. `ssx_data` (default `gamecomms-ssx.dat`) keeps
    the uploads. For Arena over GPRS the server listens on UDP 41001
    (`direct_ssx_port`).
