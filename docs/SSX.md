@@ -246,13 +246,13 @@ answer the server sets a new random password and the game shows that.
 - The meaning of the u32 and u8 in the logon answer (sent as 0).
 - Whether the hosts file reaches AIRPLAYSERVER.EXE's resolver (the
   bridges resolve the name either way).
-- Upload chunk datagrams through the bridge (UDP_PART) and through a
-  carrier NAT for GPRS.
+- Upload chunk datagrams through the bridge (UDP_PART) on hardware and
+  through a carrier NAT for GPRS. The host PPP test covers datagrams up to
+  1472 bytes through the bridge and server.
 
 ## Known limits
 
 - The ESP32 bridge asks the N-Gage for an MTU of 1100 bytes, and its IP
-  stack drops fragments. SSX's upload chunks (datagrams of about 1300
-  bytes) then arrive in IP fragments and are lost: shadow and career
-  uploads need the PC or Android bridge (MTU 1500) or Arena over GPRS.
-  Everything else works with every bridge.
+  stack drops fragments. SSX's large upload chunks (datagrams of about
+  1300 bytes) then arrive in IP fragments and are lost. Large uploads
+  need the PC or Android bridge (MTU 1500) or Arena over GPRS.

@@ -15,6 +15,7 @@
 #include "gcs_accounts.h"
 #include "gcs_core.h"
 #include "gcs_native.h"
+#include "gcs_ssx.h"
 
 #include <stdio.h>
 
@@ -30,6 +31,7 @@ static bridge br;
 static gcs_core *core;
 static gcs_conn conn;
 static int srv_connect_req, srv_open, verbose;
+static int udp_drops;
 static gc_ppp ng; /* the N-Gage's PPP */
 
 static void put(pipe_t *p, const gc_u8 *d, size_t n)
@@ -69,6 +71,9 @@ static void b_srv_disconnect(void *c)
 static void b_log(void *c, const char *l)
 {
     (void)c;
+    if (strstr(l, "ppp: udp to port 41001") && strstr(l, "dropped")) {
+        udp_drops++;
+    }
     if (verbose) {
         printf("  bridge: %s\n", l);
     }
@@ -139,6 +144,27 @@ static gc_u32 pseudo(const gc_u8 *s, const gc_u8 *d, gc_u8 proto, size_t len)
 {
     return gc_ip_sum(gc_ip_sum(0, s, 4), d, 4) + proto + (gc_u32)len;
 }
+
+#if GC_PPP_MRU >= 1500 && GC_IP_MTU >= 1500
+static void bridge_test_udp(const gc_u8 *udp, size_t len)
+{
+    gc_u8 pkt[1500];
+    gc_u16 cs;
+    memset(pkt, 0, 20);
+    pkt[0] = 0x45;
+    pkt[2] = (gc_u8)((20 + len) >> 8);
+    pkt[3] = (gc_u8)(20 + len);
+    pkt[8] = 64;
+    pkt[9] = 17;
+    memcpy(pkt + 12, NG_IP, 4);
+    memcpy(pkt + 16, br.cfg.ppp_local, 4);
+    cs = gc_ip_fold(gc_ip_sum(0, pkt, 20));
+    pkt[10] = (gc_u8)(cs >> 8);
+    pkt[11] = (gc_u8)cs;
+    memcpy(pkt + 20, udp, len);
+    gc_ip_input(&br.u.pp.ip, pkt, 20 + len, now);
+}
+#endif
 
 static void tcp_seg(gc_u8 fl, const void *d, size_t n)
 {
@@ -692,6 +718,113 @@ static void test_ppp_mode(void)
         CHECK(g_udp_rx[g_udp_len - 4] == 0xBA && g_udp_rx[g_udp_len - 3] == 0x47);
     }
 
+    #if GC_PPP_MRU >= 1500 && GC_IP_MTU >= 1500
+    /* SSX-sized UDP packets must survive PPP, tunnel splitting and reassembly. */
+    {
+        static const size_t sizes[] = { GC_LINK_MAX_MSG - GCN_HDR_UDP,
+                                        GC_LINK_MAX_MSG - GCN_HDR_UDP + 1, 1300, 1472 };
+        gc_u8 u[8 + 1472];
+        gcs_ssx_stats before, after;
+        size_t j;
+        gcs_ssx_get_stats(gcs_native_ssx(gcs_core_native(core)), &before);
+        for (j = 0; j < sizeof(sizes) / sizeof(sizes[0]); j++) {
+            size_t ul = 8 + sizes[j];
+            memset(u, 0x5a, ul);
+            u[0] = 0x0f; u[1] = 0xa0;
+            u[2] = 0xa0; u[3] = 0x29; /* SSX port 41001 */
+            u[4] = (gc_u8)(ul >> 8); u[5] = (gc_u8)ul;
+            u[6] = u[7] = 0; /* optional UDP checksum */
+            u[8] = (gc_u8)(j + 1); u[9] = u[10] = u[11] = 0;
+            u[12] = 0x7f; u[13] = 0; u[14] = 0xff; u[15] = 0;
+            g_udp_len = 0;
+            ng_send_ip(17, BR_IP, u, ul);
+            run(200);
+            CHECK_EQ(g_udp_len, 12);
+            CHECK_EQ(g_udp_rx[4], 0xfa);
+            CHECK_EQ(g_udp_rx[8], j + 1);
+        }
+        gcs_ssx_get_stats(gcs_native_ssx(gcs_core_native(core)), &after);
+        CHECK_EQ(after.datagrams - before.datagrams, sizeof(sizes) / sizeof(sizes[0]));
+        u[4] = (gc_u8)((8 + 1300) >> 8);
+        u[5] = (gc_u8)(8 + 1300);
+
+        /* One free slot cannot hold both parts: nothing may be emitted. */
+        {
+            static bridge_fifo saved;
+            int drops = udp_drops, queued = br.srv.q_count;
+            size_t sent = to_server.n;
+            saved = br.to_srv;
+            memset(&br.to_srv, 0, sizeof(br.to_srv));
+            br.to_srv.count = BRIDGE_FIFO_LEN - 1;
+            br.to_srv.wr = BRIDGE_FIFO_LEN - 1;
+            for (i = 0; i < br.to_srv.count; i++) {
+                br.to_srv.s[i].off = (gc_u16)i;
+                br.to_srv.s[i].len = 1;
+            }
+            bridge_test_udp(u, 8 + 1300);
+            CHECK_EQ(udp_drops, drops + 1);
+            CHECK_EQ(br.to_srv.count, BRIDGE_FIFO_LEN - 1);
+            CHECK_EQ(br.srv.q_count, queued);
+            CHECK_EQ(to_server.n, sent);
+            br.to_srv = saved;
+        }
+
+        /* Free slots alone are insufficient when the byte ring cannot fit both parts. */
+        {
+            static bridge_fifo saved;
+            int drops = udp_drops, queued = br.srv.q_count;
+            size_t sent = to_server.n;
+            saved = br.to_srv;
+            memset(&br.to_srv, 0, sizeof(br.to_srv));
+            br.to_srv.count = 1;
+            br.to_srv.s[0].off = GC_LINK_MAX_MSG + 1;
+            br.to_srv.s[0].len = 1;
+            br.to_srv.wr = BRIDGE_FIFO_BYTES - 100;
+            bridge_test_udp(u, 8 + 1300);
+            CHECK_EQ(udp_drops, drops + 1);
+            CHECK_EQ(br.to_srv.count, 1);
+            CHECK_EQ(br.srv.q_count, queued);
+            CHECK_EQ(to_server.n, sent);
+            br.to_srv = saved;
+        }
+
+        /* A reservation can wrap and still fit both parts. */
+        {
+            static bridge_fifo saved;
+            gcn_msg first, second;
+            int drops = udp_drops;
+            saved = br.to_srv;
+            memset(&br.to_srv, 0, sizeof(br.to_srv));
+            br.to_srv.count = 1;
+            br.to_srv.s[0].off = 1600;
+            br.to_srv.s[0].len = 1;
+            br.to_srv.wr = BRIDGE_FIFO_BYTES - 100;
+            bridge_test_udp(u, 8 + 1300);
+            CHECK_EQ(udp_drops, drops);
+            CHECK_EQ(br.to_srv.count, 3);
+            if (br.to_srv.count == 3 &&
+                gcn_decode(br.to_srv.buf + br.to_srv.s[1].off, br.to_srv.s[1].len, &first) &&
+                gcn_decode(br.to_srv.buf + br.to_srv.s[2].off, br.to_srv.s[2].len, &second)) {
+                CHECK_EQ(first.type, GCN_MT_UDP_PART);
+                CHECK_EQ(second.type, GCN_MT_UDP_PART);
+                CHECK_EQ(first.part_id, second.part_id);
+                CHECK_EQ(first.total, 1300);
+                CHECK_EQ(second.total, 1300);
+                CHECK_EQ(first.offset, 0);
+                CHECK_EQ(second.offset, first.len);
+                CHECK_EQ(first.len + second.len, 1300);
+                if (first.len + second.len == 1300) {
+                    CHECK(!memcmp(first.data, u + 8, first.len));
+                    CHECK(!memcmp(second.data, u + 8 + first.len, second.len));
+                }
+            } else {
+                CHECK(0);
+            }
+            br.to_srv = saved;
+        }
+    }
+#endif
+
     /* a port nobody serves: reset */
     r = tcp_request(1234, NULL, 0);
     CHECK(r == NULL || cl.state == 4);
@@ -699,7 +832,11 @@ static void test_ppp_mode(void)
     CHECK_EQ(cl.state, 4);
 
     gcs_native_get_stats(gcs_core_native(core), &ns);
+#if GC_PPP_MRU >= 1500 && GC_IP_MTU >= 1500
+    CHECK_EQ(ns.udp_datagrams, 6);
+#else
     CHECK_EQ(ns.udp_datagrams, 2);
+#endif
     CHECK_EQ(ns.xmpp_logins, 1);
     CHECK(ns.http_requests >= 9);
 

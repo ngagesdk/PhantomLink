@@ -39,17 +39,15 @@ static void blog(bridge *b, const char *fmt, ...)
 /* Where n bytes would go in buf, or -1. Same ring as the link queue
  * (gc_link.c, link_alloc): messages are contiguous, released oldest
  * first, and take at least one byte each. */
-static long fifo_place(const bridge_fifo *f, size_t n)
+static long fifo_place_at(int count, size_t head, size_t tail, size_t n)
 {
     size_t need = n ? n : 1;
-    size_t head, tail = f->wr;
-    if (f->count >= BRIDGE_FIFO_LEN || n > GC_LINK_MAX_MSG) {
+    if (count >= BRIDGE_FIFO_LEN || n > GC_LINK_MAX_MSG) {
         return -1;
     }
-    if (f->count == 0) {
+    if (count == 0) {
         return 0;
     }
-    head = f->s[f->head].off;
     if (tail > head) {
         if (BRIDGE_FIFO_BYTES - tail >= need) {
             return (long)tail;
@@ -57,6 +55,11 @@ static long fifo_place(const bridge_fifo *f, size_t n)
         return head >= need ? 0 : -1;
     }
     return head - tail >= need ? (long)tail : -1;
+}
+
+static long fifo_place(const bridge_fifo *f, size_t n)
+{
+    return fifo_place_at(f->count, f->s[f->head].off, f->wr, n);
 }
 
 static int fifo_room(const bridge_fifo *f, size_t n)
@@ -351,6 +354,28 @@ static int i_lookup(void *ctx, const char *name, gc_u8 addr[4])
     return 1;
 }
 
+/* Reserve each part as if it were queued, even if the link can send it directly. */
+static int fifo_room_udp_parts(const bridge_fifo *f, size_t len)
+{
+    const size_t chunk = GC_LINK_MAX_MSG - GCN_HDR_PART;
+    size_t head = f->s[f->head].off, tail = f->wr;
+    int count = f->count;
+    while (len) {
+        size_t n = len > chunk ? chunk : len;
+        long off = fifo_place_at(count, head, tail, n + GCN_HDR_PART);
+        if (off < 0) {
+            return 0;
+        }
+        if (count == 0) {
+            head = (size_t)off;
+        }
+        tail = (size_t)off + n + GCN_HDR_PART;
+        count++;
+        len -= n;
+    }
+    return 1;
+}
+
 /* emit for gcn_send_udp: one tunnel message to the server */
 static int srv_emit(void *ctx, const gc_u8 *msg, size_t len)
 {
@@ -378,7 +403,8 @@ static void i_udp(void *ctx, const gc_u8 dst[4], gc_u16 dport, gc_u16 sport, con
     if (len + GCN_HDR_UDP > GC_LINK_MAX_MSG) {
         /* larger than one link message (SSX uploads send ~1300 bytes):
          * in parts, all or nothing */
-        if (!srv_room(b, len + 4 * GCN_HDR_PART) || !gcn_send_udp(&m, GC_LINK_MAX_MSG, ++part_id, srv_emit, b)) {
+        if (!srv_usable(b) || len > GCN_UDP_MAX || !fifo_room_udp_parts(&b->to_srv, len) ||
+            !gcn_send_udp(&m, GC_LINK_MAX_MSG, ++part_id, srv_emit, b)) {
             blog(b, "ppp: udp to port %u (%u bytes) dropped", dport, (unsigned)len);
         }
         return;
