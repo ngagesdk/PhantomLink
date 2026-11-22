@@ -1031,13 +1031,35 @@ type 9 the phones wait for.
 |---|---|---|---|
 | 0 | game | u8 1 = has game settings (the host), 3 bytes garbage, u32 build | answers 9; a client whose build differs from the host's gets status 6 |
 | 9 | server | u32 player id, u8 1 = master, 3 bytes 0 | master = the room's creator, id 1; clients 2, 3, ... (as the Bluetooth host hands them out, 0x8e2ec/0x8ebb4; the id is the player id in the battle, see below) |
-| 14 | master | game settings, 136 bytes | kept; to every player with an id, the master too (it waits for them, 0x934c4), and to later players right after their 9 |
+| 14 | master | game settings, 136 bytes | the server appends 52 bytes of its own settings (see below); to every player with an id, the master too (it waits for them, 0x934c4), and to later players right after their 9 |
 | 10 | game | player record, 40 bytes: +0 id, +4 side (sent: the default side of the GPRS options), +8 reason, +20 name | fills in id, side and reason; sends the record to its player **first** (the game takes the first 10 as the answer and gives up if the id is not its own, 0x93720), then to the others, then the others' records to the new player |
 | 37 | game | u32 1 = takes the side, 0 = declined | 0: the player is gone (12 to the others) |
 | 11 | game | u32 id, u32 side | a client may move only itself, the master anybody; at most 4 per side (like the BT host); to all with a record, the sender too |
 | 12 | game | u32 id | own id: leaving, to the others; the master with another id: removed, to everybody. Also sent by the server when a player leaves the room |
 | 13 | master | 12 bytes | the start: to every player, the master too (0x93d04); the server keeps the first word and zeroes the rest (see below) |
 | 49 | server | u32 | countdown (0x93d70); not sent |
+
+Every phone reads 0x88..0xb7 of the 14 it gets as well (6R72.APP
+0x93528; Ikusa Islands 0xa157c up to 0xbb) into the GPRS settings
+(0x130d18): the original server appended a block of its own to the
+master's 136 bytes. Without it the phones read past the message
+(hardware 2026-11-22: the briefing map closed at once instead of
+waiting, then both phones hung on "Waiting for players" after loading).
+The server now appends these 52 bytes (values marked "guessed" have no
+default in the game to copy):
+
+| Offset | Size | Into | Meaning | Server |
+|---|---|---|---|---|
+| 0x88..0x94 | 4 × u32 | +0x00..+0x0c | thresholds of five ranks (0xb1d8c) | 1000, 2500, 5000, 10000 (guessed) |
+| 0x98 | u8 | +0x10 | a per-player counter (+0x590), 1 outside GPRS | 1 |
+| 0x9c | u32 | +0x14 | command delay, replaces COMMAND_DEFAULT_DELAY (0x25980) | 90 (`COMMAND_DEFAULT_DELAY_GPRS` in the game's config) |
+| 0xa0 | u32 | +0x18 | frames between clock pings (0xc3ecc) | 300 (default outside GPRS) |
+| 0xa4 | u32 s | +0x20 (ms) | screen countdown: briefing map, tag select (0xd0104, 0x132da0); 30 s outside GPRS | 60 |
+| 0xa8 | u32 s | +0x24 (ms) | results screen (0xc43d0) | 15 (guessed) |
+| 0xac, 0xb0 | u32 | +0x28, +0x2c | not read anywhere found | 0 |
+| 0xb4 | u16 | +0x30 | clock samples; the battle start sends this + 1 pings | 8 (the game's own default) |
+| 0xb6 | u16 | +0x32 | clock samples kept | 16 (the game's own default) |
+| 0xb8 | u32 s | +0x34 (ms) | Ikusa Islands only, not traced | 60 (guessed) |
 
 Reasons in +8 (0x97148, `globalbg_join_verification*.txt`): 0 "Joining
 default side %1!", 1 "The default side is full. Join side %1 instead?",

@@ -947,8 +947,11 @@ static void lobby_run(int classic)
     fill(gd, sizeof(gd), 3);
     game_send(a, GCS_PTG_GAMEDATA, gd, sizeof(gd));
     send_record(a, 0);
-    CHECK_EQ(q_pop(&a->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 136);
+    /* the master's 136 bytes plus the server's block (0x88..0xbb) */
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 188);
     CHECK(!memcmp(r, gd, 136));
+    CHECK_EQ(rd32(r + 0xa4), 60); /* briefing countdown, s */
+    CHECK(r[0xb4] == 8 && r[0xb6] == 16);
     own_record(a, 1, 0, 0);
     wr32(w, 1);
     game_send(a, GCS_PTG_JOINED, w, 4);
@@ -961,7 +964,7 @@ static void lobby_run(int classic)
     hello(b, 0, 0x559dbe46u);
     ib = welcome(b, &m);
     CHECK(ib == 2 && m == 0);
-    CHECK_EQ(q_pop(&b->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 136);
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 188);
     CHECK_EQ(b->c.qn[GCS_PTG_PLAYER], 0); /* nothing before its own record */
     send_record(b, 0);
     own_record(b, ib, 1, 3); /* nobody on side 1: join it instead? */

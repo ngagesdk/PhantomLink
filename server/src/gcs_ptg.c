@@ -479,6 +479,34 @@ static void lobby_hello(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_
     }
 }
 
+/* The master sends 136 bytes of game settings (0x93368), but every phone
+ * reads 0x88..0xb7 of the 14 it gets as well (6R72.APP 0x93528; Ikusa
+ * Islands 0xa157c reads up to 0xbb) into the GPRS settings (0x130d18):
+ * the original server appended its own block.  Without it the phones read
+ * past the message: the briefing map closes at once (its countdown is
+ * +0xa4), the battle start sends a random number of clock pings, and
+ * commands run with a random delay. */
+#define GSET_OFF 136
+#define GSET_LEN 52
+
+static void put_settings(gc_u8 *b)
+{
+    memset(b, 0, GSET_LEN);
+    /* score thresholds of the five ranks (0xb1d8c); values guessed */
+    put32le(b + 0x00, 1000);
+    put32le(b + 0x04, 2500);
+    put32le(b + 0x08, 5000);
+    put32le(b + 0x0c, 10000);
+    b[0x10] = 1;                /* per player counter (+0x590), 1 outside GPRS */
+    put32le(b + 0x14, 90);      /* command delay: COMMAND_DEFAULT_DELAY_GPRS */
+    put32le(b + 0x18, 300);     /* frames between clock pings (0xc3ecc) */
+    put32le(b + 0x1c, 60);      /* s: screen countdown (briefing map, tag select) */
+    put32le(b + 0x20, 15);      /* s: results screen (0xc43d0) */
+    b[0x2c] = 8;                /* u16: clock samples, battle start pings 8 + 1 */
+    b[0x2e] = 16;               /* u16: clock samples kept */
+    put32le(b + 0x30, 60);      /* s: Ikusa Islands only (+0x34) */
+}
+
 static void lobby_game_data(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
 {
     int i;
@@ -486,16 +514,18 @@ static void lobby_game_data(gcs_ptg *p, game *g, player *from, const gc_u8 *d, s
         LOG_W("room %08x: game settings from %08x, not the host, ignored", g->room, from->uid);
         return;
     }
-    if (n > GDATA_MAX) {
-        LOG_W("room %08x: game settings of %u bytes, ignored", g->room, (unsigned)n);
-        return;
+    if (n > GSET_OFF) {
+        LOG_W("room %08x: game settings of %u bytes, cut to %u", g->room, (unsigned)n, GSET_OFF);
+        n = GSET_OFF;
     }
+    memset(g->gdata, 0, GSET_OFF);
     memcpy(g->gdata, d, n);
-    g->gdata_n = n;
+    put_settings(g->gdata + GSET_OFF);
+    g->gdata_n = GSET_OFF + GSET_LEN;
     /* the master waits for them as well */
     for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
         if (g->pl[i].uid && g->pl[i].lobby) {
-            send_to(p, g, &g->pl[i], GCS_PTG_GAMEDATA, d, n);
+            send_to(p, g, &g->pl[i], GCS_PTG_GAMEDATA, g->gdata, g->gdata_n);
         }
     }
 }
