@@ -82,6 +82,7 @@ N-Gage Arena client stack instead. See ARENA.md.
 | Worms World Party               | Play Now game rooms (Freestyle, Ranked), skill points, rankings | Untested |
 | Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages    | Working  |
 | Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | Working  |
+| SSX Out of Bounds               | Shadow racing (upload, download, top times), careers            | Untested |
 
 Pocket Kingdom and Rifts are tested on a real N-Gage. Ashen's leaderboards and Worms World
 Party are tested against the server only, not yet on a real N-Gage. Both
