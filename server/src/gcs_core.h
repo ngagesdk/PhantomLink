@@ -53,6 +53,8 @@ typedef struct
     char roster_data[256];            /* SegaChat friends, friend requests, offline messages; empty: memory only */
     char tournaments[256];            /* the operator's tournament list (gcs_tourney.h); empty or missing: none */
     char tournament_data[256];        /* tournament standings and activities; empty: memory only */
+    char ssx_data[256];               /* SSX Out of Bounds shadows and careers; empty: memory only */
+    char ssx_billing_dll[256];        /* PhantomLink's abtesrv.dll for SSX (dll/ssx); empty: none */
     int max_peers;
     int max_sessions;
     gc_u32 link_grace_ms;    /* keep a silent peer's link for resumption */

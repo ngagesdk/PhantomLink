@@ -351,8 +351,20 @@ static int i_lookup(void *ctx, const char *name, gc_u8 addr[4])
     return 1;
 }
 
+/* emit for gcn_send_udp: one tunnel message to the server */
+static int srv_emit(void *ctx, const gc_u8 *msg, size_t len)
+{
+    bridge *b = (bridge *)ctx;
+    if (!srv_room(b, len)) {
+        return 0;
+    }
+    srv_queue(b, msg, len);
+    return 1;
+}
+
 static void i_udp(void *ctx, const gc_u8 dst[4], gc_u16 dport, gc_u16 sport, const gc_u8 *data, size_t len)
 {
+    static gc_u16 part_id; /* ids of datagrams sent in parts */
     bridge *b = (bridge *)ctx;
     gcn_msg m;
     memset(&m, 0, sizeof(m));
@@ -363,6 +375,14 @@ static void i_udp(void *ctx, const gc_u8 dst[4], gc_u16 dport, gc_u16 sport, con
     m.data = data;
     m.len = len;
     b->st_ppp_udp++;
+    if (len + GCN_HDR_UDP > GC_LINK_MAX_MSG) {
+        /* larger than one link message (SSX uploads send ~1300 bytes):
+         * in parts, all or nothing */
+        if (!srv_room(b, len + 4 * GCN_HDR_PART) || !gcn_send_udp(&m, GC_LINK_MAX_MSG, ++part_id, srv_emit, b)) {
+            blog(b, "ppp: udp to port %u (%u bytes) dropped", dport, (unsigned)len);
+        }
+        return;
+    }
     if (!srv_send_net(b, &m)) {
         blog(b, "ppp: udp to port %u dropped (server queue)", dport);
     }

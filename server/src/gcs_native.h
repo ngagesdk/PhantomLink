@@ -53,6 +53,7 @@ typedef struct
 } gcs_native_io;
 
 #define GCSN_MAX_CONNS   256   /* tunnelled TCP connections, all peers */
+#define GCSN_UDP_PARTS   16    /* datagrams being put together from parts */
 #define GCSN_MAX_REQUEST 16384 /* one HTTP request / pending XMPP input */
 
 /** accounts_file: where the shared Arena accounts and their profile data
@@ -89,6 +90,16 @@ typedef struct
     gc_u32 chat_messages; /* SegaChat messages between users */
 } gcs_native_stats;
 void gcs_native_get_stats(const gcs_native *n, gcs_native_stats *st);
+
+/** SSX Out of Bounds (gcs_ssx.h): data_file keeps uploaded shadows and
+ *  careers (NULL or "": memory only), billing_dll is PhantomLink's
+ *  abtesrv.dll that games get (dll/ssx; NULL or "": none).  Returns -1
+ *  when out of memory. */
+int gcs_native_set_ssx(gcs_native *n, const char *data_file, const char *billing_dll);
+struct gcs_ssx *gcs_native_ssx(gcs_native *n);
+/** Random source for keys (SSX's RSA key and session IVs). */
+typedef gc_u32 (*gcs_random_u32)(void *ctx);
+void gcs_native_set_random(gcs_native *n, gcs_random_u32 fn, void *ctx);
 
 /** The shared account store (gcs_accounts.h). */
 struct gcs_accounts *gcs_native_accounts(gcs_native *n);

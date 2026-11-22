@@ -45,12 +45,13 @@ static const char *const KArenaHosts[] = {
     "bs01.ptg2.redlynx.sf.yav4.com",
     "im.ptg.redlynx.sf.yav4.com",
     "snap.ptg.redlynx.sf.yav4.com",
+    "discovery.cng.n-gage.com", /* SSX Out of Bounds (AIRPLAYSERVER.EXE, UDP 41001) */
 };
 const TInt KArenaHostCount = sizeof(KArenaHosts) / sizeof(KArenaHosts[0]);
 /* room for our own lines ("address name # PhantomLink Arena", about
- * 60 bytes each; 14 hosts need about 850): TDes8::Append panics on
+ * 60 bytes each; 15 hosts need about 910): TDes8::Append panics on
  * overflow */
-const TInt KHostsReserve = 1024;
+const TInt KHostsReserve = 1280;
 
 static void Report(TDes &aLog, const TDesC &aText, TInt aErr)
 {

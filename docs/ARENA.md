@@ -106,8 +106,12 @@ and UDP datagram:
 | `TCP_DATA` 0xA1  | both             | id, bytes (server to bridge: at most 512 per message)    |
 | `TCP_CLOSE` 0xA2 | both             | id, FIN or reset                                         |
 | `UDP` 0xA3       | both             | server side address and port, the game's port, bytes     |
+| `UDP_PART` 0xA4  | both             | like `UDP`, plus datagram id, total length, offset       |
 
-Connection ids carry a generation byte, so late messages for a closed
+A datagram larger than one link message (SSX Out of Bounds uploads in
+datagrams of about 1300 bytes) goes in `UDP_PART` pieces, up to 4096
+bytes in all; the server puts it together and handles it like a `UDP`
+message. Connection ids carry a generation byte, so late messages for a closed
 connection never reach its successor. The bridge acknowledges TCP data from
 the N-Gage only when the server link can take it, and takes data from the
 server only when the TCP send buffer has room: the N-Gage's TCP and the

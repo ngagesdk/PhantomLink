@@ -369,6 +369,12 @@ tunnels the traffic in these messages; the server's `gcs_native.c` answers.
 | 0xA1 TCP_DATA | both | u16 id, bytes (server to bridge: at most 512) |
 | 0xA2 TCP_CLOSE | both | u16 id, u8 how (0 FIN, 1 reset) |
 | 0xA3 UDP | both | 4 bytes server side address, u16 server side port, u16 device port, bytes |
+| 0xA4 UDP_PART | both | like UDP, then u16 datagram id, u16 total length, u16 offset, bytes |
+
+A datagram that does not fit into one link message is sent as UDP_PART
+pieces (at most 4096 bytes in all, `gcn_send_udp`); the receiver collects
+the pieces by sender, end points and datagram id and drops a datagram
+whose pieces do not all arrive within 10 seconds.
 
 The id is the bridge's connection slot in the low byte and a generation in
 the high byte. Layouts are in `protocol/include/gc_net.h`.

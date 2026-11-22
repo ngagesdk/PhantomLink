@@ -125,6 +125,7 @@ typedef struct
 static direct_conn g_dconns[GCSD_MAX_CONNS];
 static gcs_direct *g_direct;
 static sock_t g_dudp = SOCK_INVALID; /* SNAP */
+static sock_t g_dssx = SOCK_INVALID; /* SSX Out of Bounds */
 static gc_u32 g_direct_idle_ms = 1800000;
 static volatile sig_atomic_t g_stop;
 static volatile sig_atomic_t g_dump;
@@ -426,14 +427,16 @@ static void direct_udp_send(void *ctx, gc_u16 service, const gc_u8 ip[4], gc_u16
 {
     struct sockaddr_in sa;
     (void)ctx;
-    if (service != GCSD_SNAP || g_dudp == SOCK_INVALID) {
+    sock_t fd = service == GCSD_SNAP ? g_dudp : service == GCSD_SSX ? g_dssx
+                                                                    : SOCK_INVALID;
+    if (fd == SOCK_INVALID) {
         return;
     }
     memset(&sa, 0, sizeof(sa));
     sa.sin_family = AF_INET;
     sa.sin_port = htons(port);
     memcpy(&sa.sin_addr, ip, 4);
-    sendto(g_dudp, (const char *)d, (int)len, 0, (struct sockaddr *)&sa, sizeof(sa));
+    sendto(fd, (const char *)d, (int)len, 0, (struct sockaddr *)&sa, sizeof(sa));
 }
 
 static void dconn_free(direct_conn *c)
@@ -537,7 +540,7 @@ static void direct_accept(sock_t lfd, gc_u16 service, gc_u32 now)
     }
 }
 
-static void direct_udp(sock_t ufd, gc_u32 now)
+static void direct_udp(sock_t ufd, gc_u16 service, gc_u32 now)
 {
     int k;
     for (k = 0; k < UDP_PER_PASS; k++) {
@@ -553,7 +556,7 @@ static void direct_udp(sock_t ufd, gc_u32 now)
         if (sl > (socklen_t)sizeof(sa) || !sockaddr_ip4(&sa, ip, &port)) {
             continue;
         }
-        gcs_direct_udp_input(g_direct, GCSD_SNAP, ip, port, buf, (size_t)n, now);
+        gcs_direct_udp_input(g_direct, service, ip, port, buf, (size_t)n, now);
     }
 }
 
@@ -767,6 +770,7 @@ typedef struct
     int direct_xmpp_port;
     int direct_snap_port;
     int direct_habbo_port; /* Habbo Islands' Habbo Console */
+    int direct_ssx_port;   /* SSX Out of Bounds, UDP */
 } app_cfg;
 
 static void trim(char *s)
@@ -841,6 +845,12 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     if (!strcmp(key, "tournaments")) {
         return set_str(a->core.tournaments, sizeof(a->core.tournaments), val) ? 1 : -1;
     }
+    if (!strcmp(key, "ssx_data")) {
+        return set_str(a->core.ssx_data, sizeof(a->core.ssx_data), val) ? 1 : -1;
+    }
+    if (!strcmp(key, "ssx_billing_dll")) {
+        return set_str(a->core.ssx_billing_dll, sizeof(a->core.ssx_billing_dll), val) ? 1 : -1;
+    }
     if (!strcmp(key, "tournament_data")) {
         return set_str(a->core.tournament_data, sizeof(a->core.tournament_data), val) ? 1 : -1;
     }
@@ -890,6 +900,7 @@ static int set_option(app_cfg *a, const char *key, const char *val)
     NUM("direct_xmpp_port", 0, 65535, a->direct_xmpp_port)
     NUM("direct_snap_port", 0, 65535, a->direct_snap_port)
     NUM("direct_habbo_port", 0, 65535, a->direct_habbo_port)
+    NUM("direct_ssx_port", 0, 65535, a->direct_ssx_port)
     NUM("direct_idle_ms", 10000, 3600000L, g_direct_idle_ms)
 #undef NUM
     return 0;
@@ -961,6 +972,9 @@ static void usage(const char *argv0)
            "  --roster_data=PATH   SegaChat friends, friend requests and offline messages (empty: not kept)\n"
            "  --tournaments=PATH   tournament list for the Arena Play menu (see docs/ARENA.md)\n"
            "  --tournament_data=PATH tournament standings and activities (empty: not kept)\n"
+           "  --ssx_data=PATH      SSX Out of Bounds shadows and careers (empty: not kept)\n"
+           "  --ssx_billing_dll=PATH PhantomLink's abtesrv.dll handed to SSX (default abtesrv.dll;\n"
+           "                       build dll/ssx, see docs/SSX.md)\n"
            "  --max_peers=N --max_sessions=N\n"
            "  --link_grace_ms=N    keep silent links for resumption (default 20000)\n"
            "  --reserve_ms=N       keep slots of lost players (default 180000)\n"
@@ -978,6 +992,7 @@ static void usage(const char *argv0)
            "                       listening ports for the game's ports 80, 5222 and UDP 9090\n"
            "                       (defaults 80, 5222, 9090; 0 = off)\n"
            "  --direct_habbo_port=N listening port for Habbo Islands' port 8080 (default 8080; 0 = off)\n"
+           "  --direct_ssx_port=N  listening port for SSX Out of Bounds' UDP 41001 (default 41001; 0 = off)\n"
            "  --direct_idle_ms=N   close silent direct TCP connections (default 1800000)\n",
            GCS_VERSION, argv0, GCS_DEFAULT_PORT);
 }
@@ -1005,6 +1020,7 @@ int main(int argc, char *argv[])
     a.direct_xmpp_port = GCSD_XMPP;
     a.direct_snap_port = GCSD_SNAP;
     a.direct_habbo_port = GCSD_HABBO;
+    a.direct_ssx_port = GCSD_SSX;
     gcs_default_config(&a.core);
 
     for (i = 1; i < argc; i++) {
@@ -1136,6 +1152,12 @@ int main(int argc, char *argv[])
         if (a.direct_habbo_port) {
             dhabbo = open_listener(a.direct_bind, a.direct_habbo_port, SOCK_STREAM);
         }
+        if (a.direct_ssx_port) {
+            g_dssx = open_listener(a.direct_bind, a.direct_ssx_port, SOCK_DGRAM);
+            if (g_dssx == SOCK_INVALID) {
+                logmsg(1, "cannot listen for SSX Out of Bounds on UDP %d", a.direct_ssx_port);
+            }
+        }
         if ((a.direct_http_port && dhttp == SOCK_INVALID) || (a.direct_xmpp_port && dxmpp == SOCK_INVALID) ||
             (a.direct_snap_port && g_dudp == SOCK_INVALID) || (a.direct_habbo_port && dhabbo == SOCK_INVALID)) {
             logmsg(0, "cannot listen for direct clients on %s (ports %d, %d, UDP %d, Habbo %d)", a.direct_bind,
@@ -1151,9 +1173,9 @@ int main(int argc, char *argv[])
     last_status = now_ms();
 
     while (!g_stop) {
-        static struct pollfd pfd[MAX_CONNS + GCSD_MAX_CONNS + 6];
-        static net_conn *map[MAX_CONNS + GCSD_MAX_CONNS + 6];
-        static direct_conn *dmap[MAX_CONNS + GCSD_MAX_CONNS + 6];
+        static struct pollfd pfd[MAX_CONNS + GCSD_MAX_CONNS + 7];
+        static net_conn *map[MAX_CONNS + GCSD_MAX_CONNS + 7];
+        static direct_conn *dmap[MAX_CONNS + GCSD_MAX_CONNS + 7];
         int n = 0, r;
         gc_u32 now;
 
@@ -1187,6 +1209,12 @@ int main(int argc, char *argv[])
         }
         if (g_dudp != SOCK_INVALID) {
             pfd[n].fd = g_dudp;
+            pfd[n].events = POLLIN;
+            dmap[n] = NULL;
+            map[n++] = NULL;
+        }
+        if (g_dssx != SOCK_INVALID) {
+            pfd[n].fd = g_dssx;
             pfd[n].events = POLLIN;
             dmap[n] = NULL;
             map[n++] = NULL;
@@ -1242,7 +1270,11 @@ int main(int argc, char *argv[])
                     continue;
                 }
                 if (pfd[i].fd == g_dudp) {
-                    direct_udp(g_dudp, now);
+                    direct_udp(g_dudp, GCSD_SNAP, now);
+                    continue;
+                }
+                if (pfd[i].fd == g_dssx) {
+                    direct_udp(g_dssx, GCSD_SSX, now);
                     continue;
                 }
                 if (!c || !c->used || c->closing) {
@@ -1319,6 +1351,9 @@ int main(int argc, char *argv[])
     }
     if (dhabbo != SOCK_INVALID) {
         sock_close(dhabbo);
+    }
+    if (g_dssx != SOCK_INVALID) {
+        sock_close(g_dssx);
     }
     if (g_dudp != SOCK_INVALID) {
         sock_close(g_dudp);

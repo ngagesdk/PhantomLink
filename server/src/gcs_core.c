@@ -181,6 +181,12 @@ static gc_u32 rnd(gcs_core *c)
     return x;
 }
 
+/* for gcs_native (SSX keys): the same source as the ids */
+static gc_u32 native_rand(void *ctx)
+{
+    return rnd((gcs_core *)ctx);
+}
+
 static int id_is_zero(const gc_u8 *id)
 {
     int i;
@@ -209,6 +215,8 @@ void gcs_default_config(gcs_config *cfg)
     strcpy(cfg->roster_data, "gamecomms-roster.txt");
     strcpy(cfg->tournaments, "gamecomms-tournaments.txt");
     strcpy(cfg->tournament_data, "gamecomms-tournaments.dat");
+    strcpy(cfg->ssx_data, "gamecomms-ssx.dat");
+    strcpy(cfg->ssx_billing_dll, "abtesrv.dll");
     cfg->max_peers = 512;
     cfg->max_sessions = 256;
     cfg->link_grace_ms = 20000;
@@ -1329,6 +1337,8 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
     c->cfg.roster_data[sizeof(c->cfg.roster_data) - 1] = '\0';
     c->cfg.tournaments[sizeof(c->cfg.tournaments) - 1] = '\0';
     c->cfg.tournament_data[sizeof(c->cfg.tournament_data) - 1] = '\0';
+    c->cfg.ssx_data[sizeof(c->cfg.ssx_data) - 1] = '\0';
+    c->cfg.ssx_billing_dll[sizeof(c->cfg.ssx_billing_dll) - 1] = '\0';
     {
         gcs_native_io nio;
         nio.send = native_send;
@@ -1341,8 +1351,10 @@ gcs_core *gcs_core_create(const gcs_config *cfg, const gcs_io *io, void *io_ctx,
             return NULL;
         }
         gcs_native_set_www_root(c->native, c->cfg.www_root);
+        gcs_native_set_random(c->native, native_rand, c);
         if (gcs_native_set_roster_file(c->native, c->cfg.roster_data) != 0 ||
-            gcs_native_set_tournament_files(c->native, c->cfg.tournaments, c->cfg.tournament_data) != 0) {
+            gcs_native_set_tournament_files(c->native, c->cfg.tournaments, c->cfg.tournament_data) != 0 ||
+            gcs_native_set_ssx(c->native, c->cfg.ssx_data, c->cfg.ssx_billing_dll) != 0) {
             gcs_native_destroy(c->native);
             gcs_arena_destroy(c->arena);
             free(c);

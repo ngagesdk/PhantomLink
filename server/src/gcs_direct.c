@@ -44,6 +44,7 @@ struct gcs_direct
     dconn conns[GCSD_MAX_CONNS];
     gc_u8 gen[GCSD_MAX_CONNS];
     gcs_direct_stats st;
+    gc_u16 part_id; /* ids of datagrams handed on in parts */
 };
 
 static void dlog(gcs_direct *d, int level, const char *fmt, ...)
@@ -148,6 +149,19 @@ static void to_native(gcs_direct *d, client *cl, const gcn_msg *m)
     if (k) {
         gcs_native_input(d->native, cl, buf, k);
     }
+}
+
+typedef struct
+{
+    gcs_direct *d;
+    client *cl;
+} emit_ctx;
+
+static int emit_native(void *ctx, const gc_u8 *msg, size_t len)
+{
+    emit_ctx *e = (emit_ctx *)ctx;
+    gcs_native_input(e->d->native, e->cl, msg, len);
+    return 1;
 }
 
 static void native_close(gcs_direct *d, dconn *c, int how)
@@ -333,13 +347,16 @@ void gcs_direct_udp_input(gcs_direct *d, gc_u16 service, const gc_u8 ip[4], gc_u
                           size_t len, gc_u32 now)
 {
     gcn_msg m;
-    client *cl = client_find(d, ip);
+    emit_ctx e;
+    /* SSX uses UDP only and has its own login: no earlier TCP connection
+     * is needed (the others need one, see gcs_direct.h) */
+    client *cl = service == GCSD_SSX ? client_get(d, ip, now) : client_find(d, ip);
     if (!cl) {
         d->st.udp_dropped++;
         dlog(d, 3, "direct: datagram from unknown %u.%u.%u.%u:%u dropped", IPF(ip), port);
         return;
     }
-    if (len > GC_LINK_MAX_MSG - GCN_HDR_UDP) {
+    if (len > GCN_UDP_MAX) {
         dlog(d, 1, "direct: datagram from %u.%u.%u.%u too large (%u bytes)", IPF(ip), (unsigned)len);
         return;
     }
@@ -351,7 +368,10 @@ void gcs_direct_udp_input(gcs_direct *d, gc_u16 service, const gc_u8 ip[4], gc_u
     m.peer_port = port;
     m.data = data;
     m.len = len;
-    to_native(d, cl, &m);
+    /* larger than one tunnel message: in parts, like a bridge */
+    e.d = d;
+    e.cl = cl;
+    gcn_send_udp(&m, GC_LINK_MAX_MSG, ++d->part_id, emit_native, &e);
 }
 
 void gcs_direct_poll(gcs_direct *d, gc_u32 now)

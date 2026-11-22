@@ -81,6 +81,12 @@ if(GC_BUILD_ARENA)
     add_subdirectory(arena)
 endif()
 
+# SSX Out of Bounds: the billing DLL the PhantomLink server hands to the game.
+option(GC_BUILD_SSX "Build abtesrv.dll for SSX Out of Bounds (untested)" ON)
+if(GC_BUILD_SSX)
+    add_subdirectory(ssx)
+endif()
+
 # Symbian application (game selection, bridge setup) and the SIS installer.
 option(GC_BUILD_APP "Build the PhantomLink Symbian application" ON)
 if(GC_BUILD_APP)

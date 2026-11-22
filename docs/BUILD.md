@@ -446,7 +446,10 @@ the battles, characters and turns of Rifts: Promise of Power), and
 messages of Habbo Islands' Habbo Console, docs/HABBO.md) and
 `gamecomms-scores.dat` (`scores_data`: the online leaderboards of Ashen,
 match ids and skill points of Worms World Party, docs/ARENA.md) and `gamecomms-pk.dat` (`pk_data`: Pocket Kingdom's
-kingdoms, Global Auction and waiting chat messages). Back them up. The pages the Arena menus show (news, support) come from the folder
+kingdoms, Global Auction and waiting chat messages) and `gamecomms-ssx.dat`
+(`ssx_data`: the shadows and careers uploaded in SSX Out of Bounds,
+docs/SSX.md). Back them up. SSX also needs PhantomLink's `abtesrv.dll`
+next to the server (`ssx_billing_dll`, built from `dll/ssx`). The pages the Arena menus show (news, support) come from the folder
 set as `www_root`; copy `server/deploy/www` there to start with (see its
 README).
 
@@ -535,6 +538,7 @@ ctest --test-dir build/tests --output-on-failure
 | `server_core` | Registration, matchmaking, slots, isolation by game, routing, timeouts, rejoin, kick |
 | `server_accounts` | Shared Arena accounts: SHA-1, creation on the first login, password and IMEI binding, one account per N-Gage, restart, conversion of old account files |
 | `server_habbo` | Habbo Islands' Habbo Console: locator, login with the shared accounts, find, friend requests, accept/decline/remove, messages with UTF-8 cut at 255 bytes, mark read, logout, restart; answers decoded like the game, and requests over TCP through the direct service |
+| `server_ssx` | SSX Out of Bounds against a client rebuilt from AIRPLAYSERVER.EXE: MD5, SHA-1, DES and RSA vectors, acknowledgements and resends, duplicates, the key exchange (decimal RSA key, PKCS#1 v1.5), encrypted messages built and checked like the game (both check hashes), discovery with the billing DLL download, accounts (create, logon, user name by IMEI, question, forgotten and changed password), the menu tree, shadow and career uploads in 1255-byte chunks, rankings (times and scores), downloads, restart; the same through gcs_native with datagrams in UDP_PART pieces, and gc_net's splitting |
 | `server_wwp` | Worms World Party: lobbies of the game class, room creation, room attributes and their notifications (op 8), reading them (op 9), room search with criteria (op 72), joining, game data between the players; SegaChat match ids, results and skill points of ranked matches (counted once per match), playerskills / highscores / hsfilter lists, all answers decoded like arenabase.dll, and a session to reporter1104 / retrieval1104 through the direct service |
 | `server_ptg` | Pathway to Glory: Ikusa Islands and Pathway to Glory (plain header without restart bit and tag), lobbies of the same name kept apart from Worms World Party's: room creator as `HOST`, the game's message layer rebuilt (pieces of 596 bytes, zlib messages, bundles 32 and 34 with the game's own end markers 35 and 41, acknowledgements 33), keep alive, commands of every player to all others, client messages to the host, host lobby messages once per client, synchronisation records with and without end marker, permanent damage data, Field Radio chunks with repeated copies dropped, status 50 when the host or the last opponent leaves, lobbies are no games |
 | `server_rifts_codec` | Rifts stream codec: Blowfish test vectors, CBC, CRC-32, Adler-32, inflate of real zlib data, stored blocks, packing round trips, damaged data and wrong keys |

@@ -49,7 +49,8 @@ typedef struct gcs_direct gcs_direct;
 #define GCSD_HTTP  80
 #define GCSD_XMPP  5222
 #define GCSD_SNAP  9090
-#define GCSD_HABBO 8080 /* not Arena: Habbo Islands' Habbo Console (gcs_habbo.h) */
+#define GCSD_HABBO 8080  /* not Arena: Habbo Islands' Habbo Console (gcs_habbo.h) */
+#define GCSD_SSX   41001 /* SSX Out of Bounds, UDP (gcs_ssx.h) */
 
 typedef struct
 {

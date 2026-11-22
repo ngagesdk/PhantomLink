@@ -20,6 +20,7 @@
 #include "gcs_roster.h"
 #include "gcs_scores.h"
 #include "gcs_snap.h"
+#include "gcs_ssx.h"
 #include "gcs_tourney.h"
 #include "gcs_wwp.h"
 
@@ -107,6 +108,17 @@ typedef struct
     char user[MAX_NAME];
 } peer_user;
 
+/* a datagram too large for one tunnel message, being put together */
+typedef struct
+{
+    void *key;
+    gc_u8 addr[4];
+    gc_u16 port, peer_port, id, total;
+    gc_u32 t;
+    size_t got;
+    gc_u8 *d, *map;
+} udp_part;
+
 /* Community service sessions: JSESSIONID -> user */
 typedef struct
 {
@@ -133,10 +145,15 @@ struct gcs_native
     gcs_scores *scores;   /* SegaChat leaderboards (Ashen) */
     gcs_roster *roster;   /* SegaChat friends, requests, offline messages */
     gcs_tourney *tourney; /* tournaments and activities (device pages) */
-    void *dying_key;      /* peer being dropped: nothing is sent to it */
-    gc_u32 push_ctr;      /* ids of roster pushes */
-    gc_u32 xmpp_ctr;      /* SegaChat logins */
-    char www[256];        /* device pages folder, "" none */
+    gcs_ssx *ssx;         /* SSX Out of Bounds (UDP port 41001) */
+    gcs_random_u32 rnd;   /* random source for keys, NULL: weak */
+    void *rnd_ctx;
+    gc_u32 rng;
+    udp_part parts[GCSN_UDP_PARTS]; /* datagrams arriving in parts */
+    void *dying_key;                /* peer being dropped: nothing is sent to it */
+    gc_u32 push_ctr;                /* ids of roster pushes */
+    gc_u32 xmpp_ctr;                /* SegaChat logins */
+    char www[256];                  /* device pages folder, "" none */
     gc_u32 now;
     gcs_native_stats st;
 };
@@ -2154,11 +2171,93 @@ static void tcp_data(gcs_native *n, conn *c, const gcn_msg *m)
     }
 }
 
+static void udp_in(gcs_native *n, void *key, const gcn_msg *m);
+
+static void part_free(udp_part *p)
+{
+    free(p->d);
+    free(p->map);
+    memset(p, 0, sizeof(*p));
+}
+
+/* UDP_PART: pieces of one datagram (bridges split what does not fit into
+ * one link message); the whole datagram goes on like a UDP message */
+static void udp_part_in(gcs_native *n, void *key, const gcn_msg *m)
+{
+    udp_part *p = NULL, *spare = NULL;
+    size_t i;
+    int k;
+    if (!m->total || m->total > GCN_UDP_MAX || (size_t)m->offset + m->len > m->total) {
+        return;
+    }
+    for (k = 0; k < GCSN_UDP_PARTS; k++) {
+        udp_part *x = &n->parts[k];
+        if (x->d && (gc_u32)(n->now - x->t) > 10000) {
+            part_free(x); /* the rest never came */
+        }
+        if (x->d && x->key == key && x->id == m->part_id && x->peer_port == m->peer_port && x->port == m->port &&
+            !memcmp(x->addr, m->addr, 4)) {
+            p = x;
+        } else if (!x->d && !spare) {
+            spare = x;
+        }
+    }
+    if (p && p->total != m->total) {
+        part_free(p);
+        spare = p;
+        p = NULL;
+    }
+    if (!p) {
+        if (!spare) {
+            return;
+        }
+        p = spare;
+        p->d = (gc_u8 *)malloc(m->total);
+        p->map = (gc_u8 *)calloc(1, (m->total + 7u) / 8u);
+        if (!p->d || !p->map) {
+            part_free(p);
+            return;
+        }
+        p->key = key;
+        memcpy(p->addr, m->addr, 4);
+        p->port = m->port;
+        p->peer_port = m->peer_port;
+        p->id = m->part_id;
+        p->total = m->total;
+        p->got = 0;
+    }
+    p->t = n->now;
+    for (i = 0; i < m->len; i++) {
+        size_t at = m->offset + i;
+        if (!(p->map[at / 8] & (1u << (at % 8)))) {
+            p->map[at / 8] |= (gc_u8)(1u << (at % 8));
+            p->d[at] = m->data[i];
+            p->got++;
+        }
+    }
+    if (p->got == p->total) {
+        gcn_msg whole;
+        memset(&whole, 0, sizeof(whole));
+        whole.type = GCN_MT_UDP;
+        memcpy(whole.addr, p->addr, 4);
+        whole.port = p->port;
+        whole.peer_port = p->peer_port;
+        whole.data = p->d;
+        whole.len = p->total;
+        udp_in(n, key, &whole);
+        part_free(p);
+    }
+}
+
 static void udp_in(gcs_native *n, void *key, const gcn_msg *m)
 {
     char hex[3 * 48 + 1];
     size_t i, k = 0;
     n->st.udp_datagrams++;
+    if (m->port == GCSX_PORT) {
+        gcs_ssx_input(n->ssx, key, m->addr, m->port, m->peer_port, m->data, m->len, n->now);
+        return;
+    }
     if (m->len >= 20 && m->data[m->len - 4] == 0xBA && m->data[m->len - 3] == 0x47 && m->data[m->len - 2] == 0x66) {
         gcs_snap_input(n->snap, key, m->addr, m->port, m->peer_port, m->data, m->len, n->now);
         return;
@@ -2217,6 +2316,60 @@ static int snap_auth(void *ctx, void *key, const char *user, char canon[GCSS_MAX
     return 0;
 }
 
+/* ---- SSX glue ---- */
+
+static gc_u32 ssx_random(void *ctx)
+{
+    gcs_native *n = (gcs_native *)ctx;
+    gc_u32 x;
+    if (n->rnd) {
+        return n->rnd(n->rnd_ctx);
+    }
+    x = n->rng ? n->rng : ((gc_u32)time(NULL) ^ 0x9e3779b9u); /* weak fallback (tests) */
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    n->rng = x;
+    return x;
+}
+
+static gcs_ssx *ssx_new(gcs_native *n, const char *file)
+{
+    gcs_ssx_io xio;
+    memset(&xio, 0, sizeof(xio));
+    xio.send = snap_send; /* plain datagrams, like SNAP */
+    xio.log = snap_log;
+    xio.random = ssx_random;
+    return gcs_ssx_create(&xio, n, n->acc, file);
+}
+
+int gcs_native_set_ssx(gcs_native *n, const char *data_file, const char *billing_dll)
+{
+    gcs_ssx *x = ssx_new(n, data_file);
+    if (!x) {
+        return -1;
+    }
+    gcs_ssx_destroy(n->ssx);
+    n->ssx = x;
+    if (billing_dll && billing_dll[0]) {
+        gcs_ssx_set_plugin(x, billing_dll); /* a missing DLL is logged, not fatal */
+    }
+    return 0;
+}
+
+void gcs_native_set_random(gcs_native *n, gcs_random_u32 fn, void *ctx)
+{
+    if (n) {
+        n->rnd = fn;
+        n->rnd_ctx = ctx;
+    }
+}
+
+struct gcs_ssx *gcs_native_ssx(gcs_native *n)
+{
+    return n ? n->ssx : NULL;
+}
+
 void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len)
 {
     gcn_msg m;
@@ -2252,6 +2405,9 @@ void gcs_native_input(gcs_native *n, void *key, const gc_u8 *data, size_t len)
     case GCN_MT_UDP:
         udp_in(n, key, &m);
         break;
+    case GCN_MT_UDP_PART:
+        udp_part_in(n, key, &m);
+        break;
     default:
         break;
     }
@@ -2261,6 +2417,7 @@ void gcs_native_poll(gcs_native *n, gc_u32 now)
 {
     n->now = now;
     gcs_snap_poll(n->snap, now);
+    gcs_ssx_poll(n->ssx, now);
 }
 
 void gcs_native_peer_gone(gcs_native *n, void *key)
@@ -2268,6 +2425,12 @@ void gcs_native_peer_gone(gcs_native *n, void *key)
     int i;
     gcs_snap_peer_gone(n->snap, key);
     gcs_habbo_peer_gone(n->habbo, key);
+    gcs_ssx_peer_gone(n->ssx, key);
+    for (i = 0; i < GCSN_UDP_PARTS; i++) {
+        if (n->parts[i].d && n->parts[i].key == key) {
+            part_free(&n->parts[i]);
+        }
+    }
     n->dying_key = key;
     for (i = 0; i < GCSN_MAX_CONNS; i++) {
         if (n->conns[i].used && n->conns[i].key == key) {
@@ -2313,7 +2476,9 @@ gcs_native *gcs_native_create(const gcs_native_io *io, void *ctx, const char *ac
     n->ptg = gcs_ptg_create(snap_log, n);
     n->roster = gcs_roster_create(NULL, acc_log, n);
     n->tourney = gcs_tourney_create(NULL, NULL, acc_log, n);
-    if (!n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk || !n->ptg || !n->roster || !n->tourney) {
+    n->ssx = n->acc ? ssx_new(n, NULL) : NULL;
+    if (!n->ssx || !n->acc || !n->snap || !n->rifts || !n->habbo || !n->scores || !n->pk || !n->ptg || !n->roster || !n->tourney) {
+        gcs_ssx_destroy(n->ssx);
         gcs_tourney_destroy(n->tourney);
         gcs_roster_destroy(n->roster);
         gcs_pk_destroy(n->pk);
@@ -2353,6 +2518,10 @@ void gcs_native_destroy(gcs_native *n)
     gcs_ptg_destroy(n->ptg);
     gcs_habbo_destroy(n->habbo);
     gcs_scores_destroy(n->scores);
+    gcs_ssx_destroy(n->ssx);
+    for (i = 0; i < GCSN_UDP_PARTS; i++) {
+        part_free(&n->parts[i]);
+    }
     gcs_accounts_destroy(n->acc);
     free(n);
 }

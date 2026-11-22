@@ -14,6 +14,11 @@
  *                                  bytes from this side) or reset (gone)
  *    UDP        both               a datagram; addr/port is the server
  *                                  side end point, peer_port the game's
+ *    UDP_PART   both               a piece of a datagram that does not
+ *                                  fit into one link message: like UDP
+ *                                  plus datagram id, total length and the
+ *                                  offset of the piece (receivers that do
+ *                                  not know the type drop it)
  *
  *  Before tunnelling, the bridge registers with API family GC_API_ARENA
  *  and the N-Gage's Bluetooth address as device id, like the Arena
@@ -43,6 +48,7 @@ extern "C" {
 #define GCN_MT_TCP_DATA  0xA1
 #define GCN_MT_TCP_CLOSE 0xA2
 #define GCN_MT_UDP       0xA3
+#define GCN_MT_UDP_PART  0xA4
 
 #define GCN_CLOSE_FIN   0
 #define GCN_CLOSE_RESET 1
@@ -51,7 +57,9 @@ extern "C" {
 /* largest TCP_DATA payload the server sends: a bridge only takes a message
  * when its TCP send buffer has room for all of it (GC_TCP_TXBUF >= this) */
 #define GCN_SRV_CHUNK 512
-#define GCN_HDR_UDP   9 /* type + addr + port + peer_port */
+#define GCN_HDR_UDP   9    /* type + addr + port + peer_port */
+#define GCN_HDR_PART  15   /* GCN_HDR_UDP + datagram id + total + offset */
+#define GCN_UDP_MAX   4096 /* largest datagram sent in parts */
 
 typedef struct
 {
@@ -63,12 +71,23 @@ typedef struct
     gc_u8 how;         /* TCP_CLOSE: GCN_CLOSE_*                      */
     const gc_u8 *data; /* TCP_DATA, UDP: points into the message   */
     size_t len;
+    gc_u16 part_id; /* UDP_PART: datagram id (per sender)          */
+    gc_u16 total;   /* UDP_PART: length of the whole datagram      */
+    gc_u16 offset;  /* UDP_PART: where this piece goes             */
 } gcn_msg;
 
 /** Encode into out; returns the length or 0 if it does not fit. */
 size_t gcn_encode(const gcn_msg *m, gc_u8 *out, size_t cap);
 /** Decode; 0 if malformed or not a GCN message. data points into msg. */
 int gcn_decode(const gc_u8 *msg, size_t len, gcn_msg *m);
+
+/** Sends datagram m (type UDP) through emit: as one UDP message when it
+ *  fits into cap bytes, else as UDP_PART pieces of at most cap bytes
+ *  (datagrams up to GCN_UDP_MAX; id tells the pieces of different
+ *  datagrams apart).  emit returns 0 when a piece could not be sent.
+ *  Returns 1 when everything was sent. */
+int gcn_send_udp(const gcn_msg *m, size_t cap, gc_u16 id, int (*emit)(void *ctx, const gc_u8 *msg, size_t len),
+                 void *ctx);
 
 /** True for the host names of the N-Gage Arena back ends (arena.n-gage.com,
  *  *.n-gage.com, *.yav4.com, ngage-auth), which the bridges resolve to
