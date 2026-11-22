@@ -103,7 +103,7 @@ For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 | Rayman 3                                 |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Requiem of Hell                          | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Rifts: Promise of Power                  |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
-| SSX Out of Bounds                        | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
+| SSX Out of Bounds                        |  ![Not%Working](https://img.shields.io/badge/Not%20Working-red)  |
 | The King of Fighters Extreme             | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The Roots: Gates of Chaos                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Tiger Woods PGA Tour 2004                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
@@ -127,7 +127,7 @@ standard GameComms library, so PhantomLink cannot support them.
 | Worms World Party               | Play Now game rooms (Freestyle, Ranked), skill points, rankings |   ![Untested](https://img.shields.io/badge/Untested-grey)    |
 | Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages    | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 | Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | ![Working](https://img.shields.io/badge/Working-brightgreen) |
-| SSX Out of Bounds               | Shadow racing (upload, download, top times), careers            |   ![Untested](https://img.shields.io/badge/Untested-grey)    |
+| SSX Out of Bounds               | Shadow racing (upload, download, top times), careers            | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 
 Pocket Kingdom and Rifts are tested on a real N-Gage.
 Ashen's leaderboards are tested against the server only, not yet on a
