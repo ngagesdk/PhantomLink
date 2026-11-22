@@ -718,7 +718,7 @@ static void test_ppp_mode(void)
         CHECK(g_udp_rx[g_udp_len - 4] == 0xBA && g_udp_rx[g_udp_len - 3] == 0x47);
     }
 
-    #if GC_PPP_MRU >= 1500 && GC_IP_MTU >= 1500
+#if GC_PPP_MRU >= 1500 && GC_IP_MTU >= 1500
     /* SSX-sized UDP packets must survive PPP, tunnel splitting and reassembly. */
     {
         static const size_t sizes[] = { GC_LINK_MAX_MSG - GCN_HDR_UDP,
@@ -730,12 +730,19 @@ static void test_ppp_mode(void)
         for (j = 0; j < sizeof(sizes) / sizeof(sizes[0]); j++) {
             size_t ul = 8 + sizes[j];
             memset(u, 0x5a, ul);
-            u[0] = 0x0f; u[1] = 0xa0;
-            u[2] = 0xa0; u[3] = 0x29; /* SSX port 41001 */
-            u[4] = (gc_u8)(ul >> 8); u[5] = (gc_u8)ul;
+            u[0] = 0x0f;
+            u[1] = 0xa0;
+            u[2] = 0xa0;
+            u[3] = 0x29; /* SSX port 41001 */
+            u[4] = (gc_u8)(ul >> 8);
+            u[5] = (gc_u8)ul;
             u[6] = u[7] = 0; /* optional UDP checksum */
-            u[8] = (gc_u8)(j + 1); u[9] = u[10] = u[11] = 0;
-            u[12] = 0x7f; u[13] = 0; u[14] = 0xff; u[15] = 0;
+            u[8] = (gc_u8)(j + 1);
+            u[9] = u[10] = u[11] = 0;
+            u[12] = 0x7f;
+            u[13] = 0;
+            u[14] = 0xff;
+            u[15] = 0;
             g_udp_len = 0;
             ng_send_ip(17, BR_IP, u, ul);
             run(200);

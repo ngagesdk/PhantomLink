@@ -103,7 +103,7 @@ For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 | Rayman 3                                 |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Requiem of Hell                          | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Rifts: Promise of Power                  |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
-| SSX Out of Bounds                        |  ![Not%Working](https://img.shields.io/badge/Not%20Working-red)  |
+| SSX Out of Bounds                        | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The King of Fighters Extreme             | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The Roots: Gates of Chaos                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Tiger Woods PGA Tour 2004                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
