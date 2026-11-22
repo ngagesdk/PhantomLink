@@ -21,7 +21,7 @@ Online features:
   IMEI) and password (security question).
 
 Everything here comes from static analysis of AIRPLAYSERVER.EXE and
-6R65.APP. Status: tested against a simulated game only.
+6R65.APP. Status: tested.
 
 ## Setup
 
@@ -68,12 +68,12 @@ is a u32 length followed by the bytes (no terminator).
 
 ### Header
 
-| Offset | Size | Content |
-|---|---|---|
-| 0 | u32 | sequence number |
-| 4 | u8 | message type |
-| 5 | u8 | 1: no acknowledgement wanted (acks, logout) |
-| 6 | u16 | 0x00ff (0 in acks); bit 15: body encrypted |
+| Offset | Size | Content                                     |
+| ------ | ---- | ------------------------------------------- |
+| 0      | u32  | sequence number                             |
+| 4      | u8   | message type                                |
+| 5      | u8   | 1: no acknowledgement wanted (acks, logout) |
+| 6      | u16  | 0x00ff (0 in acks); bit 15: body encrypted  |
 
 Every message with byte 5 = 0 is acknowledged with type 0xfa, body u32
 sequence. Unacknowledged messages are resent after 2 seconds. The game
@@ -84,12 +84,12 @@ start, so the server starts a new duplicate list with each key request.
 
 ### Key exchange
 
-| Message | Direction | Body |
-|---|---|---|
-| 18 | game | empty, not encrypted |
-| 133 | server | string modulus, string exponent (decimal) |
-| 19 | game | string: RSA-encrypted 16-byte session key |
-| 134 | server | u8 1 |
+| Message | Direction | Body                                      |
+| ------- | --------- | ----------------------------------------- |
+| 18      | game      | empty, not encrypted                      |
+| 133     | server    | string modulus, string exponent (decimal) |
+| 19      | game      | string: RSA-encrypted 16-byte session key |
+| 134     | server    | u8 1                                      |
 
 The game encrypts the key with CRSAPublicKey::PublicEncryptL (cryptalg
 default: PKCS#1 v1.5). The server makes a new 1024-bit key pair at its
@@ -101,11 +101,11 @@ Cipher: TCipher3DESCBC with the key halves K1 = bytes 0..7, K2 = bytes
 8..15 and an empty third key, which cryptalg replaces by K1: two-key
 triple DES (EDE), CBC, no padding object. Body:
 
-| Field | Content |
-|---|---|
+| Field  | Content                          |
+| ------ | -------------------------------- |
 | string | IV (8 bytes, random per message) |
-| u32 | plain length L |
-| bytes | cipher text |
+| u32    | plain length L                   |
+| bytes  | cipher text                      |
 
 The sender encrypts: plain, the first 8 bytes of a hash of the plain
 text, zero bytes up to a multiple of 8, and one block of eight 0x08
@@ -119,45 +119,45 @@ one that matches the game's first encrypted message.
 
 Game to server:
 
-| Type | Name | Body |
-|---|---|---|
-| 0 | logon | account header, user, password, IMEI, phone, u8 |
-| 1 | logout | empty |
-| 3 | download object | u32 object id, string |
-| 4 | download file | string, string (not used by SSX) |
-| 6 | upload | u16 code, u32 size, string description, u32 a, u32 b |
-| 7 | upload by name | string name, u32 size, string, u32, u32 (not used) |
-| 8 | upload chunk | u32 first, u32 last (inclusive), u32 length, bytes |
-| 9 | list objects | u32 parent id, string |
-| 10, 11 | file list, message list | (not used by SSX) |
-| 12 | time | u32, u32 (the phone's clock) |
-| 13 | change password | account header, user, old, new, question, answer, IMEI, phone, u8 |
-| 14 | question | account header, user, IMEI, phone, u8 |
-| 15 | password | account header, user, answer, IMEI, phone, u8 |
-| 16 | create user | account header, user, password, question, answer, IMEI, phone, u8, string, u8 |
-| 17 | user name | account header (without the game id), IMEI, phone, u8 |
-| 50 | discovery | u16 2, string DLL MD5, string DLL name, u16 39, u16 10, IMEI, phone |
-| 51 | discovery file | empty |
+| Type   | Name                    | Body                                                                          |
+| ------ | ----------------------- | ----------------------------------------------------------------------------- |
+| 0      | logon                   | account header, user, password, IMEI, phone, u8                               |
+| 1      | logout                  | empty                                                                         |
+| 3      | download object         | u32 object id, string                                                         |
+| 4      | download file           | string, string (not used by SSX)                                              |
+| 6      | upload                  | u16 code, u32 size, string description, u32 a, u32 b                          |
+| 7      | upload by name          | string name, u32 size, string, u32, u32 (not used)                            |
+| 8      | upload chunk            | u32 first, u32 last (inclusive), u32 length, bytes                            |
+| 9      | list objects            | u32 parent id, string                                                         |
+| 10, 11 | file list, message list | (not used by SSX)                                                             |
+| 12     | time                    | u32, u32 (the phone's clock)                                                  |
+| 13     | change password         | account header, user, old, new, question, answer, IMEI, phone, u8             |
+| 14     | question                | account header, user, IMEI, phone, u8                                         |
+| 15     | password                | account header, user, answer, IMEI, phone, u8                                 |
+| 16     | create user             | account header, user, password, question, answer, IMEI, phone, u8, string, u8 |
+| 17     | user name               | account header (without the game id), IMEI, phone, u8                         |
+| 50     | discovery               | u16 2, string DLL MD5, string DLL name, u16 39, u16 10, IMEI, phone           |
+| 51     | discovery file          | empty                                                                         |
 
 The account header is u16 3, four u16 version numbers, the string with
 the DLL MD5 and the u32 game id (30003).
 
 Server to game:
 
-| Type | Name | Body |
-|---|---|---|
-| 120 | logon / create result | u8 result, u8, u32, u8, string message |
-| 121 | file chunk | u32 total, u32 first, u32 last, u32 length, bytes, u32 object id (object downloads only) |
-| 122 | upload ready | empty |
-| 123 | upload done | empty |
-| 124 | object list | u8 count, u8 packet, u8 packets, u32 parent id, entries |
-| 125, 126 | file list, message list | u8 count, u8 packet, u8 packets |
-| 127 | time | the two u32 of message 12 |
-| 129 | change password result | u8 |
-| 130 | question | u8 result, string question, u8 |
-| 131 | password | u8 result, u8, string password |
-| 132 | user name | u8 result, string user, string message |
-| 150 | discovery result | u8 (0 keep the DLL, 1 a new one follows), string |
+| Type     | Name                    | Body                                                                                     |
+| -------- | ----------------------- | ---------------------------------------------------------------------------------------- |
+| 120      | logon / create result   | u8 result, u8, u32, u8, string message                                                   |
+| 121      | file chunk              | u32 total, u32 first, u32 last, u32 length, bytes, u32 object id (object downloads only) |
+| 122      | upload ready            | empty                                                                                    |
+| 123      | upload done             | empty                                                                                    |
+| 124      | object list             | u8 count, u8 packet, u8 packets, u32 parent id, entries                                  |
+| 125, 126 | file list, message list | u8 count, u8 packet, u8 packets                                                          |
+| 127      | time                    | the two u32 of message 12                                                                |
+| 129      | change password result  | u8                                                                                       |
+| 130      | question                | u8 result, string question, u8                                                           |
+| 131      | password                | u8 result, u8, string password                                                           |
+| 132      | user name               | u8 result, string user, string message                                                   |
+| 150      | discovery result        | u8 (0 keep the DLL, 1 a new one follows), string                                         |
 
 Logon results: 0 ok, 1 authentication failed, 2 user not found, 3 user
 name exists, 4 cannot change user name, 5 protocol too old, 254 protocol
@@ -175,19 +175,19 @@ number and drops lists of another parent.
 The game knows these ids and draws their entries itself (6R65.APP
 0x1010d4cc and 0x1007634c):
 
-| Id | Entry | Server |
-|---|---|---|
-| 2000100 | Arena menu | the entries below |
-| 2000109 | Shadow Racing | Peak 1, Peak 2, Peak 3 |
-| 2000110, 2000120, 2000130 | Peak 1, 2, 3 | track folders 2000111..116, 2000121..125, 2000131..134 |
-| 2000111..2000149 | a track | its shadows, best first |
-| 2000150 | My Career | the player's own career |
-| 2000160 | View Career | all careers |
-| 2000180 | Upload Shadows | (screen of the game) |
-| 2000190 | Upload Career | (the game uploads) |
-| 2000170 | Fresh Gear | (screen of the game) |
-| 2000195 | Tips and Tricks | (screen of the game) |
-| 2000140 | Disconnect | (the game logs out) |
+| Id                        | Entry           | Server                                                 |
+| ------------------------- | --------------- | ------------------------------------------------------ |
+| 2000100                   | Arena menu      | the entries below                                      |
+| 2000109                   | Shadow Racing   | Peak 1, Peak 2, Peak 3                                 |
+| 2000110, 2000120, 2000130 | Peak 1, 2, 3    | track folders 2000111..116, 2000121..125, 2000131..134 |
+| 2000111..2000149          | a track         | its shadows, best first                                |
+| 2000150                   | My Career       | the player's own career                                |
+| 2000160                   | View Career     | all careers                                            |
+| 2000180                   | Upload Shadows  | (screen of the game)                                   |
+| 2000190                   | Upload Career   | (the game uploads)                                     |
+| 2000170                   | Fresh Gear      | (screen of the game)                                   |
+| 2000195                   | Tips and Tricks | (screen of the game)                                   |
+| 2000140                   | Disconnect      | (the game logs out)                                    |
 
 Tracks 0..14: Snow Jam, Metro City, R&B, The Junction, Happiness,
 Happiness Jam (Peak 1), Ruthless Ridge, Intimidator, Style Mile,
@@ -204,10 +204,10 @@ the game's folder.
 
 ### Uploads
 
-| Code | What | a | b | File |
-|---|---|---|---|---|
-| 10121 | career | completion | earnings | `tmpscore.dat`: the 0xdc-byte career record |
-| 10122 | shadow | time (ms) or score | track | `<track>_best.ghz`, header u16 0x3e9, track at offset 4 |
+| Code  | What   | a                  | b        | File                                                    |
+| ----- | ------ | ------------------ | -------- | ------------------------------------------------------- |
+| 10121 | career | completion         | earnings | `tmpscore.dat`: the 0xdc-byte career record             |
+| 10122 | shadow | time (ms) or score | track    | `<track>_best.ghz`, header u16 0x3e9, track at offset 4 |
 
 The game sends all chunks (at most 1255 bytes each, datagrams of about
 1300 bytes) right after 122. A new upload replaces the player's old one
@@ -215,15 +215,15 @@ The game sends all chunks (at most 1255 bytes each, datagrams of about
 
 ## Implementation
 
-| Part | Files | Status |
-|---|---|---|
-| Protocol, accounts, tree, uploads, downloads, data file | `server/src/gcs_ssx.c`, `gcs_ssx.h` | written, tested against a simulated game |
-| MD5, SHA-1, triple DES, RSA | `server/src/gcs_ssxcrypt.c` | written, test vectors |
-| UDP port 41001 for bridges and direct clients | `gcs_native.c`, `gcs_direct.c`, `gcs_main.c` (`direct_ssx_port`) | written, tested |
-| Large datagrams through the bridges (UDP_PART) | `protocol/src/gc_net.c`, `firmware/src/bridge_core.c` | written, tested |
-| Billing DLL | `dll/ssx/AbteSrv.cpp` | written, not built here |
-| Hosts entry | `app/src/ArenaSetup.cpp` | written, not built here |
-| Tests | `tests/server/test_ssx.c` (`server_ssx`) | |
+| Part                                                    | Files                                                            | Status                                   |
+| ------------------------------------------------------- | ---------------------------------------------------------------- | ---------------------------------------- |
+| Protocol, accounts, tree, uploads, downloads, data file | `server/src/gcs_ssx.c`, `gcs_ssx.h`                              | written, tested against a simulated game |
+| MD5, SHA-1, triple DES, RSA                             | `server/src/gcs_ssxcrypt.c`                                      | written, test vectors                    |
+| UDP port 41001 for bridges and direct clients           | `gcs_native.c`, `gcs_direct.c`, `gcs_main.c` (`direct_ssx_port`) | written, tested                          |
+| Large datagrams through the bridges (UDP_PART)          | `protocol/src/gc_net.c`, `firmware/src/bridge_core.c`            | written, tested                          |
+| Billing DLL                                             | `dll/ssx/AbteSrv.cpp`                                            | written, not built here                  |
+| Hosts entry                                             | `app/src/ArenaSetup.cpp`                                         | written, not built here                  |
+| Tests                                                   | `tests/server/test_ssx.c` (`server_ssx`)                         |                                          |
 
 Data file (`ssx_data`), tab separated lines: `N` next object id; `S` id,
 track, value, date, user, file in hex; `C` id, completion, earnings,

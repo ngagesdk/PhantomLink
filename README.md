@@ -129,19 +129,6 @@ standard GameComms library, so PhantomLink cannot support them.
 | Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 | SSX Out of Bounds               | Shadow racing (upload, download, top times), careers            | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 
-Pocket Kingdom and Rifts are tested on a real N-Gage.
-Ashen's leaderboards are tested against the server only, not yet on a
-real N-Gage. The same goes for Worms World Party, whose server side is
-written from the game's Arena libraries (see
-[docs/ARENA.md](docs/ARENA.md#worms-world-party)).
-Both Pathway to Glory games have a game server of their own, written
-from the game's network code (see
-[docs/ARENA.md](docs/ARENA.md#pathway-to-glory-ikusa-islands)); it is
-tested against simulated games only.
-SSX Out of Bounds belongs to the first Arena generation and has its own
-encrypted protocol; its server side is written from the game and tested
-against a simulated game only (see [docs/SSX.md](docs/SSX.md)).
-
 ### Other online games
 
 These games had their own online service instead of N-Gage Arena.
@@ -152,9 +139,6 @@ PhantomLink app points the game to it.
 | Game          | Online feature                                    |                            Status                            |
 | ------------- | ------------------------------------------------- | :----------------------------------------------------------: |
 | Habbo Islands | Habbo Console: friends, messages, friend requests | ![Working](https://img.shields.io/badge/Working-brightgreen) |
-
-Habbo Islands is tested against the server only, not yet on a real N-Gage;
-see [docs/HABBO.md](docs/HABBO.md).
 
 ## Documentation
 
