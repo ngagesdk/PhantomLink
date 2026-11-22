@@ -80,8 +80,8 @@ N-Gage Arena client stack instead. See ARENA.md.
 | Rifts: Promise of Power         | Challenges and turn-based battles "by e-mail"                   | Working  |
 | Ashen                           | Online leaderboards for every chapter and the whole game        | Untested |
 | Worms World Party               | Play Now game rooms (Freestyle, Ranked), skill points, rankings | Untested |
-| Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages    | Untested |
-| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | Untested |
+| Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages    | Working  |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | Working  |
 
 Pocket Kingdom and Rifts are tested on a real N-Gage. Ashen's leaderboards and Worms World
 Party are tested against the server only, not yet on a real N-Gage. Both
@@ -137,31 +137,31 @@ v11.
 
 ## GameComms 1.x (v1)
 
-| Ordinal | Function | Conf. | Status | Notes |
-|---|---|---|---|---|
-| 1 | RSGEDebugLog::RSGEDebugLog() | V | Full | 20 byte layout kept |
-| 2 | CGameBTComms::ConnectState() | V | Full |  |
-| 3 | CGameBTComms::ConnectionRole() | V | Full |  |
-| 4 | CGameBTComms::ContinueMultiPlayerGame() | S | Full | continues when the host and all clients asked |
-| 5 | CGameBTComms::DisconnectClient(TUint16) | V | Full | KErrNotReady unless host, KErrBadHandle for 0 |
-| 6 | CGameBTComms::Disconnect() | V | Full | while paused: temporary, ReconnectL restores |
-| 7 | CGameBTComms::EndMultiPlayerGame() | S | Full |  |
-| 8 | CGameBTComms::GameState() | V | Full |  |
-| 9 | CGameBTComms::GetLocalDeviceName(THostName&) | V | Full | DeviceName from GameComms.ini, else the Bluetooth name |
-| 10 | CGameBTComms::IsShowingDeviceSelectDlg() | S | Full | true while the bridge selection or the host list is shown |
-| 11 | CGameBTComms::NewL(MGameBTCommsNotify*, TUint32, RSGEDebugLog*) | V | Full |  |
-| 12, 13, 22 to 30 | RSGEDebugLog::NewLine, Open, WriteLine, Write | V/S | Full | return KErrNone, as in the original |
-| 14 | CGameBTComms::PauseMultiPlayerGame() | S | Full |  |
-| 15 | CGameBTComms::ReconnectL(TBool) | S | Full |  |
-| 16 | CGameBTComms::SendDataToAllClients(TDesC8&) | V | Full |  |
-| 17 | CGameBTComms::SendDataToClient(TUint16, TDesC8&) | V | Full |  |
-| 18 | CGameBTComms::SendDataToHost(TDesC8&) | V | Full |  |
-| 19 | RSGEDebugLog::SetLoggingLevel(TLogLevel) | V | Full |  |
-| 20 | CGameBTComms::StartClientL() | V | Full | shows the host list instead of the Bluetooth device dialog |
-| 21 | CGameBTComms::StartHostL(TUint16, TUint16) | V | Full |  |
-| 31 | CGameBTComms::~CGameBTComms() | V | Full |  |
-| 32 | RSGEDebugLog::~RSGEDebugLog() | V | Full |  |
-| 33 | RSGEDebugLog::Close() | V | Full |  |
+| Ordinal          | Function                                                        | Conf. | Status | Notes                                                      |
+| ---------------- | --------------------------------------------------------------- | ----- | ------ | ---------------------------------------------------------- |
+| 1                | RSGEDebugLog::RSGEDebugLog()                                    | V     | Full   | 20 byte layout kept                                        |
+| 2                | CGameBTComms::ConnectState()                                    | V     | Full   |                                                            |
+| 3                | CGameBTComms::ConnectionRole()                                  | V     | Full   |                                                            |
+| 4                | CGameBTComms::ContinueMultiPlayerGame()                         | S     | Full   | continues when the host and all clients asked              |
+| 5                | CGameBTComms::DisconnectClient(TUint16)                         | V     | Full   | KErrNotReady unless host, KErrBadHandle for 0              |
+| 6                | CGameBTComms::Disconnect()                                      | V     | Full   | while paused: temporary, ReconnectL restores               |
+| 7                | CGameBTComms::EndMultiPlayerGame()                              | S     | Full   |                                                            |
+| 8                | CGameBTComms::GameState()                                       | V     | Full   |                                                            |
+| 9                | CGameBTComms::GetLocalDeviceName(THostName&)                    | V     | Full   | DeviceName from GameComms.ini, else the Bluetooth name     |
+| 10               | CGameBTComms::IsShowingDeviceSelectDlg()                        | S     | Full   | true while the bridge selection or the host list is shown  |
+| 11               | CGameBTComms::NewL(MGameBTCommsNotify*, TUint32, RSGEDebugLog*) | V     | Full   |                                                            |
+| 12, 13, 22 to 30 | RSGEDebugLog::NewLine, Open, WriteLine, Write                   | V/S   | Full   | return KErrNone, as in the original                        |
+| 14               | CGameBTComms::PauseMultiPlayerGame()                            | S     | Full   |                                                            |
+| 15               | CGameBTComms::ReconnectL(TBool)                                 | S     | Full   |                                                            |
+| 16               | CGameBTComms::SendDataToAllClients(TDesC8&)                     | V     | Full   |                                                            |
+| 17               | CGameBTComms::SendDataToClient(TUint16, TDesC8&)                | V     | Full   |                                                            |
+| 18               | CGameBTComms::SendDataToHost(TDesC8&)                           | V     | Full   |                                                            |
+| 19               | RSGEDebugLog::SetLoggingLevel(TLogLevel)                        | V     | Full   |                                                            |
+| 20               | CGameBTComms::StartClientL()                                    | V     | Full   | shows the host list instead of the Bluetooth device dialog |
+| 21               | CGameBTComms::StartHostL(TUint16, TUint16)                      | V     | Full   |                                                            |
+| 31               | CGameBTComms::~CGameBTComms()                                   | V     | Full   |                                                            |
+| 32               | RSGEDebugLog::~RSGEDebugLog()                                   | V     | Full   |                                                            |
+| 33               | RSGEDebugLog::Close()                                           | V     | Full   |                                                            |
 
 All 12 callbacks of MGameBTCommsNotify are delivered asynchronously with
 the documented arguments and error codes.
@@ -254,15 +254,15 @@ instead of the built-in list (Ashen does).
 
 ### Differences to the original on the network
 
-| Original (Bluetooth) | Replacement (network) |
-|---|---|
-| The client finds hosts by Bluetooth inquiry or the game's own UI | The built-in list shows open sessions of the same game. DeclareRemoteDevice with any other device joins the first open session of the same game. |
-| TDeviceDetails holds a Bluetooth address | It holds a made-up address starting with 'G' 'C' plus the session or client id, and the player name |
-| Host accept modes 0, 1, 2 through the Bluetooth service record | The session is listed (modes 0 and 1) or closed (mode 2) on the server. Confirmation happens on the host. |
-| Connect on the client registers with the host, Connect on the host connects back | Same sequence: client Connect joins, host Connect sends CONNECT, both report Connected |
-| KErrIncompatibleGame from the Bluetooth service check | From the server's game UID check |
-| BluetoothPowerState and SetBluetoothPowerState | Report "on" and succeed. Bluetooth has to be on for the bridge anyway. |
-| Panic GC-MAIN 4 when Bluetooth is off | Not raised. A missing bridge is reported through the normal error callbacks. |
+| Original (Bluetooth)                                                             | Replacement (network)                                                                                                                            |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| The client finds hosts by Bluetooth inquiry or the game's own UI                 | The built-in list shows open sessions of the same game. DeclareRemoteDevice with any other device joins the first open session of the same game. |
+| TDeviceDetails holds a Bluetooth address                                         | It holds a made-up address starting with 'G' 'C' plus the session or client id, and the player name                                              |
+| Host accept modes 0, 1, 2 through the Bluetooth service record                   | The session is listed (modes 0 and 1) or closed (mode 2) on the server. Confirmation happens on the host.                                        |
+| Connect on the client registers with the host, Connect on the host connects back | Same sequence: client Connect joins, host Connect sends CONNECT, both report Connected                                                           |
+| KErrIncompatibleGame from the Bluetooth service check                            | From the server's game UID check                                                                                                                 |
+| BluetoothPowerState and SetBluetoothPowerState                                   | Report "on" and succeed. Bluetooth has to be on for the bridge anyway.                                                                           |
+| Panic GC-MAIN 4 when Bluetooth is off                                            | Not raised. A missing bridge is reported through the normal error callbacks.                                                                     |
 
 ## Why games fail
 
