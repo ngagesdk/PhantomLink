@@ -647,11 +647,12 @@ static void test_game(void)
     send_acks(b);
     send_acks(c);
 
-    /* a client's message the host handles (end turn, 27) goes to the
-     * host only */
+    /* no phone is the host of a GPRS game: a client's message (27, the
+     * player ended) goes to every other player */
     game_send(c, 27, "turn", 4);
     CHECK_EQ(q_pop(&a->c, 27, r, sizeof(r)), 4);
-    CHECK_EQ(b->c.qn[27], 0);
+    CHECK_EQ(q_pop(&b->c, 27, r, sizeof(r)), 4);
+    CHECK_EQ(c->c.qn[27], 0);
 
     /* synchronisation: records of the host, then its end marker; the
      * clients get one bundle (zlib, in pieces) and make the 35 themselves */
@@ -1021,17 +1022,59 @@ static void lobby_run(int classic)
     send_msg(c, 0xa000, 14, GCSS_OP_LEAVE, r, 0);
     CHECK_EQ(a->c.qn[GCS_PTG_REMOVE], 0); /* told once */
 
-    /* the start: to everybody, the master included */
+    /* the start: to everybody, the master included; only the first word
+     * of the master's request stays, the rest (garbage from its stack)
+     * becomes 0: the campaign starts where its file says */
     fill(w, 12, 1);
     game_send(a, GCS_PTG_START, w, 12);
     CHECK_EQ(q_pop(&a->c, GCS_PTG_START, r, sizeof(r)), 12);
     CHECK_EQ(q_pop(&b->c, GCS_PTG_START, r, sizeof(r)), 12);
-    CHECK(!memcmp(r, w, 12));
+    CHECK(!memcmp(r, w, 4));
+    CHECK(rd32(r + 4) == 0 && rd32(r + 8) == 0);
 
-    /* a client leaving the room: the master hears it */
+    /* mission start (6R72.APP 0x6dbc0): every phone sends 15 and waits
+     * for 15 back; the server answers when all have sent theirs, with
+     * the start time, and adds the empty synchronisation records (34 ->
+     * the phone's own 35) and permanent damage data (23 -> 41) the
+     * phones wait for next (0xd03e4) */
+    gcs_snap_poll(S, g_now);
+    wr32(w, 1);
+    wr32(w + 4, 0x12345678u);
+    game_send(a, GCS_PTG_READY, w, 8);
+    CHECK_EQ(a->c.qn[GCS_PTG_READY], 0);
+    game_send(b, GCS_PTG_READY, w, 8);
+    for (i = 0; i < 2; i++) {
+        phone *x = i == 0 ? a : b;
+        CHECK_EQ(q_pop(&x->c, GCS_PTG_READY, r, sizeof(r)), 8);
+        CHECK(rd32(r) == 1 && rd32(r + 4) == g_now + 500);
+        CHECK_EQ(x->c.qn[GCS_PTG_SYNC], 0);
+        CHECK_EQ(q_pop(&x->c, GCS_PTG_SYNC_END, NULL, 0), 0);
+        CHECK_EQ(q_pop(&x->c, GCS_PTG_PERM, NULL, 0), 0);
+        CHECK_EQ(q_pop(&x->c, GCS_PTG_PERM_END, NULL, 0), 0);
+        send_acks(x);
+    }
+    /* the next barrier starts empty */
+    game_send(b, GCS_PTG_READY, w, 8);
+    CHECK_EQ(b->c.qn[GCS_PTG_READY], 0);
+
+    /* clock ping (0xc3de8, 0xc3ecc): back to the sender with the server's
+     * clock in words 1 and 2 */
+    memset(gd, 0, 20);
+    wr32(gd, 4242);
+    wr32(gd + 12, 7);
+    game_send(b, GCS_PTG_TIME, gd, 20);
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_TIME, r, sizeof(r)), 20);
+    CHECK(rd32(r) == 4242 && rd32(r + 4) == g_now && rd32(r + 8) == g_now && rd32(r + 12) == 7);
+    CHECK_EQ(a->c.qn[GCS_PTG_TIME], 0);
+
+    /* a client leaving the room: the master hears it, and a barrier
+     * that waited for it goes through */
     send_msg(b, 0xa000, 15, GCSS_OP_LEAVE, r, 0);
     CHECK_EQ(q_pop(&a->c, GCS_PTG_REMOVE, r, sizeof(r)), 4);
     CHECK_EQ(rd32(r), ib);
+    game_send(a, GCS_PTG_READY, w, 8);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_READY, r, sizeof(r)), 8);
+    send_acks(a);
     for (i = 0; i < 3; i++) {
         phone *x = i == 0 ? a : i == 1 ? b : c;
         CHECK_EQ(x->c.bad, 0);

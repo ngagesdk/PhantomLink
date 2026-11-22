@@ -37,6 +37,7 @@
 #define REC_LEN      40                 /* player record (type 10) */
 #define GDATA_MAX    1024               /* game settings (type 14, 136 bytes) */
 #define PING_MS      2000               /* start pings until the phone answers */
+#define START_MS     500                /* barrier: start this much later */
 #define ST_PLAYING   0x80000000u        /* room status bit: game in progress */
 
 typedef struct
@@ -58,6 +59,7 @@ typedef struct
     gc_u32 last_hash;
     gc_u32 last_t;
     int live;      /* the phone's network layer runs: it sent game data */
+    int ready;     /* sent its type 15 for the current barrier */
     gc_u32 ping_t; /* last start ping */
 } player;
 
@@ -82,6 +84,7 @@ typedef struct
     int have_build;
     gc_u8 gdata[GDATA_MAX]; /* the master's game settings (type 14) */
     size_t gdata_n;
+    int barriers; /* completed type 15 barriers */
 } game;
 
 struct gcs_ptg;
@@ -219,15 +222,16 @@ static void game_free(game *g)
  * 0x84b9c): every piece carries the header; the first one the length
  * (compressed: zlib length and unpacked size), then GCS_PTG_FRAG data
  * bytes per piece (the first compressed piece 592).  Bundles of
- * synchronisation records always go compressed: the game unpacks type 34
- * only after a compressed or split message. */
+ * synchronisation records and permanent damage data always go compressed:
+ * the game unpacks type 34, and queues its own 41 behind a 23, only after
+ * a compressed or split message; a short plain one is queued as it is. */
 static void send_to(gcs_ptg *p, game *g, player *pl, gc_u8 type, const gc_u8 *d, size_t n)
 {
     gc_u8 w[WIRE_MAX];
     gc_u8 *z = NULL;
     const gc_u8 *src = d;
     size_t total = n, off = 0, first;
-    int pack = type == GCS_PTG_SYNCS || 4 + n > WIRE_MAX;
+    int pack = type == GCS_PTG_SYNCS || type == GCS_PTG_PERM || 4 + n > WIRE_MAX;
     gc_u8 h0, h1;
     if (!pl || !pl->uid || !p->snap) {
         return;
@@ -612,12 +616,27 @@ static int lobby(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d, 
         if (from->uid != g->host) {
             return 0; /* to the host, as before */
         }
-        /* the master waits for its own copy too (0x93d04) */
-        LOG_I("room %08x: the host starts the game", g->room);
-        for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
-            if (g->pl[i].uid && g->pl[i].lobby) {
-                send_to(p, g, &g->pl[i], type, d, n);
+        /* The master's 13 is only a request ({u32 players}, the rest is
+         * whatever was on its stack, 0x939d4); the start the phones
+         * read (0x93d04) is {u32, u32 mission, u8, u8, u8 late join,
+         * u8 continue}: with the last byte 0 the mission object keeps the
+         * campaign's own start (mp_campaigns/<name>.txt "start_from",
+         * 0xcdfc0), with 1 it would take mission and the two bytes from
+         * here.  The master waits for its own copy too. */
+        {
+            gc_u8 w[12];
+            memset(w, 0, sizeof(w));
+            if (n >= 4) {
+                memcpy(w, d, 4);
             }
+            LOG_I("room %08x: the host starts the game", g->room);
+            for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+                if (g->pl[i].uid && g->pl[i].lobby) {
+                    g->pl[i].ready = 0;
+                    send_to(p, g, &g->pl[i], type, w, sizeof(w));
+                }
+            }
+            g->barriers = 0;
         }
         return 1;
     case GCS_PTG_WELCOME:
@@ -629,15 +648,89 @@ static int lobby(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d, 
     }
 }
 
+/* ---- GPRS game: what the original game server did ----
+ *
+ * In a GPRS game no phone is the host: the lobby hands every phone the
+ * part of a client (6R72.APP 0x6dbc0: sync object with master 0, battle
+ * object with host 0).  So the server answers what a host phone would
+ * answer in a Bluetooth game. */
+
+/* Type 15 barrier (sync object 0x131d58, battle start 0xc336c): every
+ * phone drops old 15s, sends one and waits for one back; the second
+ * word of the answer is the start time in the server's clock (the
+ * phones convert it with the offset they learnt from type 31).  Once
+ * every player of the game has sent its 15, all get the answer.  Before
+ * every mission each phone also waits for the end of the synchronisation
+ * records (35, queued behind a 34) and for the permanent damage data (41,
+ * queued behind a 23; 0xd03e4 with the GPRS flag +0x480).  The server
+ * keeps no damage between missions, so both go out empty after every
+ * barrier; extra empty ones stay queued and are harmless. */
+static void barrier_check(gcs_ptg *p, game *g)
+{
+    gc_u8 w[8];
+    int i, n = 0;
+    for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+        player *pl = &g->pl[i];
+        if (pl->uid && pl->lobby) {
+            if (!pl->ready) {
+                return;
+            }
+            n++;
+        }
+    }
+    if (!n) {
+        return;
+    }
+    put32le(w, 1);
+    put32le(w + 4, p->now + START_MS);
+    g->barriers++;
+    for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+        player *pl = &g->pl[i];
+        if (pl->uid && pl->lobby) {
+            pl->ready = 0;
+            send_to(p, g, pl, GCS_PTG_READY, w, sizeof(w));
+            send_to(p, g, pl, GCS_PTG_SYNCS, (const gc_u8 *)"", 0);
+            send_to(p, g, pl, GCS_PTG_PERM, (const gc_u8 *)"", 0);
+        }
+    }
+    LOG_I("room %08x: barrier %d, %d players", g->room, g->barriers, n);
+}
+
+/* Type 31, 20 bytes {u32 sent, u32 host received, u32 host sent, u32,
+ * u16, u16}: the clock ping a phone sends at the start of a battle
+ * (0xc3de8, which waits for all answers) and every few hundred frames
+ * after (0xc3ecc).  The host fills in its clock twice (0xc3f80) and
+ * sends it back; the server uses its own milliseconds. */
+static void answer_time(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
+{
+    gc_u8 w[32];
+    if (n < 12 || n > sizeof(w)) {
+        LOG_W("room %08x: clock ping of %u bytes from %08x", g->room, (unsigned)n, from->uid);
+        return;
+    }
+    memcpy(w, d, n);
+    put32le(w + 4, p->now);
+    put32le(w + 8, p->now);
+    send_to(p, g, from, GCS_PTG_TIME, w, n);
+}
+
 static void route(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d, size_t n)
 {
     int from_host = from->uid == g->host;
-    player *host = g->host ? player_of(g, g->host) : NULL;
     int i;
     if (lobby(p, g, from, type, d, n)) {
         return;
     }
     switch (type) {
+    case GCS_PTG_READY:
+        if (from->lobby) {
+            from->ready = 1;
+            barrier_check(p, g);
+        }
+        return;
+    case GCS_PTG_TIME:
+        answer_time(p, g, from, d, n);
+        return;
     case GCS_PTG_KEEPALIVE:
         if (n == 4) {
             send_to(p, g, from, GCS_PTG_KEEPALIVE, d, n);
@@ -674,11 +767,10 @@ static void route(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d,
         break;
     }
     if (!from_host) {
-        if (host) {
-            send_to(p, g, host, type, d, n);
-        } else {
-            LOG_D("room %08x: type %u from %08x, no host", g->room, type, from->uid);
-        }
+        /* no phone is the host in a GPRS game: what a Bluetooth client
+         * sends its host (27 ended, 38 quit, 44 results, ...) is for
+         * every other player */
+        to_others(p, g, from, type, d, n);
         return;
     }
     /* from the host */
@@ -769,6 +861,9 @@ static void g_left(void *ctx, gcs_snap *s, gc_u32 uid)
     free(pl->bundle);
     memset(pl, 0, sizeof(*pl));
     n = players(g);
+    if (n) {
+        barrier_check(p, g); /* the others may be waiting for this one */
+    }
     LOG_I("room %08x: %08x left, %d players", g->room, uid, n);
     if (n == 0) {
         game_free(g);

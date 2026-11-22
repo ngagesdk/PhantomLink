@@ -90,6 +90,7 @@ extern "C" {
 #define GCS_PTG_GAMEDATA  14 /* master: game settings, 136 bytes */
 #define GCS_PTG_JOINED    37 /* game: {u32 1 = joined, 0 = declined the side} */
 #define GCS_PTG_COUNTDOWN 49 /* server: {u32}, not used */
+#define GCS_PTG_READY     15 /* {u32 1, u32 time}: barrier, answered by the server */
 #define GCS_PTG_COMMAND   16 /* a soldier's order, executed on every phone */
 #define GCS_PTG_PING      18 /* server -> game: answered with 19 */
 #define GCS_PTG_KEEPALIVE 19 /* game -> server every 20 s, 4 bytes, echoed */
@@ -97,6 +98,7 @@ extern "C" {
 #define GCS_PTG_PERM      23 /* host: permanent damage data */
 #define GCS_PTG_COMMANDS  32 /* server: bundle of commands */
 #define GCS_PTG_ACK       33 /* game: acknowledges 23, 32 and 34 */
+#define GCS_PTG_TIME      31 /* 20 bytes: clock ping, answered by the server */
 #define GCS_PTG_SYNCS     34 /* server: bundle of synchronisation records */
 #define GCS_PTG_SYNC_END  35 /* end of the synchronisation records */
 #define GCS_PTG_PERM_END  41 /* end of the permanent damage data */

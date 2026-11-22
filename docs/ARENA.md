@@ -536,13 +536,13 @@ message in both directions.
 
 ### SNAP sessions of idle players
 
-snapcomm.dll has no thread or active object of its own: it reads its
-socket only when the game pumps ArenaFramework (slot 0x1c, which calls arenabase
-slot 0x64, then snapcomm slot 0x90, then the poll at 0x32e4). Pocket Kingdom most
-likely stops pumping in its offline screens (castle, units, items; not
-confirmed on hardware, but players were dropped while upgrading units),
-and its keep alive (type 2, every ~165 frames) belongs to the online
-screens, so such a player sends and acknowledges nothing for minutes. The server
+snapcomm.dll runs its protocol (acknowledgements, resends) only when the
+game pumps ArenaFramework (slot 0x1c, which calls arenabase slot 0x64, then
+snapcomm slot 0x90, then the poll at 0x32e4). Pocket Kingdom pumps from its
+main tick (6RAH 0x6f3c4) every frame, also in the offline screens; only a
+loading screen (AppUi+0x1b04c set, 0x73608) skips it. The game has no
+keep alive of its own (see "No keep alive in Pocket Kingdom" below), so an
+idle player sends nothing for minutes. The server
 used to end such a session after 15 unacknowledged resends (about 15 s,
 as soon as anything reliable was sent to the player, e.g. a room
 notification) or after 3 minutes of silence, and then ignored the
@@ -556,6 +556,49 @@ silence (`GCSS_IDLE_MS`). The log shows `user ... gone (silent)` for the
 last case and `no acknowledgement for N s, still waiting` (level 2) when a
 client stalls. Up to 32 reliable messages wait per session; more are
 dropped with `send queue full`.
+
+Still not solved: on hardware (2026-11-17) players are dropped after a
+few minutes in the offline screens with the change above.
+
+### No keep alive in Pocket Kingdom
+
+Static analysis of 6RAH.APP 110804 and snapcomm.dll (2026-11-22): the
+client keeps nothing alive and watches for nothing, at any layer.
+
+- Game messages: type 2 (sender 0x65dd8: a sequence byte and 16 bytes of
+  ArenaFramework slot 0x48) is sent only once in the online start-up
+  (0x6b2a4 in 0x6b234, which waits up to 164 frames for the answer) and
+  once before the Global Auction (0x2a5f4). No game message is sent on a
+  timer.
+- The parser (0x67eb8) only counts 129, 130 and 149 (AppUi+0x1ab6c,
+  0x67da4) and ignores 132, 145 and 150. Nothing records when the server
+  was last heard.
+- snapcomm has no idle keep alive and no silence timeout. Its timers: the
+  login (state +0x8c, 100 s, cleared by op 41 at 0x4c28, else op 39 with
+  reason 20 from 0x3de8) and the resend of the client's own reliable
+  messages (0x268c): the timeout starts at INITIAL_LATENCY (3000 ms),
+  is re-estimated from the round trip on every acknowledgement
+  (0x8a10), grows by 200 ms per try, and after MAX_RETRIES (6) tries
+  the client sets error 300 and gives up.
+- Every reliable datagram is acknowledged before dispatch (0x2eec calls
+  0x88c8); with nothing else queued, snapcomm sends a 16-byte
+  acknowledgement of its own. This happens in the poll, so every frame.
+- A leave in the pump makes the game go offline (0x6f5d0 -> 0x723e0);
+  observer event 28 (slot 0x08, 0x67bb8; raised by ArenaFramework at
+  0x6092 and 0x96b4) tears ArenaFramework down (0x721e4).
+
+So staying in a menu times nothing out on the phone. The client drops
+only when one of its own reliable messages stays unacknowledged for 6
+tries (roughly 20-40 s on BT/PPP), or on a socket or link error. A drop
+after idling therefore means the path died during the quiet spell
+(the phone's idle timeout for the data connection, the PPP link or the
+bridge).
+
+If the server should keep the path busy, it can send a reliable SNAP
+message whose op snapcomm hands to its default case (0x517c, e.g. op 0):
+the phone acknowledges it on its next poll and drops it. Not an
+unsolicited 130: the start-up and auction state machines would take it
+as an answer. Not implemented.
 
 ## Rifts: Promise of Power
 
@@ -949,7 +992,9 @@ server does the passing on:
 | 23, 41 | permanent damage data ("Waiting permanent damage data from the host"), end marker (0xe0da8) | sends 23, then 41 to all | 23 to the clients, swallows the host's 41 after a 23 |
 | 43 | Field Radio chunk, 260 bytes: player (1..20), chunk, chunk count, 256 bytes of the recording | passes it to the players of the side whose turn it is | to all other players; a repeated copy within 1.5 s once |
 | 52 | message for everybody | passes it on to all others | to all other players |
-| 27, 39, 54 | end turn / ready flags, "Overpowered bonus!" | handles them itself | to the host |
+| 27, 39, 54 | player ended / host ended, "Overpowered bonus!" | handles them itself | to all other players (no phone is the host in a GPRS game) |
+| 15 | barrier {u32 1, u32 start time} | collects one from every client, answers all | the server collects and answers, see "GPRS game" |
+| 31 | clock ping, 20 bytes | fills in its clock, sends it back | the server answers |
 | 0, 9, 10, 11, 12, 13, 14, 37 | GPRS lobby, see below | (Bluetooth: the host's lobby, 0x8eb3c) | the server runs the lobby |
 | others | | | from a client to the host, from the host to the clients |
 
@@ -991,7 +1036,7 @@ type 9 the phones wait for.
 | 37 | game | u32 1 = takes the side, 0 = declined | 0: the player is gone (12 to the others) |
 | 11 | game | u32 id, u32 side | a client may move only itself, the master anybody; at most 4 per side (like the BT host); to all with a record, the sender too |
 | 12 | game | u32 id | own id: leaving, to the others; the master with another id: removed, to everybody. Also sent by the server when a player leaves the room |
-| 13 | master | 12 bytes | the start: to every player, the master too (0x93d04); from a client still to the host |
+| 13 | master | 12 bytes | the start: to every player, the master too (0x93d04); the server keeps the first word and zeroes the rest (see below) |
 | 49 | server | u32 | countdown (0x93d70); not sent |
 
 Reasons in +8 (0x97148, `globalbg_join_verification*.txt`): 0 "Joining
@@ -1001,6 +1046,90 @@ default side %1!", 1 "The default side is full. Join side %1 instead?",
 it has more players than the other side (reason 3 when the other side is
 empty, else 2) or already 4 (reason 1). Sides are 0 and 1. Answering
 "no" makes the game send 37 {0} and leave.
+
+The 13 the master sends is only a request: {u32 number of players} and
+eight bytes of whatever was on its stack (0x939d4). What the phones read
+(0x93ca4) is {u32, u32 mission, u8, u8, u8 late join, u8 continue}: with
+"continue" 1 the mission object takes the mission and the two bytes
+from the 13 (0x6dce0 into +0x34, +0x0c, +0x10), otherwise it keeps the
+start of the campaign file (`data/level/mp_campaigns/<name>.txt`,
+`start_from`, 0xcdfc0); "late join" 1 skips emptying the queues 16, 26,
+27, 31 and 51 after the first barrier (0x6e6c8). The server passes the
+first word on and sends zeros for the rest.
+
+### GPRS game: no phone is the host
+
+Hardware run 2026-11-22: after the lobby the host showed the mission
+map for a moment, then both phones hung on "Waiting host / Waiting
+permanent damage data from the host". Traced through 6R72.APP; Ikusa
+Islands has the same code (6R82.APP: lobby 0xa1050, barrier 0xd3b18,
+clock ping 0xd3880, damage wait 0xe0f78).
+
+The GPRS game (vtable 0x18d6e8 slots +0x18/+0x1c, 0x6dba0/0x6db80, both
+into 0x6dbc0) gives every phone the part of a client: the sync object
+is created with master 0 (0x6e5f4), the battle object with host 0
+(0x6de34, `r10` from the player loop), and the mission object with the
+GPRS flag +0x480 set (0xcdb48 with 1). Everything a host phone answers
+in a Bluetooth game, the game server has to answer:
+
+1. Lobby (0xccbb8 → 0x93024), see above. Ends with the 13.
+2. Mission loop, while 0 ≤ mission < number of missions (0xd027c; a
+   won battle moves one mission on, a lost one back, 0xd0248/0xd025c):
+   1. Barrier (0x6e5f4, sync object mode 5 "init mission"; client
+      0x131d58): drop old 15s, send 15 {1, …}, wait for as many 15s as
+      it has connections (one). The master side (0x1317e0) would wait
+      for a 15 from every connection and then answer each.
+   2. Mission briefing and map (0xcf824). No network.
+   3. Damage (0xd03e4, "Waiting permanent damage data from the host"):
+      with the GPRS flag it first waits for a 35, then for a 41 (helper
+      0x73250 polls the queue with Cancel), then takes a 23 if there is
+      one (as the damage of this mission, +0x474[mission]). The phone
+      makes the 35 itself behind a 34 and the 41 behind a 23 — only for
+      a compressed or split message; a short plain 23 is queued as it is
+      and makes no 41 (same as for 34).
+   4. Records: the player list (class 0xddfec, slot 0x3c = 0xe1190)
+      takes every queued 21 {u32 player id, data} and hands it to that
+      player (slot 0x34). Nothing sends 21 in a GPRS game.
+   5. Battle (0xc0134, mode 3, host 0; loop 0xc1e10):
+      - Barrier again (sync object mode 0 "mission start").
+      - Clock: 0xc3de8 sends N+1 type 31 pings (N from the settings
+        word at +0x30) and waits until all are answered; afterwards
+        0xc3ecc sends one every few hundred frames. A ping is {u32
+        sent, u32 host received, u32 host sent, u32, u16, u16}; the
+        host fills in words 1 and 2 with its clock (0xc3f80), the
+        client works out the offset (0x13affc) and from then on runs
+        on the host's clock (0xc3e78).
+      - Barrier with start time (0xc336c, client part 0xc3644): drop
+        old 15s, send 15, wait for one; its second word is the start
+        time in the host's clock (+0x94), the battle starts when the
+        clock gets there (0xc20e8).
+      - Commands (16, bundled as 32), Field Radio (43) and the rest go
+        to the other players; remote players read 16, 39 (host ended,
+        +0x25) and 27 (player ended, +0x24) from the connection
+        (0x27750). 36 {u32} would pause the game (0xc3aec), sent only
+        by a host.
+      - At the end 27 {u32} to everybody (0xc2b94).
+   6. After the battle, if the campaign goes on: barrier (0x6e530), then
+      game slot 0x28 (0x6e03c). Nothing in the GPRS path saves the
+      damage of the battle or sends a 23.
+
+What the server does (gcs_ptg.c, both games):
+
+- 15: barrier over all players with a player id; when the last one has
+  sent its 15, every player gets 15 {1, server ms + 500}, an empty 34 and
+  an empty 23 (both compressed), so the damage wait finds its 35 and 41
+  whatever barrier comes before it. Extra empty ones stay queued and do
+  no harm (each mission takes one 35, one 41 and at most one 23). A
+  player leaving the room completes a barrier that waited for it.
+- 31: back to the sender with the server's milliseconds in words 1 and 2.
+- 13: first word of the master's request, the rest zeros.
+- Everything else from a client now goes to all other players instead
+  of to the host phone.
+
+Not covered: permanent damage carried from one mission to the next (the
+server would have to keep what the game never sends), 21 records,
+the pause (36), and whatever the original server did with ranked
+results.
 
 ### Pathway to Glory (the first game)
 
@@ -1038,6 +1167,9 @@ the name and the others saw no lobby).
 - Teams: the host's Bluetooth code sends the Field Radio only to the
   players of the side whose turn it is; the server does not know the
   sides and sends it to all other players.
+- GPRS game: whether the original server sent damage data (23) or
+  records (21) of its own; the number of barriers per battle (the
+  server does not count them); whether its clock was in milliseconds.
 - GPRS lobby: whether the original server balanced the sides the same
   way, what +0xd0 bit 2 of the settings means (without it the game does
   not wait for its own record), when it sent the countdown 49, and
@@ -1065,8 +1197,15 @@ So Pocket Kingdom has a real game server behind the SNAP room
 u32 count, count x u32 recipient uid, then the game message); the server
 sends {1, uid}. Pocket Kingdom's snapcomm.dll (dispatch table 0x4338,
 index = op - 3) handles incoming op 16 at 0x49ec (reliable: observer
-event 0x13, then ArenaFramework 0xab3c, then GameDataReceived) and silently drops
-op 15 and op 17. Until 2026-11-16 the server answered with op 15, so the
+event 0x13, then ArenaFramework 0xab3c, then GameDataReceived) and drops
+op 17 (default case 0x517c). Op 15 is not dropped by snapcomm: 0x4910
+raises event 0x12 (reliable) or 0x14 (unreliable), ArenaFramework takes
+it in 0xaae4 / 0xab94 (vtable 0x167cc, slots 0x50 / 0x58; the op 16
+twins are 0xab3c / 0xabec) and, while a game is attached (AF+0x994),
+hands it to the game observer's slot 0x34 instead of 0x38. In 6RAH that
+slot is an empty function (vtable 0xb0c20, thunk 0x7d75c -> 0x67c2c
+`bx lr`), so the game throws op 15 data away. Without a game attached
+both ops go to the object at AF+0x8e0 (slots 0x50 / 0x54). Until 2026-11-16 the server answered with op 15, so the
 game never saw 129, 130 and the other answers; the Global Auction waits for the 130 and timed
 out with trigger039 before ArenaFramework was even asked to switch rooms.
 Battles are not played against
