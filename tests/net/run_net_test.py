@@ -10,6 +10,11 @@ def free_port():
     s.close()
     return port
 
+for seed in ('', '-1', ' 1', '1x', '4294967296'):
+    r = subprocess.run([gcsim, f'--seed={seed}'], capture_output=True, text=True)
+    if r.returncode != 2 or 'invalid seed' not in r.stderr:
+        raise SystemExit(f'gcsim accepted invalid seed {seed!r}')
+
 # Non-loopback plaintext listeners require explicit operator acknowledgement.
 port = free_port()
 r = subprocess.run([server, f'--port={port}', '--bind=0.0.0.0'], capture_output=True, text=True)
@@ -21,7 +26,8 @@ if r.returncode == 0 or 'without an access_key' not in r.stderr:
     raise SystemExit('server did not require a key for a non-loopback listener')
 
 rc = 0
-for args in (['--api=1', '--players=4'], ['--api=2', '--players=4'], ['--api=1', '--players=2', '--messages=300']):
+# Seed 21 gives duplicate device addresses with the old Windows rand() scheme.
+for args in (['--api=1', '--players=4', '--seed=21'], ['--api=2', '--players=4'], ['--api=1', '--players=2', '--messages=300']):
     port = free_port()
     srv = subprocess.Popen([server, f'--port={port}', '--bind=127.0.0.1', '--log_level=1', '--access_key=test-key'])
     try:

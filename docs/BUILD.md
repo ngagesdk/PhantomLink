@@ -526,7 +526,8 @@ To test a server without hardware:
 ```
 
 `gcsim` simulates four N-Gages with bridges and checks that all data
-arrives.
+arrives. Use `--seed=N` to reproduce a simulator's pseudorandom identifiers
+with the same C runtime; by default, the seed comes from the current time.
 
 ## Automated tests
 

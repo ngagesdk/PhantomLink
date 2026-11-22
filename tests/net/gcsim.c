@@ -12,7 +12,7 @@
  *  connection to the bridge while data is flowing.
  *
  *    gcsim [--server=HOST] [--port=N] [--api=1|2] [--players=N]
- *          [--uid=0x...] [--messages=N] [--key=TEXT] [--verbose]
+ *          [--uid=0x...] [--messages=N] [--key=TEXT] [--seed=N] [--verbose]
  *          [--bridge=HOST:PORT [--reconnect]] [--serial=PATH]
  *
  *  --serial=PATH (POSIX only, with --bridge): device 0 talks to the bridge
@@ -34,7 +34,6 @@
 typedef SOCKET sock_t;
 #define CLOSESOCK closesocket
 #else
-#include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -48,6 +47,8 @@ typedef int sock_t;
 #endif
 #include "bridge_core.h"
 #include "gc_dev.h"
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -342,7 +343,9 @@ static void pump(gc_u32 dur)
 int main(int argc, char **argv)
 {
     int i, api = 1, msgs = 50, k, reconnect = 0;
-    gc_u32 uid = 0x10005B8B;
+    gc_u32 uid = 0x10005B8B, server_link_base;
+    unsigned seed = (unsigned)time(NULL);
+    gc_u8 addr[6] = { 0x02, 0x47, 0, 0, 0, 0 };
     char key[GC_MAX_NAME + 1] = "";
 #ifdef _WIN32
     WSADATA w;
@@ -363,6 +366,16 @@ int main(int argc, char **argv)
             msgs = atoi(argv[i] + 11);
         } else if (!strncmp(argv[i], "--key=", 6)) {
             strncpy(key, argv[i] + 6, GC_MAX_NAME);
+        } else if (!strncmp(argv[i], "--seed=", 7)) {
+            char *end;
+            unsigned long value;
+            errno = 0;
+            value = strtoul(argv[i] + 7, &end, 0);
+            if (argv[i][7] < '0' || argv[i][7] > '9' || *end != '\0' || errno == ERANGE || value > UINT_MAX) {
+                fprintf(stderr, "invalid seed: %s\n", argv[i] + 7);
+                return 2;
+            }
+            seed = (unsigned)value;
         } else if (!strcmp(argv[i], "--verbose")) {
             verbose = 1;
         } else if (!strncmp(argv[i], "--bridge=", 9)) {
@@ -382,20 +395,24 @@ int main(int argc, char **argv)
         } else if (!strncmp(argv[i], "--serial=", 9)) {
             serial_path = argv[i] + 9;
         } else {
-            printf("usage: gcsim [--server=HOST] [--port=N] [--api=1|2] [--players=2..4] [--uid=0x..] [--messages=N] [--key=K] [--verbose] [--bridge=HOST:PORT [--reconnect]]\n");
+            printf("usage: gcsim [--server=HOST] [--port=N] [--api=1|2] [--players=2..4] [--uid=0x..] [--messages=N] [--key=K] [--seed=N] [--verbose] [--bridge=HOST:PORT [--reconnect]]\n");
             return 2;
         }
     }
     if (N < 2 || N > MAXN) {
         N = 4;
     }
-    srand((unsigned)time(NULL));
+    srand(seed);
+    /* Share a random prefix but reserve the low bits for the player index. */
+    addr[2] = (gc_u8)rand();
+    addr[3] = (gc_u8)rand();
+    addr[4] = (gc_u8)rand();
+    server_link_base = (((gc_u32)rand() << 16) ^ (gc_u32)rand()) & ~(gc_u32)7;
     for (i = 0; i < N; i++) {
         gcd_config dc;
         gcd_ops dops;
         bridge_cfg bc;
         bridge_io bio;
-        gc_u8 addr[6] = { 0x02, 0x47, 0x43, 0x53, 0x49, 0 };
         vdev *v = &V[i];
         memset(v, 0, sizeof(*v));
         v->fd = (sock_t)-1;
@@ -412,7 +429,7 @@ int main(int argc, char **argv)
         dops.wake = d_wake;
         gcd_init(&v->dev, &dc, &dops, v);
         bridge_default_cfg(&bc);
-        bc.server_link_id = (gc_u32)rand() | 1;
+        bc.server_link_id = server_link_base | (gc_u32)(i + 1);
         strcpy(bc.access_key, key);
         bio.dev_write = b_dev_write;
         bio.srv_write = b_srv_write;
@@ -446,7 +463,7 @@ int main(int argc, char **argv)
             gcd_transport_up(&v->dev, now_ms());
             continue;
         }
-        addr[5] = (gc_u8)(rand() & 0xFF);
+        addr[5] = (gc_u8)i;
         bridge_dev_connected(&v->br, addr, now_ms());
         gcd_transport_up(&v->dev, now_ms());
         bridge_set_wifi(&v->br, 1, -40, now_ms());
