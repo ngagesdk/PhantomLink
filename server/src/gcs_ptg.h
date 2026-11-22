@@ -79,6 +79,17 @@ extern "C" {
 #define GCS_PTG_MAX_PLAYERS 8 /* game.rsc 0x200d: 6 */
 
 /* message types (6R82.APP; names from what the game does with them) */
+/* GPRS lobby (6R72.APP 0x93024, 6R82.APP 0xa1050): the game server runs
+ * it, not the host's phone */
+#define GCS_PTG_HELLO     0  /* game: {u8 has settings, 3, u32 build} */
+#define GCS_PTG_WELCOME   9  /* server: {u32 player id, u8 master, 3} */
+#define GCS_PTG_PLAYER    10 /* player record, 40 bytes: id, side, reason, ... */
+#define GCS_PTG_SIDE      11 /* {u32 id, u32 side}: request / change */
+#define GCS_PTG_REMOVE    12 /* {u32 id}: player left or removed */
+#define GCS_PTG_START     13 /* master: 12 bytes, the game starts */
+#define GCS_PTG_GAMEDATA  14 /* master: game settings, 136 bytes */
+#define GCS_PTG_JOINED    37 /* game: {u32 1 = joined, 0 = declined the side} */
+#define GCS_PTG_COUNTDOWN 49 /* server: {u32}, not used */
 #define GCS_PTG_COMMAND   16 /* a soldier's order, executed on every phone */
 #define GCS_PTG_PING      18 /* server -> game: answered with 19 */
 #define GCS_PTG_KEEPALIVE 19 /* game -> server every 20 s, 4 bytes, echoed */
@@ -96,6 +107,7 @@ extern "C" {
 /* GCS_PTG_STATUS codes */
 #define GCS_PTG_ST_HOST_LEFT    3
 #define GCS_PTG_ST_TOO_MANY     5
+#define GCS_PTG_ST_BUILD        6 /* client build not supported */
 #define GCS_PTG_ST_NO_OPPONENTS 8
 
 #define GCS_PTG_FRAG       596    /* data bytes per message on the wire */

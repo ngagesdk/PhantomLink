@@ -12,9 +12,12 @@
  *     records (34 -> 21, then the game's own 35), permanent damage data
  *     (23, then the game's own 41), acknowledgements (33)
  *   - keep alive (19), commands of every player to all others, client
- *     messages to the host, host messages to the clients once each,
+ *     messages to the host, host messages to the clients,
  *     Field Radio to the other players, status 50 when the host or the
- *     last opponent leaves.
+ *     last opponent leaves
+ *   - the GPRS lobby the server runs (6R72.APP 0x93024): player ids (0 ->
+ *     9), game settings (14), player records with sides (10), side
+ *     changes (11), leaving (12), the start (13).
  *
  *  Copyright (c) 2023-2026, Michael Fitzmayer. All rights reserved.
  *  SPDX-License-Identifier: MIT
@@ -303,7 +306,7 @@ typedef struct
     ptg_client c;
 } phone;
 
-static phone P[8];
+static phone P[14];
 static gcs_snap *S;
 static gcs_ptg *PT;
 
@@ -538,7 +541,7 @@ static void set_stat(phone *g, gc_u32 v)
 static void clear_in(void)
 {
     int i;
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 14; i++) {
         P[i].n_in = 0;
     }
 }
@@ -593,7 +596,7 @@ static void test_game(void)
     CHECK_EQ(q_pop(&b->c, GCS_PTG_PING, r, sizeof(r)), 0); /* the empty 19 does not count */
     q_pop(&a->c, GCS_PTG_PING, NULL, 0);
     q_pop(&c->c, GCS_PTG_PING, NULL, 0);
-    game_send(a, 13, "ver", 3); /* now the layers run */
+    game_send(a, 27, "ver", 3); /* now the layers run */
     game_send(b, GCS_PTG_KEEPALIVE, "\0\0\0\0", 4);
     q_pop(&b->c, GCS_PTG_KEEPALIVE, NULL, 0);
     game_send(c, GCS_PTG_COMMAND, "c", 1);
@@ -606,8 +609,8 @@ static void test_game(void)
     for (i = 0; i < 3; i++) {
         CHECK_EQ(P[i].c.qn[GCS_PTG_PING], 0);
     }
-    q_pop(&b->c, 13, NULL, 0); /* the host's message went to the clients */
-    q_pop(&c->c, 13, NULL, 0);
+    q_pop(&b->c, 27, NULL, 0); /* the host's message went to the clients */
+    q_pop(&c->c, 27, NULL, 0);
 
     /* keep alive: 4 bytes back, nothing to the others */
     game_send(b, GCS_PTG_KEEPALIVE, "\x01\x02\x03\x04", 4);
@@ -644,26 +647,11 @@ static void test_game(void)
     send_acks(b);
     send_acks(c);
 
-    /* a client's lobby message (e.g. its version, type 13) goes to the
+    /* a client's message the host handles (end turn, 27) goes to the
      * host only */
-    game_send(c, 13, "v1.05build\0\0", 12);
-    CHECK_EQ(q_pop(&a->c, 13, r, sizeof(r)), 12);
-    CHECK_EQ(b->c.qn[13], 0);
-
-    /* the host writes player data once per connection: every client
-     * gets it once */
-    fill(d, 40, 1);
-    game_send(a, 10, d, 40);
-    game_send(a, 10, d, 40);
-    g_now += 2000;
-    game_send(a, 10, d, 40);
-    CHECK_EQ(b->c.qn[10], 1);
-    CHECK_EQ(c->c.qn[10], 1);
-    CHECK_EQ(q_pop(&b->c, 10, r, sizeof(r)), 40);
-    CHECK(!memcmp(r, d, 40));
-    fill(d, 40, 2); /* other data: delivered */
-    game_send(a, 10, d, 40);
-    CHECK_EQ(b->c.qn[10], 1);
+    game_send(c, 27, "turn", 4);
+    CHECK_EQ(q_pop(&a->c, 27, r, sizeof(r)), 4);
+    CHECK_EQ(b->c.qn[27], 0);
 
     /* synchronisation: records of the host, then its end marker; the
      * clients get one bundle (zlib, in pieces) and make the 35 themselves */
@@ -770,7 +758,7 @@ static void test_game(void)
     CHECK_EQ(b->c.status, GCS_PTG_ST_HOST_LEFT);
     gcs_ptg_get_stats(PT, &st);
     CHECK_EQ(st.games, 1);
-    CHECK(st.commands == 4 && st.radio_chunks == 2 && st.duplicates >= 3);
+    CHECK(st.commands == 4 && st.radio_chunks == 2 && st.duplicates == 1);
     send_msg(b, 0xa000, 16, GCSS_OP_LEAVE, d, 0);
     gcs_ptg_get_stats(PT, &st);
     CHECK_EQ(st.games, 0);
@@ -868,6 +856,199 @@ static void test_classic(void)
     }
 }
 
+/* ---- GPRS lobby ---- */
+
+static gc_u32 rd32(const gc_u8 *d)
+{
+    return (gc_u32)d[0] | ((gc_u32)d[1] << 8) | ((gc_u32)d[2] << 16) | ((gc_u32)d[3] << 24);
+}
+
+static void wr32(gc_u8 *d, gc_u32 v)
+{
+    d[0] = (gc_u8)v;
+    d[1] = (gc_u8)(v >> 8);
+    d[2] = (gc_u8)(v >> 16);
+    d[3] = (gc_u8)(v >> 24);
+}
+
+/* type 0 as 6R72.APP 0x93158 sends it: has settings, 3 bytes the game
+ * leaves uninitialised, build */
+static void hello(phone *g, int settings, gc_u32 build)
+{
+    gc_u8 d[8] = { 0, 0x6b, 0xf3, 0xff };
+    d[0] = (gc_u8)settings;
+    wr32(d + 4, build);
+    game_send(g, GCS_PTG_HELLO, d, 8);
+}
+
+/* type 9: returns the player id, *master the flag */
+static gc_u32 welcome(phone *g, int *master)
+{
+    gc_u8 r[16];
+    CHECK_EQ(q_pop(&g->c, GCS_PTG_WELCOME, r, sizeof(r)), 8);
+    *master = r[4];
+    return rd32(r);
+}
+
+/* the player record the game sends (0x93664): +4 default side, +20 name */
+static void send_record(phone *g, gc_u32 side)
+{
+    gc_u8 d[40];
+    memset(d, 0, sizeof(d));
+    wr32(d, 0x55555555u); /* not filled in by the game */
+    wr32(d + 4, side);
+    wr32(d + 8, 0x77777777u);
+    strcpy((char *)d + 20, g->name);
+    game_send(g, GCS_PTG_PLAYER, d, 40);
+}
+
+/* the first type 10 after its own must be its own (0x93720): id, side,
+ * reason; the name stays */
+static void own_record(phone *g, gc_u32 id, gc_u32 side, gc_u32 reason)
+{
+    gc_u8 r[64];
+    CHECK_EQ(q_pop(&g->c, GCS_PTG_PLAYER, r, sizeof(r)), 40);
+    CHECK_EQ(rd32(r), id);
+    CHECK_EQ(rd32(r + 4), side);
+    CHECK_EQ(rd32(r + 8), reason);
+    CHECK(!strcmp((const char *)r + 20, g->name));
+}
+
+static void lobby_run(int classic)
+{
+    static const char *names[2][3] = { { "ivan", "judy", "kate" }, { "leo", "mia", "ned" } };
+    phone *a = &P[8 + classic * 3], *b = a + 1, *c = a + 2;
+    gc_u8 gd[136], r[256], w[12];
+    int m, i;
+    gc_u32 ib, ic;
+    g_class = classic ? GCS_PTG1_GAME_CLASS : GCS_PTG_GAME_CLASS;
+    for (i = 0; i < 3; i++) {
+        phone *x = i == 0 ? a : i == 1 ? b : c;
+        x->port = (gc_u16)(5001 + classic * 3 + i);
+        x->name = names[classic][i];
+        x->c.classic = classic;
+        x->c.status = -1;
+        login(x);
+        enter_lobby(x, "Freestyle");
+    }
+    /* as on hardware 2026-11-19: the host is alone in the room when its
+     * network layer starts */
+    create_room(a, "Battle", 6);
+    clear_in();
+    set_stat(a, 0x90000000u);
+    gcs_snap_poll(S, g_now);
+    q_pop(&a->c, GCS_PTG_PING, NULL, 0);
+    game_send(a, GCS_PTG_KEEPALIVE, NULL, 0);
+    hello(a, 1, 0x559dbe46u);
+    CHECK_EQ(welcome(a, &m), 0);
+    CHECK_EQ(m, 1);
+    /* the master: settings and its record; it waits for both */
+    fill(gd, sizeof(gd), 3);
+    game_send(a, GCS_PTG_GAMEDATA, gd, sizeof(gd));
+    send_record(a, 0);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 136);
+    CHECK(!memcmp(r, gd, 136));
+    own_record(a, 0, 0, 0);
+    wr32(w, 1);
+    game_send(a, GCS_PTG_JOINED, w, 4);
+
+    /* the first client: its id, the settings, then its record; it also
+     * wants side 0, which already has more players */
+    join_room(b, a->room);
+    gcs_snap_poll(S, g_now);
+    q_pop(&b->c, GCS_PTG_PING, NULL, 0);
+    hello(b, 0, 0x559dbe46u);
+    ib = welcome(b, &m);
+    CHECK(ib != 0 && m == 0);
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 136);
+    CHECK_EQ(b->c.qn[GCS_PTG_PLAYER], 0); /* nothing before its own record */
+    send_record(b, 0);
+    own_record(b, ib, 1, 3); /* nobody on side 1: join it instead? */
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_PLAYER, r, sizeof(r)), 40); /* the master's */
+    CHECK_EQ(rd32(r), 0);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_PLAYER, r, sizeof(r)), 40);
+    CHECK_EQ(rd32(r), ib);
+    wr32(w, 1);
+    game_send(b, GCS_PTG_JOINED, w, 4);
+
+    /* a client of another build: code 6 */
+    join_room(c, a->room);
+    hello(c, 0, 0x12345678u);
+    CHECK_EQ(c->c.status, GCS_PTG_ST_BUILD);
+    CHECK_EQ(c->c.qn[GCS_PTG_WELCOME], 0);
+    /* the right build: side 0 again (both sides equal) */
+    c->c.status = -1;
+    hello(c, 0, 0x559dbe46u);
+    ic = welcome(c, &m);
+    CHECK(ic != ib && ic != 0 && m == 0);
+    q_pop(&c->c, GCS_PTG_GAMEDATA, NULL, 0);
+    send_record(c, 0);
+    own_record(c, ic, 0, 0);
+    CHECK_EQ(c->c.qn[GCS_PTG_PLAYER], 2);
+    CHECK_EQ(a->c.qn[GCS_PTG_PLAYER], 1);
+    CHECK_EQ(b->c.qn[GCS_PTG_PLAYER], 1);
+    q_pop(&a->c, GCS_PTG_PLAYER, NULL, 0);
+    q_pop(&b->c, GCS_PTG_PLAYER, NULL, 0);
+    while (q_pop(&c->c, GCS_PTG_PLAYER, NULL, 0) >= 0) {
+    }
+
+    /* side changes: a client only for itself, the master for anybody */
+    wr32(w, ib);
+    wr32(w + 4, 0);
+    game_send(c, GCS_PTG_SIDE, w, 8);
+    CHECK_EQ(b->c.qn[GCS_PTG_SIDE], 0);
+    game_send(b, GCS_PTG_SIDE, w, 8);
+    for (i = 0; i < 3; i++) {
+        phone *x = i == 0 ? a : i == 1 ? b : c;
+        CHECK_EQ(q_pop(&x->c, GCS_PTG_SIDE, r, sizeof(r)), 8);
+        CHECK(rd32(r) == ib && rd32(r + 4) == 0);
+    }
+    wr32(w, ic);
+    wr32(w + 4, 1);
+    game_send(a, GCS_PTG_SIDE, w, 8);
+    CHECK_EQ(q_pop(&c->c, GCS_PTG_SIDE, r, sizeof(r)), 8);
+    CHECK_EQ(rd32(r + 4), 1);
+    q_pop(&a->c, GCS_PTG_SIDE, NULL, 0);
+    q_pop(&b->c, GCS_PTG_SIDE, NULL, 0);
+
+    /* the master removes c: everybody hears it, c too */
+    wr32(w, ic);
+    game_send(a, GCS_PTG_REMOVE, w, 4);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_REMOVE, r, sizeof(r)), 4);
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_REMOVE, r, sizeof(r)), 4);
+    CHECK_EQ(q_pop(&c->c, GCS_PTG_REMOVE, r, sizeof(r)), 4);
+    CHECK_EQ(rd32(r), ic);
+    send_msg(c, 0xa000, 14, GCSS_OP_LEAVE, r, 0);
+    CHECK_EQ(a->c.qn[GCS_PTG_REMOVE], 0); /* told once */
+
+    /* the start: to everybody, the master included */
+    fill(w, 12, 1);
+    game_send(a, GCS_PTG_START, w, 12);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_START, r, sizeof(r)), 12);
+    CHECK_EQ(q_pop(&b->c, GCS_PTG_START, r, sizeof(r)), 12);
+    CHECK(!memcmp(r, w, 12));
+
+    /* a client leaving the room: the master hears it */
+    send_msg(b, 0xa000, 15, GCSS_OP_LEAVE, r, 0);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_REMOVE, r, sizeof(r)), 4);
+    CHECK_EQ(rd32(r), ib);
+    for (i = 0; i < 3; i++) {
+        phone *x = i == 0 ? a : i == 1 ? b : c;
+        CHECK_EQ(x->c.bad, 0);
+    }
+    send_msg(a, 0xa000, 16, GCSS_OP_LEAVE, r, 0);
+}
+
+static void test_lobby(void)
+{
+    lobby_run(0);
+}
+
+static void test_lobby_classic(void)
+{
+    lobby_run(1);
+}
+
 int main(int argc, char **argv)
 {
     gcs_snap_io io = { io_send, io_log, io_auth };
@@ -894,9 +1075,11 @@ int main(int argc, char **argv)
     RUN(test_game);
     RUN(test_last_opponent);
     RUN(test_classic);
+    RUN(test_lobby);
+    RUN(test_lobby_classic);
     gcs_snap_destroy(S);
     gcs_ptg_destroy(PT);
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < 14; i++) {
         client_reset(&P[i].c);
     }
     TEST_MAIN_END();

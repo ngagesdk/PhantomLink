@@ -950,7 +950,7 @@ server does the passing on:
 | 43 | Field Radio chunk, 260 bytes: player (1..20), chunk, chunk count, 256 bytes of the recording | passes it to the players of the side whose turn it is | to all other players; a repeated copy within 1.5 s once |
 | 52 | message for everybody | passes it on to all others | to all other players |
 | 27, 39, 54 | end turn / ready flags, "Overpowered bonus!" | handles them itself | to the host |
-| 9, 10, 14 | lobby: version answer, player data (40 bytes), game data (136 bytes) | writes them to each player's connection | to the clients, each one once per player |
+| 0, 9, 10, 11, 12, 13, 14, 37 | GPRS lobby, see below | (Bluetooth: the host's lobby, 0x8eb3c) | the server runs the lobby |
 | others | | | from a client to the host, from the host to the clients |
 
 The Field Radio ("Use the Field Radio for voice communication between
@@ -969,6 +969,38 @@ when the bundle arrives and correct their state; this lives entirely in
 the game. The server's part is to pass every command on once, to every
 other player, in the order it arrived, without waiting (a bundle goes
 out at the end of each incoming datagram).
+
+### GPRS lobby (the server runs it)
+
+Found after a hardware run on 2026-11-19 (Pathway to Glory, two
+N-Gages): both phones stayed on "Waiting for side selection"
+(`wait_for_server.txt`) for good. The GPRS lobby (6R72.APP 0x93024,
+6R82.APP 0xa1050; the same code in both games) is not run by the host's
+phone: every phone, the host included, asks the game server, and the
+server hands out the player ids and the sides. In a Bluetooth game the
+host's phone does that part (0x8eb3c, 0x8f17c). The server used to
+pass type 0 on to the host, which ignores it, so nobody ever got the
+type 9 the phones wait for.
+
+| Type | Direction | Data | Server |
+|---|---|---|---|
+| 0 | game | u8 1 = has game settings (the host), 3 bytes garbage, u32 build | answers 9; a client whose build differs from the host's gets status 6 |
+| 9 | server | u32 player id, u8 1 = master, 3 bytes 0 | master = the room's creator, id 0; clients 1, 2, ... |
+| 14 | master | game settings, 136 bytes | kept; to every player with an id, the master too (it waits for them, 0x934c4), and to later players right after their 9 |
+| 10 | game | player record, 40 bytes: +0 id, +4 side (sent: the default side of the GPRS options), +8 reason, +20 name | fills in id, side and reason; sends the record to its player **first** (the game takes the first 10 as the answer and gives up if the id is not its own, 0x93720), then to the others, then the others' records to the new player |
+| 37 | game | u32 1 = takes the side, 0 = declined | 0: the player is gone (12 to the others) |
+| 11 | game | u32 id, u32 side | a client may move only itself, the master anybody; at most 4 per side (like the BT host); to all with a record, the sender too |
+| 12 | game | u32 id | own id: leaving, to the others; the master with another id: removed, to everybody. Also sent by the server when a player leaves the room |
+| 13 | master | 12 bytes | the start: to every player, the master too (0x93d04); from a client still to the host |
+| 49 | server | u32 | countdown (0x93d70); not sent |
+
+Reasons in +8 (0x97148, `globalbg_join_verification*.txt`): 0 "Joining
+default side %1!", 1 "The default side is full. Join side %1 instead?",
+2 "...To balance the forces join side %1 instead?", 3 "No players on side
+%1, join this side instead?". The server keeps the default side unless
+it has more players than the other side (reason 3 when the other side is
+empty, else 2) or already 4 (reason 1). Sides are 0 and 1. Answering
+"no" makes the game send 37 {0} and leave.
 
 ### Pathway to Glory (the first game)
 
@@ -1006,9 +1038,10 @@ the name and the others saw no lobby).
 - Teams: the host's Bluetooth code sends the Field Radio only to the
   players of the side whose turn it is; the server does not know the
   sides and sends it to all other players.
-- Which lobby messages the GPRS game really uses, and whether the
-  original server answered the version check (code 11 in its error list)
-  itself instead of the host.
+- GPRS lobby: whether the original server balanced the sides the same
+  way, what +0xd0 bit 2 of the settings means (without it the game does
+  not wait for its own record), when it sent the countdown 49, and
+  whether the sides are really 0 and 1.
 - Whether a game ever sends more than one SNAP message can carry
   (~1000 bytes) in one call; the server takes several messages per
   datagram but does not join SNAP packet series.

@@ -10,7 +10,10 @@
  *  of a client go to the host, messages of the host go to the clients,
  *  and the types the host passes on to everybody go to all other
  *  players.  On top of that come the bundles and markers that only the
- *  Arena server sends (types 32 and 34) and the keep alive.
+ *  Arena server sends (types 32 and 34), the keep alive and the GPRS
+ *  lobby: every phone, the host included, asks the server for a player
+ *  id (type 0 -> 9) and the server hands out ids and sides and passes
+ *  the player records on (6R72.APP 0x93024).
  *
  *  Copyright (c) 2023-2026, Michael Fitzmayer. All rights reserved.
  *  SPDX-License-Identifier: MIT
@@ -30,7 +33,9 @@
 #define SYNC_MAX     65000              /* host's synchronisation records per bundle */
 #define SYNC_WAIT_MS 3000               /* records without end marker go on alone */
 #define DUP_MS       1500               /* identical copies of one message */
-#define SEEN_N       16                 /* lobby messages remembered per player */
+#define SIDE_MAX     4                  /* players per side (BT host 0x8f17c) */
+#define REC_LEN      40                 /* player record (type 10) */
+#define GDATA_MAX    1024               /* game settings (type 14, 136 bytes) */
 #define PING_MS      2000               /* start pings until the phone answers */
 #define ST_PLAYING   0x80000000u        /* room status bit: game in progress */
 
@@ -42,8 +47,12 @@ typedef struct
     gc_u16 ack_cmds;
     gc_u8 *bundle; /* commands of the others, not sent yet */
     size_t bundle_n;
-    gc_u32 seen[SEEN_N]; /* lobby messages from the host already delivered */
-    int seen_n;
+    /* GPRS lobby */
+    int lobby;   /* got its player id (type 9) */
+    gc_u32 id;   /* 0 = master */
+    int has_rec; /* has a player record with a side */
+    gc_u32 side; /* 0 or 1 */
+    gc_u8 rec[REC_LEN];
     /* last message from this player that may come several times */
     gc_u8 last_type;
     gc_u32 last_hash;
@@ -67,6 +76,12 @@ typedef struct
     gc_u32 sync_t;
     int perm_open; /* host sent 23, the clients make the 41 themselves */
     int playing;   /* room status had bit 31 at the last poll */
+    /* GPRS lobby */
+    gc_u32 next_id;          /* last client id handed out */
+    gc_u32 build;            /* the master's build (type 0) */
+    int have_build;
+    gc_u8 gdata[GDATA_MAX]; /* the master's game settings (type 14) */
+    size_t gdata_n;
 } game;
 
 struct gcs_ptg;
@@ -110,6 +125,11 @@ static void plog(gcs_ptg *p, int level, const char *fmt, ...)
 static gc_u16 le16(const gc_u8 *d)
 {
     return (gc_u16)(d[0] | (d[1] << 8));
+}
+
+static gc_u32 le32(const gc_u8 *d)
+{
+    return (gc_u32)d[0] | ((gc_u32)d[1] << 8) | ((gc_u32)d[2] << 16) | ((gc_u32)d[3] << 24);
 }
 
 static void put16(gc_u8 *d, gc_u16 v)
@@ -344,22 +364,6 @@ static void flush_sync(gcs_ptg *p, game *g, int with_end)
     g->sync_count = 0;
 }
 
-static int seen_before(player *pl, gc_u32 h)
-{
-    int i;
-    for (i = 0; i < pl->seen_n; i++) {
-        if (pl->seen[i] == h) {
-            return 1;
-        }
-    }
-    if (pl->seen_n == SEEN_N) {
-        memmove(pl->seen, pl->seen + 1, sizeof(pl->seen[0]) * (SEEN_N - 1));
-        pl->seen_n--;
-    }
-    pl->seen[pl->seen_n++] = h;
-    return 0;
-}
-
 /* ---- routing ---- */
 
 static void to_others(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d, size_t n)
@@ -373,13 +377,256 @@ static void to_others(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8
     }
 }
 
-/* Lobby messages of the host (version answer 9, player data 10, game
- * data 14): the host's phone writes them to every player's connection;
- * over GPRS all of these are the one connection to the server, so every
- * client would see each of them several times. */
-static int lobby_type(gc_u8 t)
+/* ---- GPRS lobby (6R72.APP 0x93024, 6R82.APP 0xa1050) ----
+ *
+ * Every phone, the host included, starts the GPRS lobby with type 0 and
+ * waits ("Waiting for side selection", wait_for_server.txt) for type 9
+ * from the game server: its player id and whether it is the master.  The
+ * master then sends the game settings (14) and its player record (10);
+ * everybody waits for the settings (14, the master too), sends its
+ * record, waits for its own record back with id, side and the reason for
+ * the side (+8: 0 default side, 1 default side full, 2 to balance the
+ * forces, 3 nobody on the other side; globalbg_join_verification*.txt),
+ * answers 37 and enters the lobby loop: records of the others (10), side
+ * changes (11), players leaving or removed (12), the start (13).  In a
+ * Bluetooth game the host's phone does the server's part (0x8eb3c). */
+
+static player *player_by_id(game *g, gc_u32 id)
 {
-    return t == 9 || t == 10 || t == 14;
+    int i;
+    for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+        if (g->pl[i].uid && g->pl[i].lobby && g->pl[i].id == id) {
+            return &g->pl[i];
+        }
+    }
+    return NULL;
+}
+
+static int side_count(const game *g, gc_u32 side, const player *except)
+{
+    int i, n = 0;
+    for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+        const player *pl = &g->pl[i];
+        n += pl->uid && pl->has_rec && pl != except && pl->side == side;
+    }
+    return n;
+}
+
+/* 'type' to every player in the lobby that has a record (and to 'from'
+ * as well when 'self') */
+static void to_recs(gcs_ptg *p, game *g, player *from, int self, gc_u8 type, const gc_u8 *d, size_t n)
+{
+    int i;
+    for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+        player *pl = &g->pl[i];
+        if (pl->uid && pl->has_rec && (self || pl != from)) {
+            send_to(p, g, pl, type, d, n);
+        }
+    }
+}
+
+static void send_remove(gcs_ptg *p, game *g, player *gone, int self)
+{
+    gc_u8 d[4];
+    put32le(d, gone->id);
+    gone->has_rec = 0;
+    to_recs(p, g, gone, 0, GCS_PTG_REMOVE, d, 4);
+    if (self) {
+        send_to(p, g, gone, GCS_PTG_REMOVE, d, 4);
+    }
+}
+
+static void lobby_hello(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
+{
+    int master = g->host && from->uid == g->host;
+    gc_u8 w[8];
+    gc_u32 build;
+    if (n < 8) {
+        LOG_W("room %08x: type 0 from %08x with %u bytes, ignored", g->room, from->uid, (unsigned)n);
+        return;
+    }
+    build = le32(d + 4);
+    if (master) {
+        if (!d[0]) {
+            LOG_W("room %08x: host %08x has no game settings", g->room, from->uid);
+        }
+        g->build = build;
+        g->have_build = 1;
+    } else if (g->have_build && build != g->build) {
+        LOG_W("room %08x: %08x has build %08x, the host %08x", g->room, from->uid, build, g->build);
+        send_status(p, g, from, GCS_PTG_ST_BUILD);
+        return;
+    }
+    if (!from->lobby) {
+        from->lobby = 1;
+        from->id = master ? 0 : ++g->next_id;
+    }
+    memset(w, 0, sizeof(w));
+    put32le(w, from->id);
+    w[4] = (gc_u8)master;
+    send_to(p, g, from, GCS_PTG_WELCOME, w, sizeof(w));
+    LOG_I("room %08x: %08x build %08x, player id %u%s", g->room, from->uid, build, from->id,
+          master ? " (master)" : "");
+    if (!master && g->gdata_n) {
+        send_to(p, g, from, GCS_PTG_GAMEDATA, g->gdata, g->gdata_n);
+    }
+}
+
+static void lobby_game_data(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
+{
+    int i;
+    if (from->uid != g->host) {
+        LOG_W("room %08x: game settings from %08x, not the host, ignored", g->room, from->uid);
+        return;
+    }
+    if (n > GDATA_MAX) {
+        LOG_W("room %08x: game settings of %u bytes, ignored", g->room, (unsigned)n);
+        return;
+    }
+    memcpy(g->gdata, d, n);
+    g->gdata_n = n;
+    /* the master waits for them as well */
+    for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+        if (g->pl[i].uid && g->pl[i].lobby) {
+            send_to(p, g, &g->pl[i], GCS_PTG_GAMEDATA, d, n);
+        }
+    }
+}
+
+static void lobby_player(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
+{
+    int first = !from->has_rec, i;
+    gc_u32 side = from->side, reason = 0;
+    if (!from->lobby || n < 12) {
+        LOG_W("room %08x: player record from %08x (%u bytes) before its id, ignored", g->room, from->uid,
+              (unsigned)n);
+        return;
+    }
+    if (first) {
+        /* +4: the default side of the player's GPRS options */
+        gc_u32 want = le32(d + 4);
+        int n0 = side_count(g, 0, from), n1 = side_count(g, 1, from);
+        if (want > 1) {
+            want = n0 <= n1 ? 0 : 1;
+        }
+        side = want;
+        if (side_count(g, want, from) > side_count(g, 1 - want, from)) {
+            side = 1 - want;
+            reason = side_count(g, side, from) ? 2 : 3;
+        } else if (side_count(g, want, from) >= SIDE_MAX) {
+            side = 1 - want;
+            reason = 1;
+        }
+        LOG_I("room %08x: player %u (%08x) on side %u (default %u, reason %u)", g->room, from->id, from->uid, side,
+              want, reason);
+    }
+    memset(from->rec, 0, REC_LEN);
+    memcpy(from->rec, d, n < REC_LEN ? n : REC_LEN);
+    put32le(from->rec, from->id);
+    put32le(from->rec + 4, side);
+    put32le(from->rec + 8, reason);
+    from->side = side;
+    from->has_rec = 1;
+    /* its own record first: the game takes the first 10 after its own
+     * as the answer and gives up if the id is not its own (0x93720) */
+    send_to(p, g, from, GCS_PTG_PLAYER, from->rec, REC_LEN);
+    to_recs(p, g, from, 0, GCS_PTG_PLAYER, from->rec, REC_LEN);
+    if (first) {
+        for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+            player *pl = &g->pl[i];
+            if (pl->uid && pl->has_rec && pl != from) {
+                send_to(p, g, from, GCS_PTG_PLAYER, pl->rec, REC_LEN);
+            }
+        }
+    }
+}
+
+static void lobby_side(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
+{
+    player *who;
+    gc_u32 side;
+    gc_u8 w[8];
+    if (n < 8) {
+        return;
+    }
+    who = player_by_id(g, le32(d));
+    side = le32(d + 4);
+    if (!who || !who->has_rec || side > 1 || (who != from && from->uid != g->host)) {
+        LOG_D("room %08x: side change %u -> %u from %08x refused", g->room, le32(d), side, from->uid);
+        return;
+    }
+    if (side != who->side && side_count(g, side, who) >= SIDE_MAX) {
+        LOG_I("room %08x: side %u full, player %u stays", g->room, side, who->id);
+        return;
+    }
+    who->side = side;
+    put32le(who->rec + 4, side);
+    put32le(w, who->id);
+    put32le(w + 4, side);
+    to_recs(p, g, from, 1, GCS_PTG_SIDE, w, 8);
+    LOG_I("room %08x: player %u now on side %u", g->room, who->id, side);
+}
+
+static void lobby_remove(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)
+{
+    player *who = n >= 4 ? player_by_id(g, le32(d)) : NULL;
+    if (!who || !who->has_rec) {
+        return;
+    }
+    if (who == from) {
+        LOG_I("room %08x: player %u leaves", g->room, who->id);
+        send_remove(p, g, who, 0);
+    } else if (from->uid == g->host) {
+        LOG_I("room %08x: the host removes player %u", g->room, who->id);
+        send_remove(p, g, who, 1);
+    }
+}
+
+/* returns 1 when the message belonged to the lobby */
+static int lobby(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d, size_t n)
+{
+    int i;
+    switch (type) {
+    case GCS_PTG_HELLO:
+        lobby_hello(p, g, from, d, n);
+        return 1;
+    case GCS_PTG_GAMEDATA:
+        lobby_game_data(p, g, from, d, n);
+        return 1;
+    case GCS_PTG_PLAYER:
+        lobby_player(p, g, from, d, n);
+        return 1;
+    case GCS_PTG_SIDE:
+        lobby_side(p, g, from, d, n);
+        return 1;
+    case GCS_PTG_REMOVE:
+        lobby_remove(p, g, from, d, n);
+        return 1;
+    case GCS_PTG_JOINED:
+        if (n >= 4 && !le32(d) && from->has_rec) {
+            LOG_I("room %08x: player %u declined side %u", g->room, from->id, from->side);
+            send_remove(p, g, from, 0);
+        }
+        return 1;
+    case GCS_PTG_START:
+        if (from->uid != g->host) {
+            return 0; /* to the host, as before */
+        }
+        /* the master waits for its own copy too (0x93d04) */
+        LOG_I("room %08x: the host starts the game", g->room);
+        for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
+            if (g->pl[i].uid && g->pl[i].lobby) {
+                send_to(p, g, &g->pl[i], type, d, n);
+            }
+        }
+        return 1;
+    case GCS_PTG_WELCOME:
+    case GCS_PTG_COUNTDOWN:
+        LOG_W("room %08x: %08x sent server message type %u, ignored", g->room, from->uid, type);
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 static void route(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d, size_t n)
@@ -387,6 +634,9 @@ static void route(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d,
     int from_host = from->uid == g->host;
     player *host = g->host ? player_of(g, g->host) : NULL;
     int i;
+    if (lobby(p, g, from, type, d, n)) {
+        return;
+    }
     switch (type) {
     case GCS_PTG_KEEPALIVE:
         if (n == 4) {
@@ -459,21 +709,6 @@ static void route(gcs_ptg *p, game *g, player *from, gc_u8 type, const gc_u8 *d,
     default:
         break;
     }
-    if (lobby_type(type)) {
-        gc_u32 h = hash(type, d, n);
-        for (i = 0; i < GCS_PTG_MAX_PLAYERS; i++) {
-            player *pl = &g->pl[i];
-            if (!pl->uid || pl == from) {
-                continue;
-            }
-            if (seen_before(pl, h)) {
-                p->st.duplicates++;
-                continue;
-            }
-            send_to(p, g, pl, type, d, n);
-        }
-        return;
-    }
     to_others(p, g, from, type, d, n);
 }
 
@@ -527,6 +762,9 @@ static void g_left(void *ctx, gcs_snap *s, gc_u32 uid)
     p->snap = s;
     if (!pl) {
         return;
+    }
+    if (pl->has_rec && uid != g->host) {
+        send_remove(p, g, pl, 0); /* the BT host does the same (0x8efc0) */
     }
     free(pl->bundle);
     memset(pl, 0, sizeof(*pl));
@@ -591,8 +829,8 @@ static void g_data(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
         } else if (type <= (g->classic ? 51 : 54)) {
             gc_u32 hh = hash(type, body, len);
             /* the same message once more within a moment: the host's
-             * phone writes Field Radio and lobby messages once per player */
-            if ((type == GCS_PTG_RADIO || lobby_type(type)) && from->last_type == type && from->last_hash == hh &&
+             * phone writes Field Radio once per ally */
+            if (type == GCS_PTG_RADIO && from->last_type == type && from->last_hash == hh &&
                 (gc_u32)(p->now - from->last_t) < DUP_MS) {
                 p->st.duplicates++;
             } else {
