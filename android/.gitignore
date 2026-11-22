@@ -1,10 +1,12 @@
 .gradle/
 build/
-app/build/
 app/.cxx/
+app/build/
+app/release/
 local.properties
 *.iml
 .idea/
+.kotlin/
 captures/
 keystore.properties
 *.jks
