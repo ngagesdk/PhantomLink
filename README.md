@@ -72,46 +72,46 @@ For N-Gage Arena, choose **Arena over BT** in the PhantomLink app; see
 
 ### Bridges
 
-| Bridge                     | Status                                                               |
-| -------------------------- | -------------------------------------------------------------------- |
-| Android phone (Android 8+) | Supported                                                            |
-| Linux PC / Raspberry Pi    | Supported                                                            |
-| ESP32 board                | Supported (one ESP32 per N-Gage)                                     |
-| Windows PC                 | Limited: may not work, depending on the Bluetooth adapter            |
+| Bridge                     | Status                                                    |
+| -------------------------- | --------------------------------------------------------- |
+| Android phone (Android 8+) | Supported                                                 |
+| Linux PC / Raspberry Pi    | Supported                                                 |
+| ESP32 board                | Supported (one ESP32 per N-Gage)                          |
+| Windows PC                 | Limited: may not work, depending on the Bluetooth adapter |
 
 ### Multiplayer games
 
 | Game                                     |                              Status                              |
 | ---------------------------------------- | :--------------------------------------------------------------: |
-| Ashen                                    | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Asphalt Urban GT                         | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Asphalt: Urban GT 2                      | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Bomberman                                | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Call of Duty                             | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Ashen                                    |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Asphalt Urban GT                         |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Asphalt: Urban GT 2                      |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Bomberman                                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Call of Duty                             |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Catan                                    | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Crash Nitro Kart                         | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| FIFA Football 2004                       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| FIFA Football 2004                       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | FIFA Football 2005                       | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | Glimmerati                               | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Marcel Desailly Pro Soccer               | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Mile High Pinball                        | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| NCAA Football 2004                       | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Marcel Desailly Pro Soccer               |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Mile High Pinball                        |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| NCAA Football 2004                       |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | ONE                                      | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Operation Shadow                         | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Puyo Pop                                 | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Operation Shadow                         |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Puyo Pop                                 |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Puzzle Bobble VS                         | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Rayman 3                                 | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Rayman 3                                 |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Requiem of Hell                          | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Rifts: Promise of Power                  | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Rifts: Promise of Power                  |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | SSX Out of Bounds                        | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 | The King of Fighters Extreme             | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| The Roots: Gates of Chaos                | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Tiger Woods PGA Tour 2004                | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Tom Clancy's Ghost Recon: Jungle Storm   | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| The Roots: Gates of Chaos                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Tiger Woods PGA Tour 2004                |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Tom Clancy's Ghost Recon: Jungle Storm   |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Tom Clancy's Splinter Cell: Chaos Theory | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
-| Tony Hawk's Pro Skater                   | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| Warhammer 40,000: Glory in Death         | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
-| WWE Aftershock                           | ![Working](https://img.shields.io/badge/Working-brightgreen)     |
+| Tony Hawk's Pro Skater                   |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| Warhammer 40,000: Glory in Death         |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
+| WWE Aftershock                           |   ![Working](https://img.shields.io/badge/Working-brightgreen)   |
 | Xanadu Next                              | ![Not%20Working](https://img.shields.io/badge/Not%20Working-red) |
 
 Games that are not listed use their own Bluetooth code instead of the
@@ -119,14 +119,14 @@ standard GameComms library, so PhantomLink cannot support them.
 
 ### N-Gage Arena games
 
-| Game                          | Online feature                                                  | Status                                                              |
-| ----------------------------- | --------------------------------------------------------------- | :-----------------------------------------------------------------: |
-| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings     | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
-| Rifts: Promise of Power       | Challenges and turn-based battles "by e-mail"                   | ![Working](https://img.shields.io/badge/Working-brightgreen)        |
-| Ashen                         | Online leaderboards for every chapter and the whole game        | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Worms World Party             | Play Now game rooms (Freestyle, Ranked), skill points, rankings | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Pathway to Glory              | GPRS battles for up to 6 players, Field Radio voice messages    | ![Untested](https://img.shields.io/badge/Untested-grey)             |
-| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages  | ![Untested](https://img.shields.io/badge/Untested-grey)             |
+| Game                            | Online feature                                                  |                            Status                            |
+| ------------------------------- | --------------------------------------------------------------- | :----------------------------------------------------------: |
+| Pocket Kingdom: Own the World   | Battles against other players' kingdoms, auctions, rankings     | ![Working](https://img.shields.io/badge/Working-brightgreen) |
+| Rifts: Promise of Power         | Challenges and turn-based battles "by e-mail"                   | ![Working](https://img.shields.io/badge/Working-brightgreen) |
+| Ashen                           | Online leaderboards for every chapter and the whole game        |   ![Untested](https://img.shields.io/badge/Untested-grey)    |
+| Worms World Party               | Play Now game rooms (Freestyle, Ranked), skill points, rankings |   ![Untested](https://img.shields.io/badge/Untested-grey)    |
+| Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages    | ![Working](https://img.shields.io/badge/Working-brightgreen) |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages    | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 
 Pocket Kingdom and Rifts are tested on a real N-Gage.
 Ashen's leaderboards are tested against the server only, not yet on a
@@ -145,7 +145,7 @@ PhantomLink's server provides it with the same accounts as the Arena
 games, and the same **Arena over BT** / **Arena over GPRS** setup in the
 PhantomLink app points the game to it.
 
-| Game          | Online feature                                    | Status                                                       |
+| Game          | Online feature                                    |                            Status                            |
 | ------------- | ------------------------------------------------- | :----------------------------------------------------------: |
 | Habbo Islands | Habbo Console: friends, messages, friend requests | ![Working](https://img.shields.io/badge/Working-brightgreen) |
 

@@ -79,8 +79,8 @@ typedef struct
     int perm_open; /* host sent 23, the clients make the 41 themselves */
     int playing;   /* room status had bit 31 at the last poll */
     /* GPRS lobby */
-    gc_u32 next_id;          /* last id handed out (1: the master's) */
-    gc_u32 build;            /* the master's build (type 0) */
+    gc_u32 next_id; /* last id handed out (1: the master's) */
+    gc_u32 build;   /* the master's build (type 0) */
     int have_build;
     gc_u8 gdata[GDATA_MAX]; /* the master's game settings (type 14) */
     size_t gdata_n;
@@ -497,14 +497,14 @@ static void put_settings(gc_u8 *b)
     put32le(b + 0x04, 2500);
     put32le(b + 0x08, 5000);
     put32le(b + 0x0c, 10000);
-    b[0x10] = 1;                /* per player counter (+0x590), 1 outside GPRS */
-    put32le(b + 0x14, 90);      /* command delay: COMMAND_DEFAULT_DELAY_GPRS */
-    put32le(b + 0x18, 300);     /* frames between clock pings (0xc3ecc) */
-    put32le(b + 0x1c, 60);      /* s: screen countdown (briefing map, tag select) */
-    put32le(b + 0x20, 15);      /* s: results screen (0xc43d0) */
-    b[0x2c] = 8;                /* u16: clock samples, battle start pings 8 + 1 */
-    b[0x2e] = 16;               /* u16: clock samples kept */
-    put32le(b + 0x30, 60);      /* s: Ikusa Islands only (+0x34) */
+    b[0x10] = 1;            /* per player counter (+0x590), 1 outside GPRS */
+    put32le(b + 0x14, 90);  /* command delay: COMMAND_DEFAULT_DELAY_GPRS */
+    put32le(b + 0x18, 300); /* frames between clock pings (0xc3ecc) */
+    put32le(b + 0x1c, 60);  /* s: screen countdown (briefing map, tag select) */
+    put32le(b + 0x20, 15);  /* s: results screen (0xc43d0) */
+    b[0x2c] = 8;            /* u16: clock samples, battle start pings 8 + 1 */
+    b[0x2e] = 16;           /* u16: clock samples kept */
+    put32le(b + 0x30, 60);  /* s: Ikusa Islands only (+0x34) */
 }
 
 static void lobby_game_data(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_t n)

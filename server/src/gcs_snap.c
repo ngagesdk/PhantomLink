@@ -81,8 +81,8 @@ typedef struct
     gc_u32 rx_next;          /* next reliable sequence expected */
     gc_u16 seq0[16];         /* op << 8 | command sequence of recent reliable messages with sequence 0 */
     int seq0_n;
-    int series;              /* after a numbered message with F_MORE: 1 take the rest, -1 a repeat, drop it */
-    gc_u32 series_seq;       /* its sequence number (acknowledged for the rest) */
+    int series;        /* after a numbered message with F_MORE: 1 take the rest, -1 a repeat, drop it */
+    gc_u32 series_seq; /* its sequence number (acknowledged for the rest) */
     gc_u32 series_t;
     gc_u32 t_last;
     outmsg *outq[OUTQ];

@@ -945,7 +945,8 @@ static void lobby_run(int classic)
     gc_u32 ib, ic;
     g_class = classic ? GCS_PTG1_GAME_CLASS : GCS_PTG_GAME_CLASS;
     for (i = 0; i < 3; i++) {
-        phone *x = i == 0 ? a : i == 1 ? b : c;
+        phone *x = i == 0 ? a : i == 1 ? b
+                                       : c;
         x->port = (gc_u16)(5001 + classic * 3 + i);
         x->name = names[classic][i];
         x->c.classic = classic;
@@ -988,7 +989,7 @@ static void lobby_run(int classic)
     CHECK_EQ(q_pop(&b->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 188);
     CHECK_EQ(b->c.qn[GCS_PTG_PLAYER], 0); /* nothing before its own record */
     send_record(b, 0);
-    own_record(b, ib, 1, 3); /* nobody on side 1: join it instead? */
+    own_record(b, ib, 1, 3);                                  /* nobody on side 1: join it instead? */
     CHECK_EQ(q_pop(&b->c, GCS_PTG_PLAYER, r, sizeof(r)), 40); /* the master's */
     CHECK_EQ(rd32(r), 1);
     CHECK_EQ(q_pop(&a->c, GCS_PTG_PLAYER, r, sizeof(r)), 40);
@@ -1024,7 +1025,8 @@ static void lobby_run(int classic)
     CHECK_EQ(b->c.qn[GCS_PTG_SIDE], 0);
     game_send(b, GCS_PTG_SIDE, w, 8);
     for (i = 0; i < 3; i++) {
-        phone *x = i == 0 ? a : i == 1 ? b : c;
+        phone *x = i == 0 ? a : i == 1 ? b
+                                       : c;
         CHECK_EQ(q_pop(&x->c, GCS_PTG_SIDE, r, sizeof(r)), 8);
         CHECK(rd32(r) == ib && rd32(r + 4) == 0);
     }
@@ -1098,8 +1100,7 @@ static void lobby_run(int classic)
      * their own with junk in sequence and acknowledgement; all identical.
      * Every one is answered. */
     {
-        static const gc_u32 junk[8][2] = { { 1, 0 }, { 0, 0 }, { 1, 0 }, { 0, 0 },
-                                           { 0, 0 }, { 1, 1 }, { 0x03000000u, 0x05000000u }, { 6, 0 } };
+        static const gc_u32 junk[8][2] = { { 1, 0 }, { 0, 0 }, { 1, 0 }, { 0, 0 }, { 0, 0 }, { 1, 1 }, { 0x03000000u, 0x05000000u }, { 6, 0 } };
         gc_u32 head = b->tx_rel++;
         send_raw_game(b, 0x8800, head, 0, GCS_PTG_TIME, gd, 20);
         for (i = 0; i < 8; i++) {
@@ -1129,7 +1130,8 @@ static void lobby_run(int classic)
     CHECK_EQ(q_pop(&a->c, GCS_PTG_READY, r, sizeof(r)), 8);
     send_acks(a);
     for (i = 0; i < 3; i++) {
-        phone *x = i == 0 ? a : i == 1 ? b : c;
+        phone *x = i == 0 ? a : i == 1 ? b
+                                       : c;
         CHECK_EQ(x->c.bad, 0);
     }
     send_msg(a, 0xa000, 16, GCSS_OP_LEAVE, r, 0);

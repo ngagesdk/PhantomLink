@@ -50,14 +50,14 @@ and one N-Gage can have one account. The server keeps the accounts in
 
 ### Supported games
 
-| Game | Arena features | Server side | Status |
-|---|---|---|---|
-| Pocket Kingdom: Own the World | Battles against other players' kingdoms, auctions, rankings | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction) | Working |
-| Rifts: Promise of Power | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF) | Login, SNAP lobby and room, Rifts game server (battles, turns) | Working |
-| Ashen | Online leaderboards: best score of every level and of the whole game | SegaChat login, score reports and top lists (gcs_scores.c) | Untested |
-| Worms World Party | Play Now: Freestyle and Ranked game rooms, games between 2 and 4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | Untested |
-| Pathway to Glory | GPRS battles for up to 6 players, Field Radio voice messages | SNAP lobbies and rooms, game server that passes the commands, synchronisation data and Field Radio messages on (gcs_ptg.c) | Untested |
-| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages | Same as Pathway to Glory (gcs_ptg.c) | Untested |
+| Game                            | Arena features                                                                                      | Server side                                                                                                                                     | Status   |
+| ------------------------------- | --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| Pocket Kingdom: Own the World   | Battles against other players' kingdoms, auctions, rankings                                         | Login, account and profile pages, SegaChat login, SNAP room, game server (kingdoms, battles, chat, Global Auction)                              | Working  |
+| Rifts: Promise of Power         | Challenges and turn-based battles "by e-mail" (melee, survivor, defender, KotH, CTF)                | Login, SNAP lobby and room, Rifts game server (battles, turns)                                                                                  | Working  |
+| Ashen                           | Online leaderboards: best score of every level and of the whole game                                | SegaChat login, score reports and top lists (gcs_scores.c)                                                                                      | Untested |
+| Worms World Party               | Play Now: Freestyle and Ranked game rooms, games between 2 and 4 players, skill points and rankings | Lobbies, room attributes and room search (gcs_snap.c), game data between the players, match ids, results, skill points and lists (gcs_scores.c) | Untested |
+| Pathway to Glory                | GPRS battles for up to 6 players, Field Radio voice messages                                        | SNAP lobbies and rooms, game server that passes the commands, synchronisation data and Field Radio messages on (gcs_ptg.c)                      | Working  |
+| Pathway to Glory: Ikusa Islands | GPRS battles for up to 6 players, Field Radio voice messages                                        | Same as Pathway to Glory (gcs_ptg.c)                                                                                                            | Working  |
 
 The status column matches the README.
 
@@ -100,12 +100,12 @@ bridge registers with the server for the N-Gage (API family 3, the
 N-Gage's Bluetooth address as device id) and tunnels each TCP connection
 and UDP datagram:
 
-| GCN message | Direction | Content |
-|---|---|---|
-| `TCP_OPEN` 0xA0 | bridge to server | id, address and port the game connected to, its own port |
-| `TCP_DATA` 0xA1 | both | id, bytes (server to bridge: at most 512 per message) |
-| `TCP_CLOSE` 0xA2 | both | id, FIN or reset |
-| `UDP` 0xA3 | both | server side address and port, the game's port, bytes |
+| GCN message      | Direction        | Content                                                  |
+| ---------------- | ---------------- | -------------------------------------------------------- |
+| `TCP_OPEN` 0xA0  | bridge to server | id, address and port the game connected to, its own port |
+| `TCP_DATA` 0xA1  | both             | id, bytes (server to bridge: at most 512 per message)    |
+| `TCP_CLOSE` 0xA2 | both             | id, FIN or reset                                         |
+| `UDP` 0xA3       | both             | server side address and port, the game's port, bytes     |
 
 Connection ids carry a generation byte, so late messages for a closed
 connection never reach its successor. The bridge acknowledges TCP data from
@@ -306,17 +306,17 @@ libjabber client. The server (`gcs_native.c`, store `gcs_roster.c`, file
 `roster_data`, default `gamecomms-roster.txt`) answers as a Jabber server
 for the domain `ngage-auth`:
 
-| Client sends | Server |
-|---|---|
-| `<iq type='get' to='x@ngage-auth'>` `jabber:iq:browse` (id `segachat_browse_jid`, first step of Add friend) | `<user xmlns='jabber:iq:browse' jid='x@ngage-auth' name='x'/>`; sc_lib (0x356c) only goes on when the `user` child has a `name`, otherwise the menu stays in "Please wait"; unknown x: error 404 |
-| `<iq type='get'>` `jabber:iq:roster` (id `segachat_get_roster`) | the friends (`subscription='both'`) and the user's open requests (`'none'`, `ask='subscribe'`) |
-| `<presence to='x@ngage-auth' type='subscribe' id='segachat_buddy_req'>` (Add friend) | keeps the request, roster push to the sender, passes it on now or when x sends his first presence; unknown user: `type='unsubscribed'` back |
-| `type='subscribed'` (Authorise, id `segachat_buddy_accrej`) | both are friends: roster pushes `both` to both, `subscribed` to the asker, the current presences both ways |
-| `type='unsubscribed'` (Do not authorise) | request dropped, roster push `remove` and `unsubscribed` to the asker |
-| `type='unsubscribe'`, or roster set `<item jid='x' subscription='remove'/>` (Remove friend) | the friendship ends on both sides (pushes, `unavailable` both ways) |
-| `<presence>` (with `<ext_pres .../>`, `<status>`) | kept and sent to every online friend; the first one also brings the friends' presences, open requests and waiting messages |
-| `<presence type='unavailable'>`, end of stream, lost connection | `unavailable` to the friends |
-| `<message to='x@ngage-auth'>` | to x with `from` set to the sender (a forged `from` is replaced); x offline: kept with a `jabber:x:delay` stamp if it has a `<body>` (at most 100 per user), messages without text (game data, challenges) are dropped; unknown x: error 404 |
+| Client sends                                                                                                | Server                                                                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `<iq type='get' to='x@ngage-auth'>` `jabber:iq:browse` (id `segachat_browse_jid`, first step of Add friend) | `<user xmlns='jabber:iq:browse' jid='x@ngage-auth' name='x'/>`; sc_lib (0x356c) only goes on when the `user` child has a `name`, otherwise the menu stays in "Please wait"; unknown x: error 404                                             |
+| `<iq type='get'>` `jabber:iq:roster` (id `segachat_get_roster`)                                             | the friends (`subscription='both'`) and the user's open requests (`'none'`, `ask='subscribe'`)                                                                                                                                               |
+| `<presence to='x@ngage-auth' type='subscribe' id='segachat_buddy_req'>` (Add friend)                        | keeps the request, roster push to the sender, passes it on now or when x sends his first presence; unknown user: `type='unsubscribed'` back                                                                                                  |
+| `type='subscribed'` (Authorise, id `segachat_buddy_accrej`)                                                 | both are friends: roster pushes `both` to both, `subscribed` to the asker, the current presences both ways                                                                                                                                   |
+| `type='unsubscribed'` (Do not authorise)                                                                    | request dropped, roster push `remove` and `unsubscribed` to the asker                                                                                                                                                                        |
+| `type='unsubscribe'`, or roster set `<item jid='x' subscription='remove'/>` (Remove friend)                 | the friendship ends on both sides (pushes, `unavailable` both ways)                                                                                                                                                                          |
+| `<presence>` (with `<ext_pres .../>`, `<status>`)                                                           | kept and sent to every online friend; the first one also brings the friends' presences, open requests and waiting messages                                                                                                                   |
+| `<presence type='unavailable'>`, end of stream, lost connection                                             | `unavailable` to the friends                                                                                                                                                                                                                 |
+| `<message to='x@ngage-auth'>`                                                                               | to x with `from` set to the sender (a forged `from` is replaced); x offline: kept with a `jabber:x:delay` stamp if it has a `<body>` (at most 100 per user), messages without text (game data, challenges) are dropped; unknown x: error 404 |
 
 Friendship is always mutual, as the Arena menus only know friends and
 open requests. Messages to reporter@ / retrieval@ go to the score service
@@ -340,18 +340,18 @@ with `contentId=`, `gameId=` or `username=` added; lists get `start=` and
 generates (paths below `/n-gage/device/`; a file in `www_root` with the
 same path wins):
 
-| Page | Content |
-|---|---|
-| `community/ranking_list_x.jsp` | games with rankings (gameId = game class); with `cmd=search`: players whose name starts with `username` |
-| `global/play/rankings/post_game.jsp?gameId=` | every ranking of the game: skill points (with won-lost-drawn) and the statistics of the score reports, top 10 and the user's own rank |
-| `global/play/rankings/post_player.jsp?username=` | the player's ranks in every ranking ("View my rank": the user) |
-| `global/play/rankings/spotlight.jsp` | No. 1 of every ranking, latest activities |
-| `community/tournament_list_x.jsp` | tournaments: running, upcoming, finished (contentId = id) |
-| `global/play/tournaments/post_tournaments.jsp?contentId=` | game, statistic, time, text, standings (top 10, own rank) |
-| `global/play/tournaments/news.jsp` | running (with the leader) and upcoming tournaments |
-| `global/play/tournaments/winners.jsp`, `activities/winners.jsp` | finished tournaments with the first three |
-| `community/activity_list_x.jsp`, `activities/news.jsp`, `activities/post_activity.jsp?contentId=` | the latest 64 activities: new personal bests and won ranked games |
-| `community/game_list_x.jsp`, `global/play/games/post_game.jsp?gameId=` | the Arena games the server knows, with their leaders |
+| Page                                                                                              | Content                                                                                                                               |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `community/ranking_list_x.jsp`                                                                    | games with rankings (gameId = game class); with `cmd=search`: players whose name starts with `username`                               |
+| `global/play/rankings/post_game.jsp?gameId=`                                                      | every ranking of the game: skill points (with won-lost-drawn) and the statistics of the score reports, top 10 and the user's own rank |
+| `global/play/rankings/post_player.jsp?username=`                                                  | the player's ranks in every ranking ("View my rank": the user)                                                                        |
+| `global/play/rankings/spotlight.jsp`                                                              | No. 1 of every ranking, latest activities                                                                                             |
+| `community/tournament_list_x.jsp`                                                                 | tournaments: running, upcoming, finished (contentId = id)                                                                             |
+| `global/play/tournaments/post_tournaments.jsp?contentId=`                                         | game, statistic, time, text, standings (top 10, own rank)                                                                             |
+| `global/play/tournaments/news.jsp`                                                                | running (with the leader) and upcoming tournaments                                                                                    |
+| `global/play/tournaments/winners.jsp`, `activities/winners.jsp`                                   | finished tournaments with the first three                                                                                             |
+| `community/activity_list_x.jsp`, `activities/news.jsp`, `activities/post_activity.jsp?contentId=` | the latest 64 activities: new personal bests and won ranked games                                                                     |
+| `community/game_list_x.jsp`, `global/play/games/post_game.jsp?gameId=`                            | the Arena games the server knows, with their leaders                                                                                  |
 
 The rankings come from the SegaChat score service (`gcs_scores.c`):
 Ashen's levels and total, the skill points and results of Worms World
@@ -383,25 +383,25 @@ news (`/servlets/msg`).
 
 ## Parts
 
-| Part | Files | State |
-|---|---|---|
-| GCA messages (types 0x80..0x9F) | `protocol/include/gc_arena.h`, `protocol/src/gc_arena.c` | done, tested |
-| Server Arena module | `server/src/gcs_arena.c` | done, tested (generic) |
-| Shared link core (portable) | `dll/arena/core/pla_core.c` | done, tested against the server core |
-| plarena.dll (Bluetooth, log) | `dll/arena/symbian/PlArena.cpp` | written, not built yet |
-| SnapComm.dll | `dll/arena/symbian/PlSnapComm.cpp` | logs all slots, forwards login |
-| sc_lib.dll | `dll/arena/symbian/PlScLib.cpp` | logs all slots |
-| HttpDllRequest.dll | `dll/arena/symbian/PlHttpRequest.cpp` | logs all slots |
-| Retail: access point + hosts | `app/src/ArenaSetup.cpp` | done, works on an N-Gage |
-| Retail over GPRS: hosts + check (app), direct clients (server) | `app/src/ArenaSetup.cpp`, `server/src/gcs_direct.c` | written; server tested, app syntax-checked only, not yet on hardware |
-| Retail: PPP + IPv4 in every bridge | `protocol/src/gc_ppp.c`, `gc_ip.c`, `gc_net.c`, `firmware/src/bridge_core.c` | done, tested (PC bridge with Linux as the N-Gage) |
-| Retail: native back ends | `server/src/gcs_native.c` | SOAP/pages/Jabber login answered |
-| Retail: shared accounts | `server/src/gcs_accounts.c` | done, tested |
-| Retail: SNAP lobby/room service | `server/src/gcs_snap.c` | written from the client DLLs, tested against simulated games and on an N-Gage (Pocket Kingdom, Rifts) |
-| Retail: Rifts game server | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c` | written, tested against simulated games and on an N-Gage |
-| Retail: SegaChat score service (Ashen) | `server/src/gcs_scores.c` | written from sc_lib.dll and the game, tested against the game's decoder, not yet on hardware |
-| Retail: SegaChat friends, presence, chat | `server/src/gcs_roster.c`, `server/src/gcs_native.c` | written from sc_lib.dll's stanzas, tested against simulated clients, not yet on hardware |
-| Retail: rankings, tournaments, activities, games (device pages) | `server/src/gcs_pages.c`, `server/src/gcs_tourney.c` | list format from cafmplay.dll, tested with its decoding rules, not yet on hardware |
+| Part                                                            | Files                                                                        | State                                                                                                 |
+| --------------------------------------------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| GCA messages (types 0x80..0x9F)                                 | `protocol/include/gc_arena.h`, `protocol/src/gc_arena.c`                     | done, tested                                                                                          |
+| Server Arena module                                             | `server/src/gcs_arena.c`                                                     | done, tested (generic)                                                                                |
+| Shared link core (portable)                                     | `dll/arena/core/pla_core.c`                                                  | done, tested against the server core                                                                  |
+| plarena.dll (Bluetooth, log)                                    | `dll/arena/symbian/PlArena.cpp`                                              | written, not built yet                                                                                |
+| SnapComm.dll                                                    | `dll/arena/symbian/PlSnapComm.cpp`                                           | logs all slots, forwards login                                                                        |
+| sc_lib.dll                                                      | `dll/arena/symbian/PlScLib.cpp`                                              | logs all slots                                                                                        |
+| HttpDllRequest.dll                                              | `dll/arena/symbian/PlHttpRequest.cpp`                                        | logs all slots                                                                                        |
+| Retail: access point + hosts                                    | `app/src/ArenaSetup.cpp`                                                     | done, works on an N-Gage                                                                              |
+| Retail over GPRS: hosts + check (app), direct clients (server)  | `app/src/ArenaSetup.cpp`, `server/src/gcs_direct.c`                          | written; server tested, app syntax-checked only, not yet on hardware                                  |
+| Retail: PPP + IPv4 in every bridge                              | `protocol/src/gc_ppp.c`, `gc_ip.c`, `gc_net.c`, `firmware/src/bridge_core.c` | done, tested (PC bridge with Linux as the N-Gage)                                                     |
+| Retail: native back ends                                        | `server/src/gcs_native.c`                                                    | SOAP/pages/Jabber login answered                                                                      |
+| Retail: shared accounts                                         | `server/src/gcs_accounts.c`                                                  | done, tested                                                                                          |
+| Retail: SNAP lobby/room service                                 | `server/src/gcs_snap.c`                                                      | written from the client DLLs, tested against simulated games and on an N-Gage (Pocket Kingdom, Rifts) |
+| Retail: Rifts game server                                       | `server/src/gcs_rifts.c`, `server/src/gcs_rcodec.c`                          | written, tested against simulated games and on an N-Gage                                              |
+| Retail: SegaChat score service (Ashen)                          | `server/src/gcs_scores.c`                                                    | written from sc_lib.dll and the game, tested against the game's decoder, not yet on hardware          |
+| Retail: SegaChat friends, presence, chat                        | `server/src/gcs_roster.c`, `server/src/gcs_native.c`                         | written from sc_lib.dll's stanzas, tested against simulated clients, not yet on hardware              |
+| Retail: rankings, tournaments, activities, games (device pages) | `server/src/gcs_pages.c`, `server/src/gcs_tourney.c`                         | list format from cafmplay.dll, tested with its decoding rules, not yet on hardware                    |
 
 The DLLs build only with `-DGC_BUILD_ARENA=ON` (off by default until the
 build has been verified with the N-Gage toolchain). Copy `plarena.dll`,
@@ -443,14 +443,14 @@ and checks only the first three bytes); it holds at most 896 bytes.
 
 Message header, 16 bytes, big endian:
 
-| Offset | Size | Content |
-|---|---|---|
-| 0 | 2 | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 single packet (`KK_SINGLE_PACKET_DEF` in the game server's kkGSApi.h; without it byte 2 is the `PacketSeq` of a series, counting down to 0, and ArenaFramework takes a list as complete only at 0; both sides set it on every message), 0x1000 target is the lobby (else the game room), 0x0800 another message follows in the same datagram (the client numbers only the first reliable message; reliable messages packed behind it carry sequence number 0, share its acknowledgement and are processed with it), 0x0400 game settings data; bits 0..9 the length including the header |
-| 2 | 1 | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it) |
-| 3 | 1 | opcode |
-| 4 | 4 | user id (from the login answer) |
-| 8 | 4 | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last. snapcomm.dll numbers one reliable message per datagram; others carry 0 (packed behind it, or sent alone, like Rifts' room attributes ARNC and ARND): the server processes those once and tells repeats by opcode and command sequence. Messages queued at the same time go out as a series: the first numbered with 0x0800, the rest in datagrams of their own with whatever was in the buffer in sequence and ack (0, 1, 6, 0x03000000, ...; Pathway to Glory's 9 clock pings at the battle start, hardware 2026-11-22). Until the next numbered message the server takes a reliable message without 0x0800 whose sequence number is not the next or an early one as part of the series: once when the series was new, not at all when it was a repeat; game data (op 17) even when identical, other ops told apart by opcode and command sequence |
-| 12 | 4 | acknowledged reliable sequence number |
+| Offset | Size | Content                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0      | 2    | flags and length: 0x8000 reliable, 0x4000 the ack field is valid, 0x2000 single packet (`KK_SINGLE_PACKET_DEF` in the game server's kkGSApi.h; without it byte 2 is the `PacketSeq` of a series, counting down to 0, and ArenaFramework takes a list as complete only at 0; both sides set it on every message), 0x1000 target is the lobby (else the game room), 0x0800 another message follows in the same datagram (the client numbers only the first reliable message; reliable messages packed behind it carry sequence number 0, share its acknowledgement and are processed with it), 0x0400 game settings data; bits 0..9 the length including the header                                                                                                                                                                                                                                                                                                          |
+| 2      | 1    | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 3      | 1    | opcode                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 4      | 4    | user id (from the login answer)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 8      | 4    | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last. snapcomm.dll numbers one reliable message per datagram; others carry 0 (packed behind it, or sent alone, like Rifts' room attributes ARNC and ARND): the server processes those once and tells repeats by opcode and command sequence. Messages queued at the same time go out as a series: the first numbered with 0x0800, the rest in datagrams of their own with whatever was in the buffer in sequence and ack (0, 1, 6, 0x03000000, ...; Pathway to Glory's 9 clock pings at the battle start, hardware 2026-11-22). Until the next numbered message the server takes a reliable message without 0x0800 whose sequence number is not the next or an early one as part of the series: once when the series was new, not at all when it was a repeat; game data (op 17) even when identical, other ops told apart by opcode and command sequence |
+| 12     | 4    | acknowledged reliable sequence number                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 Every reliable message is acknowledged on its own (the client sends a
 16 byte message with flags 0x6010, opcode 0 and the sequence number in
@@ -461,48 +461,48 @@ connection counts as lost). Reliable messages are delivered in order.
 
 Requests (client to server):
 
-| Op | Flags | Payload | Meaning |
-|---|---|---|---|
-| 44 | 0x3000 | user name [40], [60] text, game class (BE) at 100, ..., TLV `LC`/`MR` (latency, retries) | login |
-| 2 | 0xb000 | - | logout |
-| 3 | 0xb000 | name [16] | lobby by name |
-| 14 | 0xb000 | - | lobby list |
-| 4 | 0xb000 | name [16], max users, password [16], two words | create game room |
-| 5 | 0xb000/0xa000 | id | (not identified) |
-| 6 | 0xb000 | lobby id (or name [16] + id) | enter lobby |
-| 6 | 0xa000 | room id, password [16], word | enter game room |
-| 7 | 0xb000/0xa000 | - | leave lobby / room |
-| 8 | 0xa000 | attribute (four letters), value (4 bytes BE, text for NAME) | set an attribute of the user's room: the server keeps it (up to 16 per room) and tells the other members (op 8 below); STAT is the room status of the room lists, MAXI the room size |
-| 9 | 0xa000/0xb000 | object id, attribute | read an attribute of a room or a lobby (0xb000; NAME as 16 byte text, USER, MAXI): op 9 {id, attribute, value}, then success. ArenaFramework's slot 0x6c reads the NAME of the current lobby this way |
-| 73 | 0xb000 | like op 72 | room search with criteria (snapcomm.dll 0x81f0, arenabase slot 0xf4; ArenaFramework's SelectGameRooms, Pocket Kingdom's Ranked "Finding game room" and slot 0x6c): open rooms of every lobby of the game class that are not full and match; 40 byte entries with the lobby (parser 0x3c24). Seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID) |
-| 72 | 0xb000 | {value, count, 3 bytes}, count x {attribute, operator, value} | lobby search with criteria (snapcomm.dll 0x7fb4, arenabase slot 0xf0; ArenaFramework's slot 0x6c sends NAME = "Auction"): lobbies of the game class that match, answered like op 71 (36 byte lobby entries, parser 0x3bf0, then 0x38a0). The operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word). Criteria on room attributes (STAT, ARNx) still get the old room search of the user's lobby (Worms World Party's "Find Game", unverified) |
-| 10, 12, 13, 67 | | | user lists, user properties (not identified in detail) |
-| 11 | 0xb000 | lobby id | search game rooms |
-| 71 | 0xb000 | - | lobbies of the login's game class (Rifts sends it when the player creates a challenge) |
-| 15 | 0xa400 / 0x2000 | data | game data to the room, reliable / unreliable |
-| 16 | 0xa400 / 0x2000 | count, user ids, data | game data to some users |
-| 17 | 0xa000 | data | game data to the room's game server (`SendGameDataToServer`, CArenaFramework vtable slot 0x3c) |
-| 18, 19, 20, 50, 37, 70..75 | | | not used by the Rifts flow |
+| Op                         | Flags           | Payload                                                                                  | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| -------------------------- | --------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 44                         | 0x3000          | user name [40], [60] text, game class (BE) at 100, ..., TLV `LC`/`MR` (latency, retries) | login                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| 2                          | 0xb000          | -                                                                                        | logout                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 3                          | 0xb000          | name [16]                                                                                | lobby by name                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| 14                         | 0xb000          | -                                                                                        | lobby list                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| 4                          | 0xb000          | name [16], max users, password [16], two words                                           | create game room                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 5                          | 0xb000/0xa000   | id                                                                                       | (not identified)                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| 6                          | 0xb000          | lobby id (or name [16] + id)                                                             | enter lobby                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| 6                          | 0xa000          | room id, password [16], word                                                             | enter game room                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| 7                          | 0xb000/0xa000   | -                                                                                        | leave lobby / room                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 8                          | 0xa000          | attribute (four letters), value (4 bytes BE, text for NAME)                              | set an attribute of the user's room: the server keeps it (up to 16 per room) and tells the other members (op 8 below); STAT is the room status of the room lists, MAXI the room size                                                                                                                                                                                                                                                                                                   |
+| 9                          | 0xa000/0xb000   | object id, attribute                                                                     | read an attribute of a room or a lobby (0xb000; NAME as 16 byte text, USER, MAXI): op 9 {id, attribute, value}, then success. ArenaFramework's slot 0x6c reads the NAME of the current lobby this way                                                                                                                                                                                                                                                                                  |
+| 73                         | 0xb000          | like op 72                                                                               | room search with criteria (snapcomm.dll 0x81f0, arenabase slot 0xf4; ArenaFramework's SelectGameRooms, Pocket Kingdom's Ranked "Finding game room" and slot 0x6c): open rooms of every lobby of the game class that are not full and match; 40 byte entries with the lobby (parser 0x3c24). Seen: 0x21 STAT masked equal, 6 USER fewer users than the value (0x7fff: any), 1 equal (ARNA..ARND, LOID)                                                                                  |
+| 72                         | 0xb000          | {value, count, 3 bytes}, count x {attribute, operator, value}                            | lobby search with criteria (snapcomm.dll 0x7fb4, arenabase slot 0xf0; ArenaFramework's slot 0x6c sends NAME = "Auction"): lobbies of the game class that match, answered like op 71 (36 byte lobby entries, parser 0x3bf0, then 0x38a0). The operator's upper 3 bits give the value form (1: value and mask, 2: 16 byte text, else one word). Criteria on room attributes (STAT, ARNx) still get the old room search of the user's lobby (Worms World Party's "Find Game", unverified) |
+| 10, 12, 13, 67             |                 |                                                                                          | user lists, user properties (not identified in detail)                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 11                         | 0xb000          | lobby id                                                                                 | search game rooms                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| 71                         | 0xb000          | -                                                                                        | lobbies of the login's game class (Rifts sends it when the player creates a challenge)                                                                                                                                                                                                                                                                                                                                                                                                 |
+| 15                         | 0xa400 / 0x2000 | data                                                                                     | game data to the room, reliable / unreliable                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| 16                         | 0xa400 / 0x2000 | count, user ids, data                                                                    | game data to some users                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 17                         | 0xa000          | data                                                                                     | game data to the room's game server (`SendGameDataToServer`, CArenaFramework vtable slot 0x3c)                                                                                                                                                                                                                                                                                                                                                                                         |
+| 18, 19, 20, 50, 37, 70..75 |                 |                                                                                          | not used by the Rifts flow                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 
 Answers and notifications (server to client):
 
-| Op | Payload | Meaning |
-|---|---|---|
-| 41 | port (0: keep), -, user id | login accepted |
-| 39 | request op, reason | request failed (op 39 with request op 1 = login refused) |
-| 40 | request op, value, ... | request succeeded; the 0x1000 flag tells lobby from room answers (op 6: "Entered lobby" / "Entered room", value = id) |
-| 3 | name [16], lobby id | a lobby (ArenaFramework builds its lobby list from these) |
-| 4 | room entry | the created room |
-| 11 | header {parent, total, count} + count x room entry (name [16], users, lobby, status, max users, id) | room search result; ArenaFramework 2.01.047 (parser 0x3954) keeps users, status, max and id and calls a room full when users >= max |
-| 14 | header + count x {name [16], id, members, max} | lobby list |
-| 71 | header {game class, total, count} + count x {name [16], users, -, max, status, lobby id} | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it) |
-| 8 | room id, attribute, value | an attribute of the room changed (snapcomm.dll parser 0x39a0) |
-| 72 | like op 11 | result of the room search with criteria (parser 0x3bf0) |
-| 73 | header {0, total, count} + count x 40 byte entries (name [16], lobby, users, -, status, max users, id) | result of the room search with criteria over all lobbies |
-| 10 | header + count x {name [16], user id, property size, properties padded to 4 bytes} | user list |
-| 6 | {name [16], user id, property size} | a user entered the room |
-| 7 | user id | a user left the room |
-| 15 | data | game data (also what the game server sends; arrives as `GameDataReceived`) |
+| Op  | Payload                                                                                                | Meaning                                                                                                                             |
+| --- | ------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 41  | port (0: keep), -, user id                                                                             | login accepted                                                                                                                      |
+| 39  | request op, reason                                                                                     | request failed (op 39 with request op 1 = login refused)                                                                            |
+| 40  | request op, value, ...                                                                                 | request succeeded; the 0x1000 flag tells lobby from room answers (op 6: "Entered lobby" / "Entered room", value = id)               |
+| 3   | name [16], lobby id                                                                                    | a lobby (ArenaFramework builds its lobby list from these)                                                                           |
+| 4   | room entry                                                                                             | the created room                                                                                                                    |
+| 11  | header {parent, total, count} + count x room entry (name [16], users, lobby, status, max users, id)    | room search result; ArenaFramework 2.01.047 (parser 0x3954) keeps users, status, max and id and calls a room full when users >= max |
+| 14  | header + count x {name [16], id, members, max}                                                         | lobby list                                                                                                                          |
+| 71  | header {game class, total, count} + count x {name [16], users, -, max, status, lobby id}               | lobbies of the game class; no op 40 follows (ArenaFramework would start a new, empty list with it)                                  |
+| 8   | room id, attribute, value                                                                              | an attribute of the room changed (snapcomm.dll parser 0x39a0)                                                                       |
+| 72  | like op 11                                                                                             | result of the room search with criteria (parser 0x3bf0)                                                                             |
+| 73  | header {0, total, count} + count x 40 byte entries (name [16], lobby, users, -, status, max users, id) | result of the room search with criteria over all lobbies                                                                            |
+| 10  | header + count x {name [16], user id, property size, properties padded to 4 bytes}                     | user list                                                                                                                           |
+| 6   | {name [16], user id, property size}                                                                    | a user entered the room                                                                                                             |
+| 7   | user id                                                                                                | a user left the room                                                                                                                |
+| 15  | data                                                                                                   | game data (also what the game server sends; arrives as `GameDataReceived`)                                                          |
 
 ### Flow of Rifts (game.rsc)
 
@@ -614,12 +614,12 @@ behaviour described here.
 Little endian, ARM layout (`MessageBase` is id u8, relay u8, source s8,
 padding):
 
-| Id | Message | Layout |
-|---|---|---|
-| 4 | MSG_SERVER | object id i32 @4, action type u8 @8, flags u8 @9, offset i32 @12, length i32 @16, total i32 @20, data [at most 384] @24 |
-| 5 | MSG_SERVER_CANCEL | object id @4, reason @8 |
-| 25 | MSG_FLOW_EXTEND_CREDIT | credit @4 |
-| 26 | MSG_PING | answered with MSG_PING |
+| Id  | Message                | Layout                                                                                                                  |
+| --- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 4   | MSG_SERVER             | object id i32 @4, action type u8 @8, flags u8 @9, offset i32 @12, length i32 @16, total i32 @20, data [at most 384] @24 |
+| 5   | MSG_SERVER_CANCEL      | object id @4, reason @8                                                                                                 |
+| 25  | MSG_FLOW_EXTEND_CREDIT | credit @4                                                                                                               |
+| 26  | MSG_PING               | answered with MSG_PING                                                                                                  |
 
 An action is identified by its object id (the client's pointer) and
 user. Its request stream comes in MSG_SERVER chunks at offsets that are
@@ -652,23 +652,23 @@ user [32], name [32], 265 stats, then an attribute list: count +
 
 ### Actions
 
-| Type | Action | Request | Answer |
-|---|---|---|---|
-| 0 | download turns | battle, turn | count, {length, message} after that turn |
-| 1 | turn count | battle, turn | count (+ device of the last end-turn message) |
-| 2 | upload turns | battle, turn, my device, count, {length, message} | bool |
-| 3 | upload characters | battle, team, count, characters, save slot, power | character ids |
-| 4 | create challenge | battle row + upload | battle id, character ids |
-| 5 | server config | power rank version, save version, protocol | {2, 0, version}, power rank version, versions (echoed), class and item power tables when the version differs |
-| 6 | name validation | string | int (0 = offensive) |
-| 7 | find challenge | paging data, min/max power, kind (-1 any), players, friends only, ranked only, name [16], max rows, user | count, battles, their players, 4, player count |
-| 8 | accept challenge | upload | result (0 waiting, 1 last player: the battle starts, 2 full, 3 error, 4 gone, 5 team taken), device, seed, character ids |
-| 9 | challenge status | user, count, {battle, turn, save slot} | count, {state, turns available, next device} |
-| 10 | download challenge (unused placeholder) | battle, device | not implemented by the original server; rejected by this emulator |
-| 11 | download characters | battle, user | count, the other players' characters |
-| 12 | end game | battle, user, wins, losses, points | - |
-| 13 | game upkeep | update flag; battle row, or battle, next device, my device + battle, turn | (no update) battle, server time, game over, dropped devices [8] + names, then the download turns answer |
-| 14 | update friends | user, count, names | - |
+| Type | Action                                  | Request                                                                                                  | Answer                                                                                                                   |
+| ---- | --------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 0    | download turns                          | battle, turn                                                                                             | count, {length, message} after that turn                                                                                 |
+| 1    | turn count                              | battle, turn                                                                                             | count (+ device of the last end-turn message)                                                                            |
+| 2    | upload turns                            | battle, turn, my device, count, {length, message}                                                        | bool                                                                                                                     |
+| 3    | upload characters                       | battle, team, count, characters, save slot, power                                                        | character ids                                                                                                            |
+| 4    | create challenge                        | battle row + upload                                                                                      | battle id, character ids                                                                                                 |
+| 5    | server config                           | power rank version, save version, protocol                                                               | {2, 0, version}, power rank version, versions (echoed), class and item power tables when the version differs             |
+| 6    | name validation                         | string                                                                                                   | int (0 = offensive)                                                                                                      |
+| 7    | find challenge                          | paging data, min/max power, kind (-1 any), players, friends only, ranked only, name [16], max rows, user | count, battles, their players, 4, player count                                                                           |
+| 8    | accept challenge                        | upload                                                                                                   | result (0 waiting, 1 last player: the battle starts, 2 full, 3 error, 4 gone, 5 team taken), device, seed, character ids |
+| 9    | challenge status                        | user, count, {battle, turn, save slot}                                                                   | count, {state, turns available, next device}                                                                             |
+| 10   | download challenge (unused placeholder) | battle, device                                                                                           | not implemented by the original server; rejected by this emulator                                                        |
+| 11   | download characters                     | battle, user                                                                                             | count, the other players' characters                                                                                     |
+| 12   | end game                                | battle, user, wins, losses, points                                                                       | -                                                                                                                        |
+| 13   | game upkeep                             | update flag; battle row, or battle, next device, my device + battle, turn                                | (no update) battle, server time, game over, dropped devices [8] + names, then the download turns answer                  |
+| 14   | update friends                          | user, count, names                                                                                       | -                                                                                                                        |
 
 Battle states: 0 waiting for players, 1 challenge deleted, 2 in progress,
 3 out of time, 4 ended. Save slots: when a user reports its games
@@ -738,12 +738,12 @@ ones) with id `segachat_retrieve_resp`, the request's `event_type` and
 Lines end with `\n`, fields are separated by `|` (6R21 0x9bf20 and the
 line splitter at 0x9c354):
 
-| Line | Fields | Read by the game |
-|---|---|---|
-| 1 | 1 | status as a number; anything but 0 shows line 2 as an error |
-| 2 | 1 | message |
-| 3 | 7 | field 3: the number of rows that follow |
-| 4.. | 4 | name (up to 31 characters), rank, score; field 4 unused |
+| Line | Fields | Read by the game                                            |
+| ---- | ------ | ----------------------------------------------------------- |
+| 1    | 1      | status as a number; anything but 0 shows line 2 as an error |
+| 2    | 1      | message                                                     |
+| 3    | 7      | field 3: the number of rows that follow                     |
+| 4..  | 4      | name (up to 31 characters), rank, score; field 4 unused     |
 
 Numbers are read from their digits up to the end or a `.`; other
 characters are skipped. Each line must have exactly that number of
@@ -829,18 +829,18 @@ message, then lines of `|` separated fields (0x7774); all lines after
 the first must have the same number of fields. The event type picks the
 parser:
 
-| Request | To | Items | Answer the parser accepts |
-|---|---|---|---|
-| `submit` (stats) | reporter | the game's items, `$version`, `queryid` | one line of 4 fields; field 3 goes to the game |
-| `submit` (skills) | reporter | `$ps_skilltype` arena, `$ps_points` N, `$version`, `queryid` | the same |
-| `getmatchid` | retrieval | `format`, `$version`, `queryid` | one line of 6 fields, field 1 the match id |
+| Request                              | To        | Items                                                                                                                                                  | Answer the parser accepts                                                                                            |
+| ------------------------------------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------- |
+| `submit` (stats)                     | reporter  | the game's items, `$version`, `queryid`                                                                                                                | one line of 4 fields; field 3 goes to the game                                                                       |
+| `submit` (skills)                    | reporter  | `$ps_skilltype` arena, `$ps_points` N, `$version`, `queryid`                                                                                           | the same                                                                                                             |
+| `getmatchid`                         | retrieval | `format`, `$version`, `queryid`                                                                                                                        | one line of 6 fields, field 1 the match id                                                                           |
 | `getplayer`, `topn`, `proximitylist` | retrieval | `board` (player_skills, highscores, hsfilter), `name`, `stat`, `offset`, `limit`, `below`, `periodicity`, `ordering`, `$matchmakingMode`, `format` csv | header + rows; header field 4 must be `playerskills`, `highscores` or `hsfilter`, header field 1 is read as a number |
 
-| Board | getplayer | topn | proximitylist |
-|---|---|---|---|
+| Board        | getplayer        | topn             | proximitylist    |
+| ------------ | ---------------- | ---------------- | ---------------- |
 | playerskills | header 7, rows 6 | header 6, rows 7 | header 6, rows 7 |
-| highscores | header 6, rows 4 | header 7, rows 4 | header 7, rows 4 |
-| hsfilter | header 6, rows 3 | header 7, rows 3 | header 6, rows 3 |
+| highscores   | header 6, rows 4 | header 7, rows 4 | header 7, rows 4 |
+| hsfilter     | header 6, rows 3 | header 7, rows 3 | header 6, rows 3 |
 
 Highscores top lists with a 7 field header and 4 field rows are the
 shape Ashen's own parser reads, too. What the fields mean is decided by
@@ -936,11 +936,11 @@ streams, +0x1c state.
 
 Message, both directions, little endian:
 
-| Offset | Size | Meaning |
-|---|---|---|
-| 0 | u16 | bits 0..6 type, bit 7 "restart counters", bits 8..14 tag, bit 15 zlib |
-| 2 | u16 | data length (compressed: length of the zlib stream) |
-| 4 | | data (compressed: u32 unpacked size, then the zlib stream) |
+| Offset | Size | Meaning                                                               |
+| ------ | ---- | --------------------------------------------------------------------- |
+| 0      | u16  | bits 0..6 type, bit 7 "restart counters", bits 8..14 tag, bit 15 zlib |
+| 2      | u16  | data length (compressed: length of the zlib stream)                   |
+| 4      |      | data (compressed: u32 unpacked size, then the zlib stream)            |
 
 - The game sends one message per framework call (send 0x844b4, at most
   0xffc data bytes), never split or compressed.
@@ -985,18 +985,18 @@ In a Bluetooth game the host's phone is the hub (multiplayer loop
 need. Over GPRS each phone has one connection, to the server, so the
 server does the passing on:
 
-| Type | Meaning | Host's Bluetooth code | Server |
-|---|---|---|---|
-| 16 | a soldier's command (serialised, `IssueCommand` 0x2e200) | executes it and sends it to all other connections | to all other players, in bundles (32) |
-| 21, 35 | synchronisation records, end marker (0x271d8, waits 0x74468) | sends records, then 35 | collects the host's records, sends one 34 at the 35; without 35 after 3 s the records alone |
-| 23, 41 | permanent damage data ("Waiting permanent damage data from the host"), end marker (0xe0da8) | sends 23, then 41 to all | 23 to the clients, swallows the host's 41 after a 23 |
-| 43 | Field Radio chunk, 260 bytes: player (1..20), chunk, chunk count, 256 bytes of the recording | passes it to the players of the side whose turn it is | to all other players; a repeated copy within 1.5 s once |
-| 52 | message for everybody | passes it on to all others | to all other players |
-| 27, 39, 54 | player ended / host ended, "Overpowered bonus!" | handles them itself | to all other players (no phone is the host in a GPRS game) |
-| 15 | barrier {u32 1, u32 start time} | collects one from every client, answers all | the server collects and answers, see "GPRS game" |
-| 31 | clock ping, 20 bytes | fills in its clock, sends it back | the server answers |
-| 0, 9, 10, 11, 12, 13, 14, 37 | GPRS lobby, see below | (Bluetooth: the host's lobby, 0x8eb3c) | the server runs the lobby |
-| others | | | from a client to the host, from the host to the clients |
+| Type                         | Meaning                                                                                      | Host's Bluetooth code                                 | Server                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| 16                           | a soldier's command (serialised, `IssueCommand` 0x2e200)                                     | executes it and sends it to all other connections     | to all other players, in bundles (32)                                                       |
+| 21, 35                       | synchronisation records, end marker (0x271d8, waits 0x74468)                                 | sends records, then 35                                | collects the host's records, sends one 34 at the 35; without 35 after 3 s the records alone |
+| 23, 41                       | permanent damage data ("Waiting permanent damage data from the host"), end marker (0xe0da8)  | sends 23, then 41 to all                              | 23 to the clients, swallows the host's 41 after a 23                                        |
+| 43                           | Field Radio chunk, 260 bytes: player (1..20), chunk, chunk count, 256 bytes of the recording | passes it to the players of the side whose turn it is | to all other players; a repeated copy within 1.5 s once                                     |
+| 52                           | message for everybody                                                                        | passes it on to all others                            | to all other players                                                                        |
+| 27, 39, 54                   | player ended / host ended, "Overpowered bonus!"                                              | handles them itself                                   | to all other players (no phone is the host in a GPRS game)                                  |
+| 15                           | barrier {u32 1, u32 start time}                                                              | collects one from every client, answers all           | the server collects and answers, see "GPRS game"                                            |
+| 31                           | clock ping, 20 bytes                                                                         | fills in its clock, sends it back                     | the server answers                                                                          |
+| 0, 9, 10, 11, 12, 13, 14, 37 | GPRS lobby, see below                                                                        | (Bluetooth: the host's lobby, 0x8eb3c)                | the server runs the lobby                                                                   |
+| others                       |                                                                                              |                                                       | from a client to the host, from the host to the clients                                     |
 
 The Field Radio ("Use the Field Radio for voice communication between
 you and your allies", in-game menu > Communications) records 8 kHz audio
@@ -1027,17 +1027,17 @@ host's phone does that part (0x8eb3c, 0x8f17c). The server used to
 pass type 0 on to the host, which ignores it, so nobody ever got the
 type 9 the phones wait for.
 
-| Type | Direction | Data | Server |
-|---|---|---|---|
-| 0 | game | u8 1 = has game settings (the host), 3 bytes garbage, u32 build | answers 9; a client whose build differs from the host's gets status 6 |
-| 9 | server | u32 player id, u8 1 = master, 3 bytes 0 | master = the room's creator, id 1; clients 2, 3, ... (as the Bluetooth host hands them out, 0x8e2ec/0x8ebb4; the id is the player id in the battle, see below) |
-| 14 | master | game settings, 136 bytes | the server appends 52 bytes of its own settings (see below); to every player with an id, the master too (it waits for them, 0x934c4), and to later players right after their 9 |
-| 10 | game | player record, 40 bytes: +0 id, +4 side (sent: the default side of the GPRS options), +8 reason, +20 name | fills in id, side and reason; sends the record to its player **first** (the game takes the first 10 as the answer and gives up if the id is not its own, 0x93720), then to the others, then the others' records to the new player |
-| 37 | game | u32 1 = takes the side, 0 = declined | 0: the player is gone (12 to the others) |
-| 11 | game | u32 id, u32 side | a client may move only itself, the master anybody; at most 4 per side (like the BT host); to all with a record, the sender too |
-| 12 | game | u32 id | own id: leaving, to the others; the master with another id: removed, to everybody. Also sent by the server when a player leaves the room |
-| 13 | master | 12 bytes | the start: to every player, the master too (0x93d04); the server keeps the first word and zeroes the rest (see below) |
-| 49 | server | u32 | countdown (0x93d70); not sent |
+| Type | Direction | Data                                                                                                      | Server                                                                                                                                                                                                                            |
+| ---- | --------- | --------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0    | game      | u8 1 = has game settings (the host), 3 bytes garbage, u32 build                                           | answers 9; a client whose build differs from the host's gets status 6                                                                                                                                                             |
+| 9    | server    | u32 player id, u8 1 = master, 3 bytes 0                                                                   | master = the room's creator, id 1; clients 2, 3, ... (as the Bluetooth host hands them out, 0x8e2ec/0x8ebb4; the id is the player id in the battle, see below)                                                                    |
+| 14   | master    | game settings, 136 bytes                                                                                  | the server appends 52 bytes of its own settings (see below); to every player with an id, the master too (it waits for them, 0x934c4), and to later players right after their 9                                                    |
+| 10   | game      | player record, 40 bytes: +0 id, +4 side (sent: the default side of the GPRS options), +8 reason, +20 name | fills in id, side and reason; sends the record to its player **first** (the game takes the first 10 as the answer and gives up if the id is not its own, 0x93720), then to the others, then the others' records to the new player |
+| 37   | game      | u32 1 = takes the side, 0 = declined                                                                      | 0: the player is gone (12 to the others)                                                                                                                                                                                          |
+| 11   | game      | u32 id, u32 side                                                                                          | a client may move only itself, the master anybody; at most 4 per side (like the BT host); to all with a record, the sender too                                                                                                    |
+| 12   | game      | u32 id                                                                                                    | own id: leaving, to the others; the master with another id: removed, to everybody. Also sent by the server when a player leaves the room                                                                                          |
+| 13   | master    | 12 bytes                                                                                                  | the start: to every player, the master too (0x93d04); the server keeps the first word and zeroes the rest (see below)                                                                                                             |
+| 49   | server    | u32                                                                                                       | countdown (0x93d70); not sent                                                                                                                                                                                                     |
 
 Every phone reads 0x88..0xb7 of the 14 it gets as well (6R72.APP
 0x93528; Ikusa Islands 0xa157c up to 0xbb) into the GPRS settings
@@ -1048,18 +1048,18 @@ waiting, then both phones hung on "Waiting for players" after loading).
 The server now appends these 52 bytes (values marked "guessed" have no
 default in the game to copy):
 
-| Offset | Size | Into | Meaning | Server |
-|---|---|---|---|---|
-| 0x88..0x94 | 4 × u32 | +0x00..+0x0c | thresholds of five ranks (0xb1d8c) | 1000, 2500, 5000, 10000 (guessed) |
-| 0x98 | u8 | +0x10 | a per-player counter (+0x590), 1 outside GPRS | 1 |
-| 0x9c | u32 | +0x14 | command delay, replaces COMMAND_DEFAULT_DELAY (0x25980) | 90 (`COMMAND_DEFAULT_DELAY_GPRS` in the game's config) |
-| 0xa0 | u32 | +0x18 | frames between clock pings (0xc3ecc) | 300 (default outside GPRS) |
-| 0xa4 | u32 s | +0x20 (ms) | screen countdown: briefing map, tag select (0xd0104, 0x132da0); 30 s outside GPRS | 60 |
-| 0xa8 | u32 s | +0x24 (ms) | results screen (0xc43d0) | 15 (guessed) |
-| 0xac, 0xb0 | u32 | +0x28, +0x2c | not read anywhere found | 0 |
-| 0xb4 | u16 | +0x30 | clock samples; the battle start sends this + 1 pings | 8 (the game's own default) |
-| 0xb6 | u16 | +0x32 | clock samples kept | 16 (the game's own default) |
-| 0xb8 | u32 s | +0x34 (ms) | Ikusa Islands only, not traced | 60 (guessed) |
+| Offset     | Size    | Into         | Meaning                                                                           | Server                                                 |
+| ---------- | ------- | ------------ | --------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 0x88..0x94 | 4 × u32 | +0x00..+0x0c | thresholds of five ranks (0xb1d8c)                                                | 1000, 2500, 5000, 10000 (guessed)                      |
+| 0x98       | u8      | +0x10        | a per-player counter (+0x590), 1 outside GPRS                                     | 1                                                      |
+| 0x9c       | u32     | +0x14        | command delay, replaces COMMAND_DEFAULT_DELAY (0x25980)                           | 90 (`COMMAND_DEFAULT_DELAY_GPRS` in the game's config) |
+| 0xa0       | u32     | +0x18        | frames between clock pings (0xc3ecc)                                              | 300 (default outside GPRS)                             |
+| 0xa4       | u32 s   | +0x20 (ms)   | screen countdown: briefing map, tag select (0xd0104, 0x132da0); 30 s outside GPRS | 60                                                     |
+| 0xa8       | u32 s   | +0x24 (ms)   | results screen (0xc43d0)                                                          | 15 (guessed)                                           |
+| 0xac, 0xb0 | u32     | +0x28, +0x2c | not read anywhere found                                                           | 0                                                      |
+| 0xb4       | u16     | +0x30        | clock samples; the battle start sends this + 1 pings                              | 8 (the game's own default)                             |
+| 0xb6       | u16     | +0x32        | clock samples kept                                                                | 16 (the game's own default)                            |
+| 0xb8       | u32 s   | +0x34 (ms)   | Ikusa Islands only, not traced                                                    | 60 (guessed)                                           |
 
 Reasons in +8 (0x97148, `globalbg_join_verification*.txt`): 0 "Joining
 default side %1!", 1 "The default side is full. Join side %1 instead?",
@@ -1264,11 +1264,11 @@ creates the room. The server therefore keeps fixed rooms for a game
 `room[@lobby][#status]`). Pocket Kingdom has three lobbies with one room
 each:
 
-| Lobby / room | Status | Used by |
-|---|---|---|
-| Scrimmage | 1 | Play Now "Scrimmage" (RoomToJoin) |
-| Auction | 1 | the Global Auction: the game switches with CArenaFramework slot 0x6c (lobby "Auction", room "Auction"); see "Global Auction: the room switch" below |
-| Ranked | 0x30000001 | Play Now "Ranked": SelectGameRooms over all lobbies (op 73) with STAT & 0x30000000 = 0x30000000, USER < 0x7fff, ARNA..ARND = 0; the game may not create a room (ProhibitRoomCreation: "no room was found, and ProhibitRoomCreation is set!", back to the mode selection) |
+| Lobby / room | Status     | Used by                                                                                                                                                                                                                                                                  |
+| ------------ | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Scrimmage    | 1          | Play Now "Scrimmage" (RoomToJoin)                                                                                                                                                                                                                                        |
+| Auction      | 1          | the Global Auction: the game switches with CArenaFramework slot 0x6c (lobby "Auction", room "Auction"); see "Global Auction: the room switch" below                                                                                                                      |
+| Ranked       | 0x30000001 | Play Now "Ranked": SelectGameRooms over all lobbies (op 73) with STAT & 0x30000000 = 0x30000000, USER < 0x7fff, ARNA..ARND = 0; the game may not create a room (ProhibitRoomCreation: "no room was found, and ProhibitRoomCreation is set!", back to the mode selection) |
 
 The room entries had the wrong layout at first (the room id where
 ArenaFramework expects the number of users, so every room looked full);
@@ -1312,31 +1312,31 @@ Byte 0 is the type, byte 1 a sequence number the answer echoes (not in
 type 3). Names are 16 byte fields (15 characters, zero padded). Numbers
 in auction messages are big endian.
 
-| Type | Len | Direction | Content |
-|---:|---:|---|---|
-| 1 | 24 | game to server | online: [2] area, [3..6] kingdom look, name @8; answer 129 (4 bytes, only counted) |
-| 2 | 20 | game to server | keep alive (every ~165 frames), name @4; answer 130 |
-| 3 | 20 | game to server | going offline, name @4 (no answer) |
-| 5 | 20 | game to server | moved: [2] new area, name @4 (no answer) |
-| 6 | 20 | game to server | enemy search: [2] area, name @4; answer 134 |
-| 134 | 104 | server to game | up to 5 entries of 20 bytes from offset 4: name[16], look[4] (the castle, transporter, mark and colour other players see); empty name = end |
-| 7 | 36 | relayed | scout: from @4, to @20 |
-| 135 | 52 | relayed | scout answer from the defender's game: [2] result, to @4, from @20, party data |
-| 9 | 88 | relayed | attack: [3] party, from @4, to @20, 4 units x 12 bytes from @40 |
-| 137 | 88 | relayed | attack answer from the defender's game: [2] result, to @8, from @24, defending units |
-| 10 | 36 | relayed | the battle starts: from @4, to @20; the server also sends it back to the attacker |
-| 18 | 116 | relayed | chat: [2] area, from @4, to @20, text @36 (78 chars), [115]; answer 146: [2] = 0 delivered (or kept), anything else makes the game report trigger037 "Couldn't deliver the message!" |
-| 13 | 32 | game to server | exhibit: name @4, item @20..26, starting price u32 @28; answer 141 |
-| 141 | 8 | server to game | [3] 0 exhibited (trigger041), 1 too many (040), 2 refused (043); u32 @4 auction id |
-| 14 | 32 | game to server | browse: [2] category, [3] item type, [4] rarity, [8] sub-filter (0xff = any), u32 @12 page, name @16; answer 142 |
-| 142 | 248 | server to game | u16 @2 page, u32 @4 matches (0: trigger052), 10 entries from @8 |
-| 15 | 28 | game to server | bid: u32 @4 auction, u32 @8 amount, name @12; answer 143 |
-| 143 | 8 | server to game | [2] 0 placed (044), 1 someone bid higher (045), 2 ended (046), 3 too many bids (042), 4 own exhibit (050), 5 refused (051); u32 @4 the bidder's previous bid on it: the game pays amount minus this |
-| 16 | 20 | game to server | own list: [3] mode 0 exhibits, 1 bids (looking), 2 exhibits, 3 bids (collecting), name @4; answer 144 |
-| 144 | 244 | server to game | 10 entries from @4 |
-| 21 | 112 | game to server | kingdom summary: u32 @4 victory points, u32 @8 loot, unit table, parties, look, area; answer 149 |
-| 17, 22 | 20, 32 | game to server | built by the game, never sent (answers would be 145, 150) |
-| 255 | 4 | server to game | the game goes offline at once (never sent by this server) |
+|   Type |    Len | Direction      | Content                                                                                                                                                                                             |
+| -----: | -----: | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|      1 |     24 | game to server | online: [2] area, [3..6] kingdom look, name @8; answer 129 (4 bytes, only counted)                                                                                                                  |
+|      2 |     20 | game to server | keep alive (every ~165 frames), name @4; answer 130                                                                                                                                                 |
+|      3 |     20 | game to server | going offline, name @4 (no answer)                                                                                                                                                                  |
+|      5 |     20 | game to server | moved: [2] new area, name @4 (no answer)                                                                                                                                                            |
+|      6 |     20 | game to server | enemy search: [2] area, name @4; answer 134                                                                                                                                                         |
+|    134 |    104 | server to game | up to 5 entries of 20 bytes from offset 4: name[16], look[4] (the castle, transporter, mark and colour other players see); empty name = end                                                         |
+|      7 |     36 | relayed        | scout: from @4, to @20                                                                                                                                                                              |
+|    135 |     52 | relayed        | scout answer from the defender's game: [2] result, to @4, from @20, party data                                                                                                                      |
+|      9 |     88 | relayed        | attack: [3] party, from @4, to @20, 4 units x 12 bytes from @40                                                                                                                                     |
+|    137 |     88 | relayed        | attack answer from the defender's game: [2] result, to @8, from @24, defending units                                                                                                                |
+|     10 |     36 | relayed        | the battle starts: from @4, to @20; the server also sends it back to the attacker                                                                                                                   |
+|     18 |    116 | relayed        | chat: [2] area, from @4, to @20, text @36 (78 chars), [115]; answer 146: [2] = 0 delivered (or kept), anything else makes the game report trigger037 "Couldn't deliver the message!"                |
+|     13 |     32 | game to server | exhibit: name @4, item @20..26, starting price u32 @28; answer 141                                                                                                                                  |
+|    141 |      8 | server to game | [3] 0 exhibited (trigger041), 1 too many (040), 2 refused (043); u32 @4 auction id                                                                                                                  |
+|     14 |     32 | game to server | browse: [2] category, [3] item type, [4] rarity, [8] sub-filter (0xff = any), u32 @12 page, name @16; answer 142                                                                                    |
+|    142 |    248 | server to game | u16 @2 page, u32 @4 matches (0: trigger052), 10 entries from @8                                                                                                                                     |
+|     15 |     28 | game to server | bid: u32 @4 auction, u32 @8 amount, name @12; answer 143                                                                                                                                            |
+|    143 |      8 | server to game | [2] 0 placed (044), 1 someone bid higher (045), 2 ended (046), 3 too many bids (042), 4 own exhibit (050), 5 refused (051); u32 @4 the bidder's previous bid on it: the game pays amount minus this |
+|     16 |     20 | game to server | own list: [3] mode 0 exhibits, 1 bids (looking), 2 exhibits, 3 bids (collecting), name @4; answer 144                                                                                               |
+|    144 |    244 | server to game | 10 entries from @4                                                                                                                                                                                  |
+|     21 |    112 | game to server | kingdom summary: u32 @4 victory points, u32 @8 loot, unit table, parties, look, area; answer 149                                                                                                    |
+| 17, 22 | 20, 32 | game to server | built by the game, never sent (answers would be 145, 150)                                                                                                                                           |
+|    255 |      4 | server to game | the game goes offline at once (never sent by this server)                                                                                                                                           |
 
 Auction list entry (24 bytes): u32 auction id, [4] status (0 = end of
 list), [5..11] the exhibit's item bytes 20..26 (category, type, item,
@@ -1344,11 +1344,11 @@ three item values, level), u32 @12 seconds left (0: ended, the time is
 not shown), u32 @16 price (highest bid or starting price), u32 @20 the
 player's own bid.
 
-| List | 1 | 2 | 3 | 4 |
-|---|---|---|---|---|
-| browse (142) | - | the player has the high bid | | |
-| exhibits (144, modes 0/2) | running, no bids | running, bids | sold: the game adds @16 to the loot | no sale: the item comes back |
-| bids (144, modes 1/3) | outbid | high bid | won: the game adds the item | lost: the game adds @20 back |
+| List                      | 1                | 2                           | 3                                   | 4                            |
+| ------------------------- | ---------------- | --------------------------- | ----------------------------------- | ---------------------------- |
+| browse (142)              | -                | the player has the high bid |                                     |                              |
+| exhibits (144, modes 0/2) | running, no bids | running, bids               | sold: the game adds @16 to the loot | no sale: the item comes back |
+| bids (144, modes 1/3)     | outbid           | high bid                    | won: the game adds the item         | lost: the game adds @20 back |
 
 The game only books statuses 3 and 4 in the collecting modes (2 and 3);
 it asks for mode 3 only when its inventory has room for the items it
@@ -1405,11 +1405,11 @@ All Arena DLLs are Thumb code; `tools/re/e32dis.py` disassembles ARM only.
 
 ### Loading
 
-| DLL | Loaded by | How |
-|---|---|---|
-| SnapComm.dll | arenabase | RLibrary::Load from its own `\System\Libs`, UID3 0x101fde38, ordinal 1 = NewLC (arenabase pops) |
-| sc_lib.dll | arenabase (dynamic, UID3 0x101fde44), arenaframework + cafmjabber (import ordinal 3) | 1 NewLC (calls slot 0x0c), 2 returns 0, 3 NewL |
-| HttpDllRequest.dll | arenaframework, arenabase, cafmlogin: load by name (fallback HttpRequest.dll), ordinal 1 | non-leaving new, returns the object |
+| DLL                | Loaded by                                                                                | How                                                                                             |
+| ------------------ | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| SnapComm.dll       | arenabase                                                                                | RLibrary::Load from its own `\System\Libs`, UID3 0x101fde38, ordinal 1 = NewLC (arenabase pops) |
+| sc_lib.dll         | arenabase (dynamic, UID3 0x101fde44), arenaframework + cafmjabber (import ordinal 3)     | 1 NewLC (calls slot 0x0c), 2 returns 0, 3 NewL                                                  |
+| HttpDllRequest.dll | arenaframework, arenabase, cafmlogin: load by name (fallback HttpRequest.dll), ordinal 1 | non-leaving new, returns the object                                                             |
 
 ### SnapComm object (0x44 bytes, vtable 38 slots)
 
@@ -1428,24 +1428,24 @@ response callback id (fn 0x2360). It returns the request sequence number.
 
 ### sc_lib client (vtable 26 slots)
 
-| Slot | SegaChat request |
-|---|---|
-| 0x08 | destructor |
-| 0x0c | ConstructL |
-| 0x10 | connect / login |
-| 0x14 | startup, then segachat_send_event |
+| Slot             | SegaChat request                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------ |
+| 0x08             | destructor                                                                                                         |
+| 0x0c             | ConstructL                                                                                                         |
+| 0x10             | connect / login                                                                                                    |
+| 0x14             | startup, then segachat_send_event                                                                                  |
 | 0x18, 0x1c, 0x40 | segachat_send_event (event_type, game_class_id, match_id, snap_name, client_time); probably reporter/match results |
-| 0x24 | get roster |
-| 0x28 | message (chat, groupchat, headline) |
-| 0x2c | presence |
-| 0x30 | buddy accept/reject |
-| 0x38, 0x3c | roster item, remove |
-| 0x44 | segachat_retrieve_req (rankings) |
-| 0x48 | browse jid |
-| 0x4c..0x60 | offline messages: count, headers, fetch, purge |
-| 0x64 | buddy request (subscribe) |
-| 0x68 | data message |
-| 0x6c | service request |
+| 0x24             | get roster                                                                                                         |
+| 0x28             | message (chat, groupchat, headline)                                                                                |
+| 0x2c             | presence                                                                                                           |
+| 0x30             | buddy accept/reject                                                                                                |
+| 0x38, 0x3c       | roster item, remove                                                                                                |
+| 0x44             | segachat_retrieve_req (rankings)                                                                                   |
+| 0x48             | browse jid                                                                                                         |
+| 0x4c..0x60       | offline messages: count, headers, fetch, purge                                                                     |
+| 0x64             | buddy request (subscribe)                                                                                          |
+| 0x68             | data message                                                                                                       |
+| 0x6c             | service request                                                                                                    |
 
 ### HttpDllRequest (vtable 21 slots)
 
