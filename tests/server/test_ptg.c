@@ -941,7 +941,7 @@ static void lobby_run(int classic)
     q_pop(&a->c, GCS_PTG_PING, NULL, 0);
     game_send(a, GCS_PTG_KEEPALIVE, NULL, 0);
     hello(a, 1, 0x559dbe46u);
-    CHECK_EQ(welcome(a, &m), 0);
+    CHECK_EQ(welcome(a, &m), 1); /* ids from 1, as the BT host */
     CHECK_EQ(m, 1);
     /* the master: settings and its record; it waits for both */
     fill(gd, sizeof(gd), 3);
@@ -949,7 +949,7 @@ static void lobby_run(int classic)
     send_record(a, 0);
     CHECK_EQ(q_pop(&a->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 136);
     CHECK(!memcmp(r, gd, 136));
-    own_record(a, 0, 0, 0);
+    own_record(a, 1, 0, 0);
     wr32(w, 1);
     game_send(a, GCS_PTG_JOINED, w, 4);
 
@@ -960,13 +960,13 @@ static void lobby_run(int classic)
     q_pop(&b->c, GCS_PTG_PING, NULL, 0);
     hello(b, 0, 0x559dbe46u);
     ib = welcome(b, &m);
-    CHECK(ib != 0 && m == 0);
+    CHECK(ib == 2 && m == 0);
     CHECK_EQ(q_pop(&b->c, GCS_PTG_GAMEDATA, r, sizeof(r)), 136);
     CHECK_EQ(b->c.qn[GCS_PTG_PLAYER], 0); /* nothing before its own record */
     send_record(b, 0);
     own_record(b, ib, 1, 3); /* nobody on side 1: join it instead? */
     CHECK_EQ(q_pop(&b->c, GCS_PTG_PLAYER, r, sizeof(r)), 40); /* the master's */
-    CHECK_EQ(rd32(r), 0);
+    CHECK_EQ(rd32(r), 1);
     CHECK_EQ(q_pop(&a->c, GCS_PTG_PLAYER, r, sizeof(r)), 40);
     CHECK_EQ(rd32(r), ib);
     wr32(w, 1);
@@ -981,7 +981,7 @@ static void lobby_run(int classic)
     c->c.status = -1;
     hello(c, 0, 0x559dbe46u);
     ic = welcome(c, &m);
-    CHECK(ic != ib && ic != 0 && m == 0);
+    CHECK(ic == 3 && m == 0);
     q_pop(&c->c, GCS_PTG_GAMEDATA, NULL, 0);
     send_record(c, 0);
     own_record(c, ic, 0, 0);

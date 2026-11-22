@@ -50,7 +50,7 @@ typedef struct
     size_t bundle_n;
     /* GPRS lobby */
     int lobby;   /* got its player id (type 9) */
-    gc_u32 id;   /* 0 = master */
+    gc_u32 id;   /* 1 = master, clients from 2 */
     int has_rec; /* has a player record with a side */
     gc_u32 side; /* 0 or 1 */
     gc_u8 rec[REC_LEN];
@@ -79,7 +79,7 @@ typedef struct
     int perm_open; /* host sent 23, the clients make the 41 themselves */
     int playing;   /* room status had bit 31 at the last poll */
     /* GPRS lobby */
-    gc_u32 next_id;          /* last client id handed out */
+    gc_u32 next_id;          /* last id handed out (1: the master's) */
     gc_u32 build;            /* the master's build (type 0) */
     int have_build;
     gc_u8 gdata[GDATA_MAX]; /* the master's game settings (type 14) */
@@ -183,6 +183,7 @@ static game *game_of_room(gcs_ptg *p, gc_u32 room, int create)
     memset(&p->g[free_i], 0, sizeof(game));
     p->g[free_i].used = 1;
     p->g[free_i].room = room;
+    p->g[free_i].next_id = 1; /* the master is 1 */
     return &p->g[free_i];
 }
 
@@ -463,7 +464,9 @@ static void lobby_hello(gcs_ptg *p, game *g, player *from, const gc_u8 *d, size_
     }
     if (!from->lobby) {
         from->lobby = 1;
-        from->id = master ? 0 : ++g->next_id;
+        /* ids start at 1, as the Bluetooth host hands them out (0x8e2ec:
+         * its own 1, then 2, 3, ... per client, 0x8ebb4); 0 is no player */
+        from->id = master ? 1 : ++g->next_id;
     }
     memset(w, 0, sizeof(w));
     put32le(w, from->id);

@@ -1030,7 +1030,7 @@ type 9 the phones wait for.
 | Type | Direction | Data | Server |
 |---|---|---|---|
 | 0 | game | u8 1 = has game settings (the host), 3 bytes garbage, u32 build | answers 9; a client whose build differs from the host's gets status 6 |
-| 9 | server | u32 player id, u8 1 = master, 3 bytes 0 | master = the room's creator, id 0; clients 1, 2, ... |
+| 9 | server | u32 player id, u8 1 = master, 3 bytes 0 | master = the room's creator, id 1; clients 2, 3, ... (as the Bluetooth host hands them out, 0x8e2ec/0x8ebb4; the id is the player id in the battle, see below) |
 | 14 | master | game settings, 136 bytes | kept; to every player with an id, the master too (it waits for them, 0x934c4), and to later players right after their 9 |
 | 10 | game | player record, 40 bytes: +0 id, +4 side (sent: the default side of the GPRS options), +8 reason, +20 name | fills in id, side and reason; sends the record to its player **first** (the game takes the first 10 as the answer and gives up if the id is not its own, 0x93720), then to the others, then the others' records to the new player |
 | 37 | game | u32 1 = takes the side, 0 = declined | 0: the player is gone (12 to the others) |
@@ -1112,6 +1112,17 @@ in a Bluetooth game, the game server has to answer:
    6. After the battle, if the campaign goes on: barrier (0x6e530), then
       game slot 0x28 (0x6e03c). Nothing in the GPRS path saves the
       damage of the battle or sends a 23.
+
+Player ids. The battle uses the lobby's player id as its own: command
+29 (sent by every phone at the end of the loading screen, builder
+0x26da4) carries the sender's id (player slot 0x6c) and the receiver
+looks the player up with it (0x24aa4, world slot 0x19c). The server
+first handed out 0 for the master and 1, 2, ... for the clients; on
+hardware (2026-11-22) the host crashed with exception 12 three seconds
+after the client's command 29 arrived, near the end of the loading
+screen. The Bluetooth host starts at 1 (its own id, 0x8e2ec) and gives
+2, 3, ... to the clients, so 0 is no player; the server now does the
+same.
 
 What the server does (gcs_ptg.c, both games):
 
