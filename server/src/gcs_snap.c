@@ -81,6 +81,9 @@ typedef struct
     gc_u32 rx_next;          /* next reliable sequence expected */
     gc_u16 seq0[16];         /* op << 8 | command sequence of recent reliable messages with sequence 0 */
     int seq0_n;
+    int series;              /* after a numbered message with F_MORE: 1 take the rest, -1 a repeat, drop it */
+    gc_u32 series_seq;       /* its sequence number (acknowledged for the rest) */
+    gc_u32 series_t;
     gc_u32 t_last;
     outmsg *outq[OUTQ];
     rxmsg *rx[RXWIN];
@@ -1512,6 +1515,45 @@ static int seq0_seen(sess *c, const gc_u8 *m)
     return 0;
 }
 
+/* A series: snapcomm.dll sends several reliable messages queued at once
+ * (e.g. the 9 clock pings at the start of a Pathway to Glory battle, or
+ * Rifts' room attributes ARNA..ARND) as one numbered message with F_MORE
+ * (sometimes with the next one packed behind it), then the rest in
+ * datagrams of their own whose sequence and acknowledgement fields hold
+ * whatever was in the buffer: 0, 1, 6, 0x03000000, ... (hardware
+ * 2026-11-22).  Until the next numbered message, a reliable message
+ * without F_MORE whose sequence number is not the next one expected (or
+ * an early one) belongs to the series: processed in arrival order when
+ * the series was new, dropped when it was a repeat, acknowledged with the
+ * series' number.  Game data (op 17) is taken as it comes, even
+ * identical copies (the 9 pings are identical); other ops are told
+ * apart by opcode and command sequence (seq0_seen). 1 if m was handled. */
+#define SERIES_MS 5000
+
+static int series_member(gcs_snap *s, sess *c, const gc_u8 *m, gc_u16 fl, size_t len)
+{
+    gc_u32 seq = be32(m + 8);
+    char hx[3 * 32 + 4];
+    if (!c->series || (fl & F_MORE) || (seq >= c->rx_next && seq - c->rx_next < RXWIN)) {
+        return 0;
+    }
+    if ((gc_u32)(s->now - c->series_t) >= SERIES_MS) {
+        c->series = 0;
+        return 0;
+    }
+    send_ack(s, c, c->series_seq);
+    if (c->series < 0) {
+        LOG_D("op %u: rest of a repeated series %u, ignored", m[3], c->series_seq);
+    } else if (m[3] != GCSS_OP_TO_SERVER && seq0_seen(c, m)) {
+        hex(hx, sizeof(hx), m + HDR, len - HDR);
+        LOG_D("op %u command %u of series %u again (%s): repeat, ignored", m[3], m[2], c->series_seq, hx);
+    } else {
+        LOG_D("op %u: part of series %u", m[3], c->series_seq);
+        dispatch_unit(s, c, m, len);
+    }
+    return 1;
+}
+
 /* a reliable message arrived: process in order, buffer what is early */
 static void reliable_in(gcs_snap *s, sess *c, const gc_u8 *m, size_t len)
 {
@@ -1631,12 +1673,23 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
         if (fl & F_ACK) {
             acked(c, be32(m + 12));
         }
-        if (fl & F_REL) {
+        if ((fl & F_REL) && series_member(s, c, m, fl, len)) {
+            /* handled */
+        } else if (fl & F_REL) {
             /* messages packed behind this one with F_MORE that carry
              * sequence number 0 belong to it (snapcomm.dll numbers the
              * datagram's first reliable message only) */
             size_t ulen = len;
             gc_u16 ufl = fl;
+            gc_u32 seq = be32(m + 8);
+            if (fl & F_MORE) {
+                /* a series starts (or is sent again): see series_member */
+                c->series = seq >= c->rx_next ? 1 : -1;
+                c->series_seq = seq;
+                c->series_t = now;
+            } else if (seq >= c->rx_next && seq - c->rx_next < RXWIN) {
+                c->series = 0;
+            }
             while ((ufl & F_MORE) && pos + ulen + HDR <= end) {
                 const gc_u8 *f = d + pos + ulen;
                 size_t flen = be16(f) & 0x3ff;

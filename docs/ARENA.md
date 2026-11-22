@@ -449,7 +449,7 @@ Message header, 16 bytes, big endian:
 | 2 | 1 | command sequence of the request; answers echo it (ArenaFramework matches attribute changes by it) |
 | 3 | 1 | opcode |
 | 4 | 4 | user id (from the login answer) |
-| 8 | 4 | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last. snapcomm.dll numbers one reliable message per datagram; others carry 0 (packed behind it, or sent alone, like Rifts' room attributes ARNC and ARND): the server processes those once and tells repeats by opcode and command sequence |
+| 8 | 4 | sequence number: reliable messages count from 0 after the login, unreliable ones are dropped when older than the last. snapcomm.dll numbers one reliable message per datagram; others carry 0 (packed behind it, or sent alone, like Rifts' room attributes ARNC and ARND): the server processes those once and tells repeats by opcode and command sequence. Messages queued at the same time go out as a series: the first numbered with 0x0800, the rest in datagrams of their own with whatever was in the buffer in sequence and ack (0, 1, 6, 0x03000000, ...; Pathway to Glory's 9 clock pings at the battle start, hardware 2026-11-22). Until the next numbered message the server takes a reliable message without 0x0800 whose sequence number is not the next or an early one as part of the series: once when the series was new, not at all when it was a repeat; game data (op 17) even when identical, other ops told apart by opcode and command sequence |
 | 12 | 4 | acknowledged reliable sequence number |
 
 Every reliable message is acknowledged on its own (the client sends a
@@ -1209,7 +1209,7 @@ the name and the others saw no lobby).
   whether the sides are really 0 and 1.
 - Whether a game ever sends more than one SNAP message can carry
   (~1000 bytes) in one call; the server takes several messages per
-  datagram but does not join SNAP packet series.
+  datagram but does not join SNAP packet series (the 0x2000 kind).
 - The receive path of op 15 reliable (arenabase slot 0x50) up to the
   game's observer slot 0x34; op 16 would be the alternative.
 

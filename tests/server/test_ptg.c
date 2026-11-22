@@ -417,6 +417,27 @@ static msg *take(phone *g, gc_u8 op)
     return NULL;
 }
 
+/* one game message with the SNAP header fields as given: snapcomm.dll
+ * sends the rest of a series with junk in sequence and acknowledgement */
+static void send_raw_game(phone *g, gc_u16 flags, gc_u32 seq, gc_u32 ack, gc_u8 type, const void *d, size_t n)
+{
+    gc_u8 b[1100];
+    size_t len = 16 + 4 + n;
+    flags |= 0x2000;
+    b[0] = (gc_u8)((flags | len) >> 8);
+    b[1] = (gc_u8)(flags | len);
+    b[2] = 0;
+    b[3] = GCSS_OP_TO_SERVER;
+    put32(b + 4, g->uid);
+    put32(b + 8, seq);
+    put32(b + 12, ack);
+    wr16(b + 16, type);
+    wr16(b + 18, (gc_u16)n);
+    memcpy(b + 20, d, n);
+    put32(b + len, 0xBA476611u);
+    gcs_snap_input(S, &g->key, SRV, GCSS_PORT, g->port, b, len + 4, g_now);
+}
+
 /* the game's Send (0x844b4): {u16 type, u16 length, data} through
  * CArenaFramework slot 0x3c, i.e. op 17 */
 static void game_send(phone *g, gc_u8 type, const void *d, size_t n)
@@ -1069,6 +1090,35 @@ static void lobby_run(int classic)
     CHECK_EQ(q_pop(&b->c, GCS_PTG_TIME, r, sizeof(r)), 20);
     CHECK(rd32(r) == 4242 && rd32(r + 4) == g_now && rd32(r + 8) == g_now && rd32(r + 12) == 7);
     CHECK_EQ(a->c.qn[GCS_PTG_TIME], 0);
+    while (q_pop(&b->c, GCS_PTG_TIME, NULL, 0) >= 0) {
+    }
+
+    /* the battle start's 9 pings as snapcomm.dll sends them (hardware
+     * 2026-11-22): one numbered with F_MORE, the other 8 in datagrams of
+     * their own with junk in sequence and acknowledgement; all identical.
+     * Every one is answered. */
+    {
+        static const gc_u32 junk[8][2] = { { 1, 0 }, { 0, 0 }, { 1, 0 }, { 0, 0 },
+                                           { 0, 0 }, { 1, 1 }, { 0x03000000u, 0x05000000u }, { 6, 0 } };
+        gc_u32 head = b->tx_rel++;
+        send_raw_game(b, 0x8800, head, 0, GCS_PTG_TIME, gd, 20);
+        for (i = 0; i < 8; i++) {
+            send_raw_game(b, 0x8000, junk[i][0], junk[i][1], GCS_PTG_TIME, gd, 20);
+        }
+        CHECK_EQ(b->c.qn[GCS_PTG_TIME], 9);
+        while (q_pop(&b->c, GCS_PTG_TIME, NULL, 0) >= 0) {
+        }
+        /* the whole series once more (the acknowledgement got lost):
+         * nothing new */
+        send_raw_game(b, 0x8800, head, 0, GCS_PTG_TIME, gd, 20);
+        for (i = 0; i < 8; i++) {
+            send_raw_game(b, 0x8000, junk[i][0], junk[i][1], GCS_PTG_TIME, gd, 20);
+        }
+        CHECK_EQ(b->c.qn[GCS_PTG_TIME], 0);
+        /* the next numbered message ends the series */
+        game_send(b, GCS_PTG_TIME, gd, 20);
+        CHECK_EQ(q_pop(&b->c, GCS_PTG_TIME, NULL, 0), 20);
+    }
 
     /* a client leaving the room: the master hears it, and a barrier
      * that waited for it goes through */
