@@ -487,10 +487,19 @@ static void tcp_write(gcs_native *n, conn *c, const char *d, size_t len)
 }
 
 static void xmpp_offline(gcs_native *n, conn *c);
+static conn *xmpp_conn_of(gcs_native *n, const char *user);
 
 static void conn_free(gcs_native *n, conn *c)
 {
     if (c->xmpp_online) {
+        /* the chat connection closing (not a presence "unavailable", not a
+         * newer connection of the same user taking over) tells SNAP the
+         * phone may be gone: a player whose game died otherwise left the
+         * others in its room waiting for GCSS_IDLE_MS */
+        conn *newest = xmpp_conn_of(n, c->xmpp_user);
+        if (!newest || newest == c) {
+            gcs_snap_user_closed(n->snap, c->xmpp_user);
+        }
         xmpp_offline(n, c);
     }
     free(c->buf);

@@ -304,9 +304,10 @@ typedef struct
     int n_in;
     gc_u32 lobby, room;
     ptg_client c;
+    int dead; /* its game is gone: nothing reaches it, nothing is answered */
 } phone;
 
-static phone P[14];
+static phone P[16];
 static gcs_snap *S;
 static gcs_ptg *PT;
 
@@ -332,6 +333,9 @@ static void io_send(void *ctx, void *key, const gc_u8 addr[4], gc_u16 port, gc_u
     (void)addr;
     (void)port;
     (void)peer_port;
+    if (g->dead) {
+        return;
+    }
     CHECK(n >= 20 && be32(d + n - 4) == 0xBA476611u);
     while (pos + 16 <= n - 4) {
         gc_u16 fl = (gc_u16)((d[pos] << 8) | d[pos + 1]);
@@ -562,7 +566,7 @@ static void set_stat(phone *g, gc_u32 v)
 static void clear_in(void)
 {
     int i;
-    for (i = 0; i < 14; i++) {
+    for (i = 0; i < 16; i++) {
         P[i].n_in = 0;
     }
 }
@@ -807,6 +811,65 @@ static void test_last_opponent(void)
     send_msg(b, 0xa000, 14, GCSS_OP_LEAVE, d, 0);
     CHECK_EQ(a->c.status, GCS_PTG_ST_NO_OPPONENTS);
     CHECK_EQ(a->c.bad, 0);
+}
+
+/* time passes in steps of at most 10 s, the phones in talk (NULL ended)
+ * sending their keep-alive at each, as a running game does every 20 s */
+static void pass(gc_u32 ms, phone *t0, phone *t1)
+{
+    while (ms) {
+        gc_u32 step = ms < 10000 ? ms : 10000;
+        g_now += step;
+        ms -= step;
+        if (t0) {
+            game_send(t0, GCS_PTG_KEEPALIVE, "abcd", 4);
+        }
+        if (t1) {
+            game_send(t1, GCS_PTG_KEEPALIVE, "abcd", 4);
+        }
+        gcs_snap_poll(S, g_now);
+    }
+}
+
+/* the host's game dies, its chat connection closes and its SNAP session
+ * falls silent: the others are told the host left.  A phone whose game
+ * network layer runs is pinged and given GCSS_PROBE_MS; one whose layer
+ * does not run yet gets GCSS_CLOSED_MS.  A datagram after the close keeps
+ * the session. */
+static void test_host_closed(void)
+{
+    phone *a = &P[14], *b = &P[15];
+    login(a);
+    login(b);
+    enter_lobby(a, "Ranked");
+    enter_lobby(b, "Ranked");
+    join_room(b, create_room(a, "Ranked", 2));
+    game_send(b, GCS_PTG_COMMAND, "attack", 6);
+    CHECK_EQ(a->c.qn[GCS_PTG_COMMAND], 1);
+    /* the host has sent no game data yet: not pinged, the long wait; heard
+     * from before it ends: kept */
+    gcs_snap_poll(S, g_now);
+    gcs_snap_user_closed(S, a->name);
+    CHECK_EQ(a->c.qn[GCS_PTG_PING], 0);
+    pass(GCSS_CLOSED_MS / 2, b, NULL);
+    CHECK_EQ(b->c.status, -1);
+    game_send(a, GCS_PTG_COMMAND, "move", 4);
+    pass(GCSS_CLOSED_MS, a, b);
+    CHECK_EQ(b->c.status, -1);
+    /* its layer runs now: pinged, and kept when it answers */
+    gcs_snap_user_closed(S, a->name);
+    CHECK_EQ(q_pop(&a->c, GCS_PTG_PING, NULL, 0), 0);
+    pass(GCSS_PROBE_MS / 2, a, b);
+    pass(GCSS_PROBE_MS, a, b);
+    CHECK_EQ(b->c.status, -1);
+    /* pinged and silent: gone at GCSS_PROBE_MS, not before */
+    a->dead = 1;
+    gcs_snap_user_closed(S, a->name);
+    pass(GCSS_PROBE_MS - 1000, b, NULL);
+    CHECK_EQ(b->c.status, -1);
+    pass(1000, b, NULL);
+    CHECK_EQ(b->c.status, GCS_PTG_ST_HOST_LEFT);
+    CHECK_EQ(b->c.bad, 0);
 }
 
 /* the first Pathway to Glory: same messages, plain header */
@@ -1164,6 +1227,12 @@ int main(int argc, char **argv)
         P[i].port = (gc_u16)(4001 + i);
         P[i].c.status = -1;
     }
+    P[14].name = "oscar"; /* test_host_closed; 8-13 are test_lobby's */
+    P[15].name = "pia";
+    for (i = 14; i < 16; i++) {
+        P[i].port = (gc_u16)(4001 + i);
+        P[i].c.status = -1;
+    }
     S = gcs_snap_create(&io, NULL);
     PT = gcs_ptg_create(io_log, NULL);
     /* Worms World Party first, as in gcs_native.c: same lobby names */
@@ -1172,12 +1241,13 @@ int main(int argc, char **argv)
     gcs_snap_add_game(S, gcs_ptg1_game(PT));
     RUN(test_game);
     RUN(test_last_opponent);
+    RUN(test_host_closed);
     RUN(test_classic);
     RUN(test_lobby);
     RUN(test_lobby_classic);
     gcs_snap_destroy(S);
     gcs_ptg_destroy(PT);
-    for (i = 0; i < 14; i++) {
+    for (i = 0; i < 16; i++) {
         client_reset(&P[i].c);
     }
     TEST_MAIN_END();

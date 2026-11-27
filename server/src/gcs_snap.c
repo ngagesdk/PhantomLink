@@ -85,6 +85,9 @@ typedef struct
     gc_u32 series_seq; /* its sequence number (acknowledged for the rest) */
     gc_u32 series_t;
     gc_u32 t_last;
+    int closed; /* its chat connection closed at t_closed, nothing heard since */
+    gc_u32 t_closed;
+    gc_u32 closed_ms; /* the silence after which it is dropped */
     outmsg *outq[OUTQ];
     rxmsg *rx[RXWIN];
 } sess;
@@ -1657,6 +1660,7 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
      * timer (the game is reading its socket again) */
     kick = c->logged_in && (gc_u32)(now - c->t_last) >= 2 * GCSS_RESEND_MS;
     c->t_last = now;
+    c->closed = 0; /* still there */
     while (pos + HDR <= end && c->used) {
         const gc_u8 *m = d + pos;
         gc_u16 fl = be16(m);
@@ -1745,6 +1749,10 @@ void gcs_snap_poll(gcs_snap *s, gc_u32 now)
             sess_free(s, c, "silent");
             continue;
         }
+        if (c->closed && (gc_u32)(now - c->t_closed) >= c->closed_ms) {
+            sess_free(s, c, "chat connection closed, then silent");
+            continue;
+        }
         for (k = 0; k < OUTQ && c->used; k++) {
             outmsg *o = c->outq[k];
             if (!o || (gc_u32)(now - o->t) < resend_interval(o)) {
@@ -1780,6 +1788,26 @@ void gcs_snap_peer_gone(gcs_snap *s, void *key)
     for (i = 0; i < GCSS_MAX_SESSIONS; i++) {
         if (s->s[i].used && s->s[i].key == key) {
             sess_free(s, &s->s[i], "bridge connection lost");
+        }
+    }
+}
+
+void gcs_snap_user_closed(gcs_snap *s, const char *user)
+{
+    int i;
+    for (i = 0; i < GCSS_MAX_SESSIONS; i++) {
+        sess *c = &s->s[i];
+        if (c->used && c->logged_in && ieq(c->name, user)) {
+            const room *r = c->room ? room_by_id(s, c->room) : NULL;
+            const gcs_snap_game *g = r ? game_of(s, r->game_class) : NULL;
+            c->closed = 1;
+            c->t_closed = s->now;
+            c->closed_ms = GCSS_CLOSED_MS;
+            if (g && g->probe && g->probe(g->ctx, s, c->uid)) {
+                c->closed_ms = GCSS_PROBE_MS;
+            }
+            LOG_I("user %08x '%s': chat connection closed; gone if silent for %u s%s", c->uid, c->name,
+                  (unsigned)(c->closed_ms / 1000), c->closed_ms == GCSS_PROBE_MS ? " (asked)" : "");
         }
     }
 }

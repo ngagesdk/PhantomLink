@@ -61,6 +61,19 @@ typedef struct gcs_snap gcs_snap;
  * and acknowledges nothing.  A lost bridge is noticed separately
  * (gcs_snap_peer_gone), and a proper logout ends the session at once. */
 #define GCSS_IDLE_MS 1800000 /* 30 minutes */
+/* A user whose chat connection (TCP) closed and whose SNAP session then
+ * stays silent this long is gone: its game was closed or killed, or the
+ * phone left the network.  Without this a player who drops out of a
+ * running game is noticed only after GCSS_IDLE_MS, and the others play on
+ * against nobody.  The wait is longer than the longest quiet spell of a
+ * phone that is still there (44 s in a Pathway to Glory lobby), so a chat
+ * connection dropping alone never ends a game. */
+#define GCSS_CLOSED_MS 60000
+/* ...unless the game's server sent the phone something its game answers
+ * at once (gcs_snap_game.probe): then this long without a datagram.  Two
+ * phones in a Pathway to Glory match acknowledged each of 854 reliable
+ * messages within a second. */
+#define GCSS_PROBE_MS 5000
 
 typedef struct
 {
@@ -100,6 +113,11 @@ typedef struct
      *  game's first, the status (hex, matched by STAT criteria) to 1;
      *  may be NULL */
     const char *rooms;
+    /** the user's chat connection closed (gcs_snap_user_closed): send it
+     *  something its game answers at once and return 1, or return 0 (the
+     *  session is then dropped after GCSS_CLOSED_MS of silence, not
+     *  GCSS_PROBE_MS); may be NULL */
+    int (*probe)(void *ctx, gcs_snap *s, gc_u32 uid);
 } gcs_snap_game;
 
 gcs_snap *gcs_snap_create(const gcs_snap_io *io, void *ctx);
@@ -116,6 +134,10 @@ void gcs_snap_input(gcs_snap *s, void *key, const gc_u8 addr[4], gc_u16 port, gc
 void gcs_snap_poll(gcs_snap *s, gc_u32 now);
 /** The peer is gone: drop its sessions. */
 void gcs_snap_peer_gone(gcs_snap *s, void *key);
+/** user's chat connection (TCP) closed: drop its session if it then stays
+ *  silent for GCSS_CLOSED_MS, or GCSS_PROBE_MS if its game was probed (its
+ *  rooms are told it left); a datagram from it in the meantime keeps it. */
+void gcs_snap_user_closed(gcs_snap *s, const char *user);
 
 /** Game class of user's SNAP session (the game he plays), 0 if none. */
 gc_u32 gcs_snap_game_class_of(const gcs_snap *s, const char *user);

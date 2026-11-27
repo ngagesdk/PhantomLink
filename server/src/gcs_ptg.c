@@ -921,6 +921,24 @@ static void g_left(void *ctx, gcs_snap *s, gc_u32 uid)
     }
 }
 
+/* the player's chat connection closed: a game whose network layer runs
+ * answers the ping (type 18) with a 19, and its snapcomm acknowledges the
+ * message within a second, so silence after it means the game is gone.
+ * Before the layer runs (the team screen) a ping would start it early: no
+ * probe, the long wait. */
+static int g_probe(void *ctx, gcs_snap *s, gc_u32 uid)
+{
+    gcs_ptg *p = ((title *)ctx)->p;
+    game *g = game_of_room(p, gcs_snap_room_of(s, uid), 0);
+    player *pl = g ? player_of(g, uid) : NULL;
+    p->snap = s;
+    if (!pl || !pl->live) {
+        return 0;
+    }
+    send_to(p, g, pl, GCS_PTG_PING, NULL, 0);
+    return 1;
+}
+
 /* game data from a phone: one or more framed messages (the game sends
  * one per CArenaFramework call, 6R82.APP 0x844b4) */
 static void g_data(void *ctx, gcs_snap *s, gc_u32 uid, const gc_u8 *d, size_t n)
@@ -1049,6 +1067,7 @@ gcs_ptg *gcs_ptg_create(void (*log)(void *ctx, int level, const char *line), voi
         p->reg[i].data = g_data;
         p->reg[i].poll = g_poll;
         p->reg[i].rooms = NULL;
+        p->reg[i].probe = g_probe;
     }
     return p;
 }
